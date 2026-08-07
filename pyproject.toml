@@ -1,0 +1,146 @@
+[build-system]
+requires = ["hatchling>=1.31,<2.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "formata"
+dynamic = ["version"]
+description = "A declarative way to describe files in Python"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "David Dzhalaev" },
+]
+keywords = ["files", "declarative", "validation"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = [
+    "openpyxl>=3.1.5,<4.0",
+    "pillow>=11.0,<13.0",
+]
+
+[project.optional-dependencies]
+xlsxwriter = [
+    "xlsxwriter>=3.2,<4.0",
+]
+docx = [
+    "python-docx>=1.1,<2.0",
+]
+pdf = [
+    "reportlab>=4.2,<5.0",
+]
+model-pydantic = [
+    "pydantic>=2.10,<3.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/dzhalaevd/formata"
+Repository = "https://github.com/dzhalaevd/formata"
+Issues = "https://github.com/dzhalaevd/formata/issues"
+
+[tool.hatch.version]
+path = "src/formata/__version__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/formata"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/README.md",
+    "/changelog.d",
+    "/pyproject.toml",
+    "/setup.cfg",
+    "/scripts",
+    "/src",
+    "/tests",
+]
+
+[tool.hatch.envs.default]
+dependency-groups = ["dev"]
+
+[tool.hatch.envs.default.scripts]
+lint = "flake8 ."
+typecheck = "mypy"
+test = "pytest {args:tests}"
+check = [
+    "flake8 .",
+    "mypy",
+    "pytest",
+    "towncrier build --draft",
+]
+changelog-draft = "towncrier build --draft"
+changelog-build = "towncrier build --yes --version {args}"
+validate-changelog = "python scripts/validate_files.py {args}"
+bump-version = "python scripts/bump_version.py {args}"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["formata"]
+mypy_path = "src"
+
+[dependency-groups]
+dev = [
+    "flake8>=7.3,<8.0",
+    "hatch>=1.17,<2.0",
+    "mypy>=2.3,<3.0",
+    "pip>=25,<27",
+    "pytest>=9.1,<10.0",
+    "ruff>=0.16,<0.17",
+    "towncrier>=25.8,<26.0",
+    "twine>=7.0,<8.0",
+    "wemake-python-styleguide>=1.7,<2.0",
+]
+
+[tool.towncrier]
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+issue_format = "[#{issue}](https://github.com/dzhalaevd/formata/issues/{issue})"
+orphan_prefix = "+"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## [{version}] - {project_date}"
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "generation"
+name = "Code generation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "ci"
+name = "CI and tooling"
+showcontent = true
