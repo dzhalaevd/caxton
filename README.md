@@ -1,6 +1,6 @@
 <div align="center">
 
-# Make Dating Great Again
+# Formata
 
 **Declarative way to work with files in python**
 
