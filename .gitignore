@@ -43,3 +43,6 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
+
+backend/stations.sqlite3
+**/output/**

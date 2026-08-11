@@ -2,7 +2,7 @@
 
 # Formata
 
-**Declarative way to work with files in python**
+**Declarative document generation for Python**
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
@@ -18,8 +18,9 @@
 
 ## :mag: About
 
-Formata is declarative Python library for describing and generating documents from application data. Users define
-structure and semantics renderers handle format and backend-specific details
+Formata is a declarative Python library for describing and generating documents
+from application data. Users define the document structure and semantics, while
+renderers handle output formats and backend-specific details.
 
 ## :alembic: Built With
 
@@ -27,6 +28,35 @@ structure and semantics renderers handle format and backend-specific details
 ![Excel][excel-shield]
 ![uv][uv-shield]
 ![wps][wemake-shield]
+
+## Quick start
+
+```python
+from formata import render, sheet, spreadsheet, table, text
+
+report = spreadsheet(
+    sheet(
+        "People",
+        table(
+            [{"name": "Ada Lovelace"}, {"name": "Grace Hopper"}],
+            text("name").title("Name"),
+        ),
+    ),
+)
+
+result = render(report)
+
+with open("people.xlsx", "wb") as output:
+    output.write(result.data)
+```
+
+For direct file output, use `write(report, "people.xlsx")`.
+
+Compatible append-only spreadsheets automatically use XlsxWriter's constant-memory plan.
+Use `mode="standard"` to opt out or `mode="stream"` to require streaming;
+an incompatible explicit request fails before the target is opened.
+
+More examples are available in the [example projects](example/README.md).
 
 ## :scroll: Licensing
 

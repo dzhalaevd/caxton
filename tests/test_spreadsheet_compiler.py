@@ -1,0 +1,198 @@
+from collections.abc import Iterator
+
+import pytest
+
+from formata import (
+    DataSourceConsumedError,
+    ValidationError,
+    decimal,
+    field,
+    money,
+    sheet,
+    spreadsheet,
+    table,
+    text,
+    validate,
+)
+from formata.core.formatting import Alignment, money_format
+from formata.core.ir import (
+    SPREADSHEET_IR_VERSION,
+    SpreadsheetRowIR,
+)
+from formata.testing import Rows, inspect_layout
+
+
+def test_validation_collects_schema_issues() -> None:
+    rows = [{"amount": 10}]
+    document = spreadsheet(
+        sheet(
+            "Sales",
+            table(
+                rows,
+                decimal("amount"),
+                decimal("amount"),
+                decimal("delta", source=field("missing") - field("amount")),
+                name="sales",
+                anchor="invalid",
+            ),
+        ),
+        sheet(
+            "Sales",
+            table(rows, text("name"), name="sales"),
+        ),
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        validate(document)
+
+    issues = captured.value.issues
+    assert {issue.code for issue in issues} == {
+        "ColumnNotFoundError",
+        "DuplicateColumnError",
+        "duplicate_table",
+        "duplicate_worksheet",
+        "invalid_anchor",
+    }
+
+
+def test_validation_uses_xlsx_name_identity() -> None:
+    document = spreadsheet(
+        sheet(
+            "Data",
+            table([{"value": 1}], text("value"), name="Sales"),
+        ),
+        sheet(
+            "data",
+            table([{"value": 2}], text("value"), name="sales"),
+        ),
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        validate(document)
+
+    assert {issue.code for issue in captured.value.issues} == {
+        "duplicate_table",
+        "duplicate_worksheet",
+    }
+
+
+def test_validation_is_lazy_and_detects_cycles() -> None:
+    visited = False
+
+    def rows() -> Iterator[dict[str, int]]:
+        nonlocal visited
+        visited = True
+        yield {"value": 1}
+
+    document = spreadsheet(
+        sheet(
+            "Cycles",
+            table(
+                rows(),
+                decimal("left", source=field("right") + 1),
+                decimal("right", source=field("left") + 1),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        validate(document)
+
+    assert not visited
+    assert captured.value.issues[0].code == "cyclic_column_reference"
+
+
+def test_later_tables_require_anchor() -> None:
+    document = spreadsheet(
+        sheet(
+            "Sales",
+            table([], text("first")),
+            table([], text("second")),
+        ),
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        validate(document)
+
+    assert captured.value.issues[0].code == "missing_anchor"
+
+
+def test_compiler_builds_resolved_layout() -> None:  # noqa: WPS218
+    gross = (
+        money("gross", source="gross_value", currency="USD")
+        .title("Gross")
+        .align("right")
+        .width(18)
+        .format(money_format(currency="USD"))
+    )
+    document = spreadsheet(
+        sheet(
+            "Sales",
+            table(
+                [{"gross_value": 90, "cost_value": 30}],
+                gross,
+                money("cost", source="cost_value"),
+                decimal("margin", source=field("gross") - field("cost")),
+                name="sales",
+                anchor="d10",
+            ),
+        ),
+        metadata={"locale": "en"},
+    )
+
+    layout = inspect_layout(document, rows=Rows.sample(1))
+    compiled_table = layout.worksheet("Sales").table("sales")
+    gross_column = compiled_table.column("gross")
+
+    assert layout.version == SPREADSHEET_IR_VERSION
+    assert layout.metadata == {"locale": "en"}
+    assert compiled_table.name == "sales"
+    assert compiled_table.anchor == "D10"
+    assert gross_column.offset == 0
+    assert gross_column.title == "Gross"
+    assert gross_column.semantic_type.name == "money"
+    assert gross_column.semantic_type.parameters == {"currency": "USD"}
+    assert gross_column.alignment is Alignment.RIGHT
+    assert gross_column.width == 18
+    assert compiled_table.row(0).values == {
+        "gross": 90,
+        "cost": 30,
+        "margin": 60,
+    }
+    worksheet = layout.worksheet("Sales")
+    assert worksheet.cell("D10").value == "Gross"
+    assert worksheet.cell("F11").value == 60
+    with pytest.raises(TypeError):
+        layout.metadata["locale"] = "ru"  # type: ignore[index]
+
+
+def test_compiler_preserves_lazy_one_shot_rows() -> None:
+    visited = False
+
+    def rows() -> Iterator[dict[str, str]]:
+        nonlocal visited
+        visited = True
+        yield {"name": "Ada"}
+
+    document = spreadsheet(sheet("People", table(rows(), text("name"))))
+
+    structure = inspect_layout(document)
+
+    assert not visited
+    assert structure.worksheet("People").tables[0].rows == ()
+
+    inspected = inspect_layout(document, rows=Rows.all())
+    assert inspected.worksheet("People").tables[0].row(0).values == {"name": "Ada"}
+    assert visited
+    with pytest.raises(DataSourceConsumedError):
+        inspect_layout(document, rows=Rows.all())
+
+
+def test_ir_row_values_are_snapshots() -> None:
+    values = ["Ada"]
+    row = SpreadsheetRowIR(index=0, values=values)
+    values.append("Grace")
+
+    assert row.values == ("Ada",)
+    with pytest.raises(TypeError, match="Unsupported cell value"):
+        SpreadsheetRowIR(index=0, values=(["mutable"],))  # type: ignore[arg-type]

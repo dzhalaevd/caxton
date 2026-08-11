@@ -7,9 +7,7 @@ line-length = 88
 src = ["src"]
 
 extend-exclude = [
-    "**/migrations/**",
-    "tests/**/__snapshots__/**",
-    "tests/fixtures/**",
+    ".agents/**"
 ]
 
 
@@ -70,14 +68,18 @@ ignore = [
     "RUF106",
     "RUF201",
     "ISC003",
-    "CPY001"
+    "CPY001",
+    # Public annotations remain resolvable through typing.get_type_hints():
+    "TC001",
+    "TC002",
+    "TC003",
 ]
 
 external = ["WPS"]
 
 
 [lint.flake8-import-conventions]
-banned-from = ["ast", "datetime"]
+banned-from = ["datetime"]
 
 
 [lint.flake8-import-conventions.aliases]
@@ -108,32 +110,7 @@ section-order = [
 no-lines-before = []
 combine-as-imports = true
 
-known-third-party = [
-    "fastapi",
-    "httpx",
-    "pydantic",
-    "redis",
-]
-
-
 [lint.per-file-ignores]
 "**/tests/**/*.py" = [
     "S101",
-    "S105",
-    "S404",
-    "S603",
-    "S607",
-]
-
-"wemake_python_styleguide/compat/nodes.py" = [
-    "ICN003",
-    "PLC0414",
-]
-
-"wemake_python_styleguide/types.py" = [
-    "D102",
-]
-
-"wemake_python_styleguide/visitors/ast/*.py" = [
-    "N802",
 ]

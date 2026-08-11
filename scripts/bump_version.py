@@ -1,5 +1,3 @@
-"""Increment the package version stored in ``__version__.py``."""
-
 import argparse
 import re
 import sys
