@@ -4,18 +4,24 @@ from collections.abc import Iterator
 import pytest
 
 from formata import (
+    ColumnNotFoundError,
+    CyclicColumnError,
     DataSourceIterationError,
     FieldAccessError,
     MissingFieldError,
     SourceEvaluationError,
     decimal,
     field,
+    integer,
     path,
+    ref,
     sheet,
     spreadsheet,
     table,
     text,
 )
+from formata._internal.data import coerce_data_source  # noqa: PLC2701
+from formata._internal.semantic import SemanticRowEvaluator  # noqa: PLC2701
 from formata.core.models import Column
 from formata.testing import RowLayout, Rows, inspect_layout
 
@@ -51,6 +57,11 @@ def _fail_source(_row: object) -> object:
     raise RuntimeError(message)
 
 
+def _evaluate_directly(row: object, *columns: Column) -> object:
+    source = coerce_data_source([row])
+    return SemanticRowEvaluator().evaluate_row(source, row, columns, row_index=0)
+
+
 def _evaluate(rows: object, *columns: Column) -> list[RowLayout]:
     document = spreadsheet(
         sheet("Data", table(rows, *columns, name="data")),
@@ -77,7 +88,7 @@ def test_evaluates_all_source_kinds() -> None:
         label,
         decimal("price"),
         decimal("base_price"),
-        decimal("delta", source=field("price") - field("base_price")),
+        decimal("delta", source=ref("price") - ref("base_price")),
     )[0]
 
     assert semantic_row.values == {
@@ -93,12 +104,63 @@ def test_evaluates_all_source_kinds() -> None:
 def test_expression_uses_semantic_forward_refs() -> None:
     semantic_row = _evaluate(
         [{"gross_value": 90, "cost_value": 30}],
-        decimal("margin", source=field("gross") - field("cost")),
+        decimal("margin", source=ref("gross") - ref("cost")),
         decimal("gross", source="gross_value"),
         decimal("cost", source="cost_value"),
     )[0]
 
     assert semantic_row["margin"] == 60
+
+
+def test_field_reads_raw_row_data() -> None:
+    semantic_row = _evaluate(
+        [{"qty": 3, "unit_price": 20}],
+        integer("quantity", source="qty"),
+        decimal("unit", source="unit_price"),
+        decimal("total", source=field("qty") * field("unit_price")),
+    )[0]
+
+    assert semantic_row["total"] == 60
+
+
+def test_ref_reads_semantic_column() -> None:
+    semantic_row = _evaluate(
+        [{"qty": 3, "unit_price": 20}],
+        integer("quantity", source="qty"),
+        decimal("unit", source="unit_price"),
+        decimal("total", source=ref("quantity") * ref("unit")),
+    )[0]
+
+    assert semantic_row["total"] == 60
+
+
+def test_unknown_ref_raises_column_error() -> None:
+    # Structural validation rejects this earlier, so the evaluator contract is
+    # observed directly to prove the diagnostic survives.
+    with pytest.raises(ColumnNotFoundError) as captured:
+        _evaluate_directly(
+            {"amount": 1},
+            decimal("amount"),
+            decimal("copy", source=ref("nope")),
+        )
+
+    error = captured.value
+    assert error.column == "nope"
+    assert error.path == 'row[0].column["nope"]'
+
+
+def test_cyclic_ref_raises_cycle_error() -> None:
+    with pytest.raises(CyclicColumnError) as captured:
+        _evaluate_directly(
+            {"value": 1},
+            decimal("left", source=ref("right")),
+            decimal("right", source=ref("left")),
+        )
+
+    error = captured.value
+    assert error.column == "left"
+    assert error.row_index == 0
+    assert "Cyclic" in error.message
 
 
 def test_evaluation_stays_lazy_for_generator() -> None:
@@ -195,7 +257,7 @@ def test_expression_keeps_dependency_error_path() -> None:
     with pytest.raises(MissingFieldError) as captured:
         _evaluate(
             [{"cost": 30}],
-            decimal("margin", source=field("gross") - field("cost")),
+            decimal("margin", source=ref("gross") - ref("cost")),
             decimal("gross"),
             decimal("cost"),
         )
@@ -221,7 +283,7 @@ def test_attribute_failure_keeps_original_cause() -> None:
             (
                 decimal("value"),
                 decimal("denominator"),
-                decimal("ratio", source=field("value") / field("denominator")),
+                decimal("ratio", source=ref("value") / ref("denominator")),
             ),
             "ratio",
             ZeroDivisionError,

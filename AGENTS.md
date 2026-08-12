@@ -96,9 +96,6 @@ backend example has an independent environment under `example/backend`.
   pass raises the focused error instead of silently returning no rows.
 - Cover both bundled XLSX adapters only when behavior is intended to be shared;
   keep engine-specific expectations in focused backend tests.
-- Every example Python file starts with a short module docstring. Working API is
-  executable and self-checking; deferred API is described by a docstring rather
-  than mocked with fictional imports.
 - Generated example output belongs in an ignored `output/` directory. Keep only
   intentional input assets, such as the template workbook, in version control.
 

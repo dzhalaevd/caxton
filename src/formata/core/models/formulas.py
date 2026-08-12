@@ -9,6 +9,8 @@ from typing import Self, TypeAlias, overload
 from formata.core._values import normalize_cell_value
 from formata.core.errors import FormataTypeError, FormataValueError
 
+from ._operators import BinaryOperatorMixin
+from ._validation import require_name, require_optional_name
 from .expressions import Expression
 
 
@@ -27,74 +29,26 @@ class FormulaOperator(enum.StrEnum):
     OR = "or"
 
 
-class Formula:
+class Formula(BinaryOperatorMixin["FormulaBinary"]):
     """Base for immutable formulas evaluated by the spreadsheet artifact."""
 
-    __hash__ = object.__hash__
+    __slots__ = ()
 
-    def __bool__(self) -> bool:
-        message = "Formulas cannot be used as boolean values"
-        raise FormataTypeError(message)
+    node_label = "Formulas"
 
-    def _binary(self, operator: FormulaOperator, other: object) -> FormulaBinary:
-        return FormulaBinary(operator, self, as_formula(other))
+    def _binary(self, operator_name: str, other: object) -> FormulaBinary:
+        return FormulaBinary(
+            FormulaOperator[operator_name],
+            self,
+            coerce_formula(other),
+        )
 
-    def _reverse(self, operator: FormulaOperator, other: object) -> FormulaBinary:
-        return FormulaBinary(operator, as_formula(other), self)
-
-    def __add__(self, other: object) -> FormulaBinary:
-        return self._binary(FormulaOperator.ADD, other)
-
-    def __radd__(self, other: object) -> FormulaBinary:
-        return self._reverse(FormulaOperator.ADD, other)
-
-    def __sub__(self, other: object) -> FormulaBinary:
-        return self._binary(FormulaOperator.SUBTRACT, other)
-
-    def __rsub__(self, other: object) -> FormulaBinary:
-        return self._reverse(FormulaOperator.SUBTRACT, other)
-
-    def __mul__(self, other: object) -> FormulaBinary:
-        return self._binary(FormulaOperator.MULTIPLY, other)
-
-    def __rmul__(self, other: object) -> FormulaBinary:
-        return self._reverse(FormulaOperator.MULTIPLY, other)
-
-    def __truediv__(self, other: object) -> FormulaBinary:
-        return self._binary(FormulaOperator.DIVIDE, other)
-
-    def __rtruediv__(self, other: object) -> FormulaBinary:
-        return self._reverse(FormulaOperator.DIVIDE, other)
-
-    def __eq__(self, other: object) -> FormulaBinary:  # type: ignore[override]
-        return self._binary(FormulaOperator.EQUAL, other)
-
-    def __ne__(self, other: object) -> FormulaBinary:  # type: ignore[override]
-        return self._binary(FormulaOperator.NOT_EQUAL, other)
-
-    def __lt__(self, other: object) -> FormulaBinary:
-        return self._binary(FormulaOperator.LESS_THAN, other)
-
-    def __le__(self, other: object) -> FormulaBinary:
-        return self._binary(FormulaOperator.LESS_THAN_OR_EQUAL, other)
-
-    def __gt__(self, other: object) -> FormulaBinary:
-        return self._binary(FormulaOperator.GREATER_THAN, other)
-
-    def __ge__(self, other: object) -> FormulaBinary:
-        return self._binary(FormulaOperator.GREATER_THAN_OR_EQUAL, other)
-
-    def __and__(self, other: object) -> FormulaBinary:
-        return self._binary(FormulaOperator.AND, other)
-
-    def __rand__(self, other: object) -> FormulaBinary:
-        return self._reverse(FormulaOperator.AND, other)
-
-    def __or__(self, other: object) -> FormulaBinary:
-        return self._binary(FormulaOperator.OR, other)
-
-    def __ror__(self, other: object) -> FormulaBinary:
-        return self._reverse(FormulaOperator.OR, other)
+    def _reverse(self, operator_name: str, other: object) -> FormulaBinary:
+        return FormulaBinary(
+            FormulaOperator[operator_name],
+            coerce_formula(other),
+            self,
+        )
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
@@ -133,11 +87,9 @@ class CellReference(Formula):
     row_absolute: bool = False
 
     def __post_init__(self) -> None:
-        _require_name(self.column_id, "Column id")
-        if self.table_name is not None:
-            _require_name(self.table_name, "Table name")
-        if self.sheet_name is not None:
-            _require_name(self.sheet_name, "Worksheet name")
+        require_name(self.column_id, "Column id")
+        require_optional_name(self.table_name, "Table name")
+        require_optional_name(self.sheet_name, "Worksheet name")
         if self.sheet_name is not None and self.table_name is None:
             message = "A sheet-qualified cell reference requires a table"
             raise FormataValueError(message)
@@ -150,18 +102,27 @@ class CellReference(Formula):
             raise FormataValueError(message)
 
     def absolute(self, *, column: bool = True, row: bool = True) -> Self:
+        """Return a reference whose axes are absolute exactly as requested.
+
+        Returns:
+            A reference with ``column_absolute``/``row_absolute`` set to the
+            supplied flags, so ``absolute(column=False)`` makes the column
+            relative instead of silently doing nothing.
+        """
         return dataclasses.replace(
             self,
-            column_absolute=column or self.column_absolute,
-            row_absolute=row or self.row_absolute,
+            column_absolute=column,
+            row_absolute=row,
         )
 
     def relative(self, *, column: bool = True, row: bool = True) -> Self:
-        return dataclasses.replace(
-            self,
-            column_absolute=False if column else self.column_absolute,
-            row_absolute=False if row else self.row_absolute,
-        )
+        """Return a reference whose axes are relative exactly as requested.
+
+        Returns:
+            A reference with the requested axes made relative and the others
+            made absolute.
+        """
+        return self.absolute(column=not column, row=not row)
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
@@ -175,10 +136,9 @@ class RangeReference(Formula):
     row_absolute: bool = False
 
     def __post_init__(self) -> None:
-        _require_name(self.table_name, "Table name")
-        _require_name(self.column_id, "Column id")
-        if self.sheet_name is not None:
-            _require_name(self.sheet_name, "Worksheet name")
+        require_name(self.table_name, "Table name")
+        require_name(self.column_id, "Column id")
+        require_optional_name(self.sheet_name, "Worksheet name")
 
     def cell(self, row_index: int) -> CellReference:
         return CellReference(
@@ -191,18 +151,26 @@ class RangeReference(Formula):
         )
 
     def absolute(self, *, column: bool = True, row: bool = True) -> Self:
+        """Return a range whose axes are absolute exactly as requested.
+
+        Returns:
+            A range with ``column_absolute``/``row_absolute`` set to the
+            supplied flags.
+        """
         return dataclasses.replace(
             self,
-            column_absolute=column or self.column_absolute,
-            row_absolute=row or self.row_absolute,
+            column_absolute=column,
+            row_absolute=row,
         )
 
     def relative(self, *, column: bool = True, row: bool = True) -> Self:
-        return dataclasses.replace(
-            self,
-            column_absolute=False if column else self.column_absolute,
-            row_absolute=False if row else self.row_absolute,
-        )
+        """Return a range whose axes are relative exactly as requested.
+
+        Returns:
+            A range with the requested axes made relative and the others made
+            absolute.
+        """
+        return self.absolute(column=not column, row=not row)
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
@@ -211,9 +179,8 @@ class TableReference:
     sheet_name: str | None = None
 
     def __post_init__(self) -> None:
-        _require_name(self.name, "Table name")
-        if self.sheet_name is not None:
-            _require_name(self.sheet_name, "Worksheet name")
+        require_name(self.name, "Table name")
+        require_optional_name(self.sheet_name, "Worksheet name")
 
     def column(self, column_id: str) -> RangeReference:
         return RangeReference(
@@ -228,7 +195,7 @@ class SheetReference:
     name: str
 
     def __post_init__(self) -> None:
-        _require_name(self.name, "Worksheet name")
+        require_name(self.name, "Worksheet name")
 
     def table(self, table_name: str) -> TableReference:
         return TableReference(table_name, sheet_name=self.name)
@@ -274,10 +241,36 @@ def absolute(
     column: bool = True,
     row: bool = True,
 ) -> CellReference | RangeReference:
+    """Set the absolute axes of a cell or range reference.
+
+    Returns:
+        A reference whose axes match the supplied flags exactly.
+    """
     return reference.absolute(column=column, row=row)
 
 
-def as_formula(value: FormulaInput | object) -> Formula:
+def as_formula(value: FormulaInput) -> Formula:
+    """Normalize declared formula input into a formula node.
+
+    Returns:
+        The value itself when it is already a formula, a literal otherwise.
+    """
+    return coerce_formula(value)
+
+
+def coerce_formula(value: object) -> Formula:
+    """Normalize an operand that arrives without a static type.
+
+    Python passes arbitrary objects to operator dunders, so this entry point
+    keeps the runtime checks while ``as_formula`` stays precisely typed.
+
+    Returns:
+        The value itself when it is already a formula, a literal otherwise.
+
+    Raises:
+        FormataTypeError: If the value is a row expression or an unsupported
+            literal type.
+    """
     if isinstance(value, Formula):
         return value
     if isinstance(value, Expression):
@@ -287,15 +280,6 @@ def as_formula(value: FormulaInput | object) -> Formula:
         return FormulaLiteral(value)
     message = f"Unsupported formula literal: {type(value).__name__}"
     raise FormataTypeError(message)
-
-
-def _require_name(value: str, label: str) -> None:
-    if not isinstance(value, str):
-        message = f"{label} must be a string"
-        raise FormataTypeError(message)
-    if not value.strip():
-        message = f"{label} cannot be empty"
-        raise FormataValueError(message)
 
 
 __all__ = (
@@ -311,6 +295,7 @@ __all__ = (
     "TableReference",
     "absolute",
     "as_formula",
+    "coerce_formula",
     "col",
     "sheet_ref",
     "table_ref",

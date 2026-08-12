@@ -28,7 +28,6 @@ _IMMUTABLE_LEAVES = (
 )
 _CELL_VALUES = (
     bool,
-    bytes,
     dt.date,
     dt.datetime,
     dt.time,
@@ -43,9 +42,11 @@ _CELL_VALUES = (
 def freeze_value(value: object, *, label: str = "Value") -> object:
     """Return an immutable snapshot from the supported value vocabulary.
 
+    Values outside the vocabulary raise ``TypeError`` and recursive containers
+    raise ``ValueError``, both from the recursion below.
+
     Returns:
         A recursively immutable value.
-
     """
     return _freeze_value(value, label=label, active=set())
 
@@ -161,6 +162,18 @@ def _freeze_dataclass(
     label: str,
     active: set[int],
 ) -> object:
+    """Copy a frozen dataclass field by field, including non-init fields.
+
+    ``dataclasses.replace`` is deliberately avoided: it drops
+    ``field(init=False)`` values, re-runs ``__post_init__`` and breaks on
+    dataclasses with a custom ``__init__``.
+
+    Returns:
+        A structurally identical dataclass whose fields are frozen.
+
+    Raises:
+        TypeError: If the dataclass is mutable.
+    """
     dataclass_type = cast("Any", type(value))
     parameters = dataclass_type.__dataclass_params__
     if not parameters.frozen:
@@ -169,16 +182,19 @@ def _freeze_dataclass(
     identity = _enter(value, active)
     try:
         dataclass_value = cast("Any", value)
-        changes = {
-            field.name: _freeze_value(
-                getattr(dataclass_value, field.name),
-                label=label,
-                active=active,
+        frozen_copy: object = object.__new__(dataclass_type)
+        set_attribute = object.__setattr__
+        for field in dataclasses.fields(dataclass_value):
+            set_attribute(
+                frozen_copy,
+                field.name,
+                _freeze_value(
+                    getattr(dataclass_value, field.name),
+                    label=label,
+                    active=active,
+                ),
             )
-            for field in dataclasses.fields(dataclass_value)
-            if field.init
-        }
-        return dataclasses.replace(dataclass_value, **changes)
+        return frozen_copy
     finally:
         active.remove(identity)
 

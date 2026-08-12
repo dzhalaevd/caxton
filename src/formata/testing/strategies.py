@@ -78,7 +78,7 @@ def columns(draw: st.DrawFn) -> Column:
         source=FieldRef(column_id),
     )
     if draw(st.booleans()):
-        column = column.title(draw(identifiers()))
+        column = column.titled(draw(identifiers()))
     if draw(st.booleans()):
         column = column.align(draw(st.sampled_from(tuple(Alignment))))
     if draw(st.booleans()):

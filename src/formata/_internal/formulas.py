@@ -12,30 +12,7 @@ from formata.core.ir import (
 )
 from formata.core.models import FormulaOperator
 
-_OPERATORS = {
-    FormulaOperator.ADD: "+",
-    FormulaOperator.SUBTRACT: "-",
-    FormulaOperator.MULTIPLY: "*",
-    FormulaOperator.DIVIDE: "/",
-    FormulaOperator.EQUAL: "=",
-    FormulaOperator.NOT_EQUAL: "<>",
-    FormulaOperator.LESS_THAN: "<",
-    FormulaOperator.LESS_THAN_OR_EQUAL: "<=",
-    FormulaOperator.GREATER_THAN: ">",
-    FormulaOperator.GREATER_THAN_OR_EQUAL: ">=",
-}
-_PRECEDENCE = {
-    FormulaOperator.EQUAL: 1,
-    FormulaOperator.NOT_EQUAL: 1,
-    FormulaOperator.LESS_THAN: 1,
-    FormulaOperator.LESS_THAN_OR_EQUAL: 1,
-    FormulaOperator.GREATER_THAN: 1,
-    FormulaOperator.GREATER_THAN_OR_EQUAL: 1,
-    FormulaOperator.ADD: 2,
-    FormulaOperator.SUBTRACT: 2,
-    FormulaOperator.MULTIPLY: 3,
-    FormulaOperator.DIVIDE: 3,
-}
+from .const import _OPERATORS, _PRECEDENCE
 
 
 def lower_excel_formula(formula: ResolvedFormula, *, current_row: int) -> str:

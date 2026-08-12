@@ -84,6 +84,24 @@ class FieldAccessError(DataEvaluationError):
 
 
 @dataclasses.dataclass(eq=False)
+class CyclicColumnError(DataEvaluationError):
+    """Raised when semantic columns reference each other in a cycle."""
+
+    message: str = dataclasses.field(init=False)
+    column: str = dataclasses.field(kw_only=True)
+    row_index: int | None = dataclasses.field(default=None, kw_only=True)
+
+    def __post_init__(self) -> None:
+        self.message = f"Cyclic reference to column {self.column!r}"
+        self.context = {
+            **self.context,
+            "column": self.column,
+            "row_index": self.row_index,
+        }
+        super().__post_init__()
+
+
+@dataclasses.dataclass(eq=False)
 class SourceEvaluationError(DataEvaluationError):
     """Raised when a callable or expression source cannot be evaluated."""
 

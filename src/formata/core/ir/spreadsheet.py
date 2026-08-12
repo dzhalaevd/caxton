@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import enum
 from collections.abc import Iterable, Sequence
 
 from formata.core._values import normalize_cell_value
@@ -11,11 +12,11 @@ from formata.core.models.common import (
     freeze_metadata,
 )
 from formata.core.models.formulas import FormulaOperator
-from formata.core.models.spreadsheet import AggregateFunction, Freeze
+from formata.core.models.spreadsheet import AggregateFunction, ChartKind, Freeze
 from formata.core.types import SemanticType
 from formata.core.values import CellValue
 
-SPREADSHEET_IR_VERSION = 3
+SPREADSHEET_IR_VERSION = 4
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -29,6 +30,38 @@ class CellAddress:
         if self.row < 1 or self.column < 1:
             message = "Cell coordinates must be positive"
             raise ValueError(message)
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class CellRange:
+    """Inclusive rectangular region of one worksheet."""
+
+    start: CellAddress
+    end: CellAddress
+
+    def __post_init__(self) -> None:
+        if self.end.row < self.start.row or self.end.column < self.start.column:
+            message = "Cell range end must not precede its start"
+            raise ValueError(message)
+
+    @property
+    def rows(self) -> int:
+        """Number of worksheet rows covered by this range."""
+        return self.end.row - self.start.row + 1
+
+    @property
+    def columns(self) -> int:
+        """Number of worksheet columns covered by this range."""
+        return self.end.column - self.start.column + 1
+
+    def intersects(self, other: CellRange) -> bool:
+        """Return whether two ranges share at least one cell."""
+        return (
+            self.start.row <= other.end.row
+            and other.start.row <= self.end.row
+            and self.start.column <= other.end.column
+            and other.start.column <= self.end.column
+        )
 
 
 class ResolvedFormula:
@@ -153,16 +186,100 @@ class SpreadsheetTableIR:
         object.__setattr__(self, "rules", tuple(self.rules))
 
 
+class SpreadsheetBlockKind(enum.StrEnum):
+    """Stable identity of one resolved spreadsheet layout block."""
+
+    TABLE = "table"
+    TITLE = "title"
+    SPACER = "spacer"
+    IMAGE = "image"
+    CHART = "chart"
+    STACK = "stack"
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class SpreadsheetPlacementIR:
+    """Resolved position and occupied range of one layout block."""
+
+    kind: SpreadsheetBlockKind
+    path: str
+    anchor: CellAddress
+    occupied: CellRange | None
+    name: str | None = None
+    explicit: bool = False
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class SpreadsheetTextIR:
+    """Resolved heading text written into a single worksheet row."""
+
+    anchor: CellAddress
+    text: str
+    span: int = 1
+    style: Style = dataclasses.field(default_factory=Style)
+
+    def __post_init__(self) -> None:
+        if self.span < 1:
+            message = "Text span must be positive"
+            raise ValueError(message)
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class SpreadsheetImageIR:
+    """Resolved picture placement with its declared pixel size."""
+
+    anchor: CellAddress
+    source: str | bytes
+    width: int
+    height: int
+    name: str | None = None
+    description: str | None = None
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class SpreadsheetSeriesIR:
+    """One resolved chart series bound to a physical worksheet range."""
+
+    name: str
+    values: CellRange
+    categories: CellRange | None = None
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class SpreadsheetChartIR:
+    """Resolved chart placement with physical data ranges."""
+
+    anchor: CellAddress
+    kind: ChartKind
+    sheet_name: str
+    series: Sequence[SpreadsheetSeriesIR]
+    title: str | None = None
+    width: int = 480
+    height: int = 288
+    name: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "series", tuple(self.series))
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class SpreadsheetWorksheetIR:
-    """An ordered collection of spreadsheet tables."""
+    """An ordered collection of resolved spreadsheet layout blocks."""
 
     name: str
     tables: Sequence[SpreadsheetTableIR]
     freeze: Freeze | None = None
+    texts: Sequence[SpreadsheetTextIR] = ()
+    images: Sequence[SpreadsheetImageIR] = ()
+    charts: Sequence[SpreadsheetChartIR] = ()
+    placements: Sequence[SpreadsheetPlacementIR] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "tables", tuple(self.tables))
+        object.__setattr__(self, "texts", tuple(self.texts))
+        object.__setattr__(self, "images", tuple(self.images))
+        object.__setattr__(self, "charts", tuple(self.charts))
+        object.__setattr__(self, "placements", tuple(self.placements))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -185,17 +302,24 @@ class SpreadsheetIR:
 __all__ = (
     "SPREADSHEET_IR_VERSION",
     "CellAddress",
+    "CellRange",
     "ResolvedCellReference",
     "ResolvedFormula",
     "ResolvedFormulaBinary",
     "ResolvedFormulaLiteral",
     "ResolvedRangeReference",
+    "SpreadsheetBlockKind",
+    "SpreadsheetChartIR",
     "SpreadsheetColumnIR",
     "SpreadsheetConditionalRuleIR",
     "SpreadsheetFooterIR",
     "SpreadsheetIR",
+    "SpreadsheetImageIR",
+    "SpreadsheetPlacementIR",
     "SpreadsheetRowIR",
+    "SpreadsheetSeriesIR",
     "SpreadsheetTableIR",
+    "SpreadsheetTextIR",
     "SpreadsheetTotalIR",
     "SpreadsheetWorksheetIR",
 )

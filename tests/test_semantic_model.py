@@ -18,12 +18,14 @@ from formata import (
 from formata.core.formatting import Alignment, decimal_format
 from formata.core.models import (
     BinaryExpression,
+    Column,
     FieldRef,
-    Literal,
+    LiteralExpression,
     PathRef,
     SpreadsheetDocument,
 )
 from formata.core.protocols import DataSourceInfo, Repeatability
+from formata.core.types import Decimal
 from formata.testing import inspect_spec
 
 
@@ -39,8 +41,8 @@ def test_readme_example_builds_semantic_graph() -> None:
             "Sales",
             table(
                 rows,
-                text("manager").title("Manager"),
-                money("revenue").title("Revenue"),
+                text("manager").titled("Manager"),
+                money("revenue").titled("Revenue"),
                 name="sales",
             ),
         ),
@@ -58,7 +60,7 @@ def test_readme_example_builds_semantic_graph() -> None:
 
 def test_column_operations_are_generative() -> None:  # noqa: WPS218
     base = money("revenue")
-    titled = base.title("Revenue")
+    titled = base.titled("Revenue")
     styled = titled.width(20).align("right")
 
     assert base.display_title == "revenue"
@@ -83,7 +85,7 @@ def test_nested_collections_are_copied() -> None:
 
     assert len(document.worksheets) == 1
     assert len(document.worksheets[0].blocks) == 1
-    assert len(document.worksheets[0].blocks[0].columns) == 1
+    assert len(document.worksheets[0].tables[0].columns) == 1
     assert document.metadata["owner"] == "team"
     with pytest.raises(TypeError):
         document.metadata["new"] = "value"  # type: ignore[index]
@@ -108,17 +110,21 @@ def test_metadata_rejects_mutable_leaf() -> None:
         spreadsheet(metadata={"value": _MutableLeaf()})
 
 
-def test_literal_values_are_immutable_snapshots() -> None:
-    values = ["draft"]
-    literal = Literal(values)
-    values.append("final")
+def test_literal_keeps_scalar_cell_values() -> None:
+    literal = LiteralExpression("draft")
 
-    assert literal.value == ("draft",)
+    assert literal.value == "draft"
 
 
-def test_literal_rejects_unsupported_mutable_leaf() -> None:
-    with pytest.raises(TypeError, match="_MutableLeaf"):
-        Literal(_MutableLeaf())
+@pytest.mark.parametrize("value", [["draft"], {"label": "draft"}, _MutableLeaf()])
+def test_literal_rejects_non_cell_values(value: object) -> None:
+    with pytest.raises(TypeError, match="Unsupported cell value"):
+        LiteralExpression(value)
+
+
+def test_column_requires_source_or_formula() -> None:
+    with pytest.raises(ValueError, match="either a Python source"):
+        Column(id="amount", semantic_type=Decimal(), source=None)
 
 
 def test_frozen_nodes_reject_direct_mutation() -> None:

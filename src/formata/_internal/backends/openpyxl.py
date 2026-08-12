@@ -26,6 +26,7 @@ from openpyxl.worksheet.table import (  # type: ignore[import-untyped]
 from openpyxl.worksheet.worksheet import Worksheet  # type: ignore[import-untyped]
 
 from formata._internal.backends._xlsx_formats import number_format
+from formata._internal.const import _SEMANTIC_FEATURES
 from formata._internal.formulas import lower_excel_formula
 from formata._internal.rendering import run_backend
 from formata.core.formatting import BorderLine, FontStyle, Style
@@ -34,6 +35,7 @@ from formata.core.ir import (
     SpreadsheetColumnIR,
     SpreadsheetIR,
     SpreadsheetTableIR,
+    SpreadsheetTextIR,
 )
 from formata.core.models import AggregateFunction, DocumentKind
 from formata.core.protocols import OutputSink
@@ -46,22 +48,6 @@ from formata.core.rendering import (
     WorkbookOperation,
 )
 from formata.core.types import Link
-
-_SEMANTIC_FEATURES = frozenset(
-    (
-        "semantic:boolean",
-        "semantic:date",
-        "semantic:datetime",
-        "semantic:decimal",
-        "semantic:duration",
-        "semantic:integer",
-        "semantic:link",
-        "semantic:money",
-        "semantic:percentage",
-        "semantic:text",
-        "semantic:time",
-    ),
-)
 
 
 class OpenpyxlRenderer:
@@ -89,10 +75,14 @@ class OpenpyxlRenderer:
                     "conditional_format",
                     "display_format",
                     "explicit_anchor",
+                    "flow_layout",
                     "formula",
                     "freeze_panes",
                     "native_table",
+                    "spacer",
+                    "stack",
                     "table",
+                    "text",
                     "style",
                     "totals",
                 ),
@@ -139,6 +129,8 @@ class OpenpyxlRenderer:
                     row=worksheet_ir.freeze.rows + 1,
                     column=worksheet_ir.freeze.columns + 1,
                 )
+            for text in worksheet_ir.texts:
+                _render_text(worksheet, text)
             for table in worksheet_ir.tables:
                 _render_table(worksheet, table)
         buffer = BytesIO()
@@ -152,6 +144,22 @@ class OpenpyxlRenderer:
             bytes_written=bytes_written,
             execution_mode=ExecutionMode.STANDARD,
             execution_plan="standard",
+        )
+
+
+def _render_text(worksheet: Worksheet, text: SpreadsheetTextIR) -> None:
+    cell = worksheet.cell(
+        row=text.anchor.row,
+        column=text.anchor.column,
+        value=text.text,
+    )
+    _apply_style(cell, text.style)
+    if text.span > 1:
+        worksheet.merge_cells(
+            start_row=text.anchor.row,
+            start_column=text.anchor.column,
+            end_row=text.anchor.row,
+            end_column=text.anchor.column + text.span - 1,
         )
 
 

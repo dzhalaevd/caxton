@@ -33,9 +33,9 @@ def sales_report(
             "Sales",
             table(
                 rows,
-                date("date").title("Date"),
-                text("product").title("Product"),
-                money("revenue", currency="USD").title("Revenue"),
+                date("date").titled("Date"),
+                text("product").titled("Product"),
+                money("revenue", currency="USD").titled("Revenue"),
                 name="sales",
             ),
         ),

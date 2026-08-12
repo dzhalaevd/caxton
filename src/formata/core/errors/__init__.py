@@ -6,6 +6,7 @@ from .base import (
     UnsupportedFeatureError,
 )
 from .data import (
+    CyclicColumnError,
     DataEvaluationError,
     DataSourceConsumedError,
     DataSourceError,
@@ -35,6 +36,7 @@ from .warnings import (
 __all__ = (
     "BackendError",
     "ColumnNotFoundError",
+    "CyclicColumnError",
     "DataEvaluationError",
     "DataSourceConsumedError",
     "DataSourceError",

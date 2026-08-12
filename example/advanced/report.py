@@ -34,12 +34,12 @@ def build_report() -> SpreadsheetDocument:
             {"price": 10, "base_price": 8},
             {"price": 15, "base_price": 12},
         ],
-        decimal("price", style="number").title("Price").width("auto"),
-        decimal("base_price", style="number").title("Base price"),
+        decimal("price", style="number").titled("Price").width("auto"),
+        decimal("base_price", style="number").titled("Base price"),
         decimal("delta")
-        .title("Delta")
+        .titled("Delta")
         .formula(
-            col("price") - col("base_price").absolute(column=True, row=False),
+            col("price") - col("base_price").absolute(row=False),
         ),
         name="sales",
         header_style=Style(
@@ -51,7 +51,7 @@ def build_report() -> SpreadsheetDocument:
         footer=Totals(items=(Total("price"), Total("delta"))),
         rules=(when(col("delta") > 0, style="positive"),),
         autofilter=True,
-        freeze="header",
+        freeze_header=True,
         auto_width=True,
     )
     summary = table(
@@ -61,15 +61,15 @@ def build_report() -> SpreadsheetDocument:
             formula=(
                 sheet_ref("Sales").table("sales").column("price").cell(0).absolute()
             ),
-        ).title("First price"),
+        ).titled("First price"),
         decimal(
             "all_prices",
             formula=table_ref("sales").column("price"),
-        ).title("Named range"),
+        ).titled("Named range"),
         name="summary",
     )
     return spreadsheet(
-        sheet("Sales", sales, freeze=Freeze(columns=1)),
+        sheet("Sales", sales, freeze=Freeze(rows=0, columns=1)),
         sheet("Summary", summary),
         styles=StyleSheet(
             {
@@ -104,4 +104,5 @@ if __name__ == "__main__":
     main()
 
 
-# Grouping, text/image/chart blocks and matrix layout remain deferred to stages 4–5.
+# Title, spacer, image and chart blocks are covered by example/dashboard.
+# Grouping and matrix layout remain deferred to stage 5.

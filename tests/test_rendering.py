@@ -19,11 +19,11 @@ from formata import (  # noqa: WPS347
     datetime,
     decimal,
     duration,
-    field,
     integer,
     link,
     money,
     percentage,
+    ref,
     render,
     sheet,
     spreadsheet,
@@ -127,12 +127,12 @@ def _sales_document() -> SpreadsheetDocument:
             table(
                 [{"gross_value": 90, "cost_value": 30}],
                 money("gross", source="gross_value", currency="USD")
-                .title("Gross")
+                .titled("Gross")
                 .align("right")
                 .width(18)
                 .format(money_format(currency="USD")),
                 money("cost", source="cost_value"),
-                decimal("margin", source=field("gross") - field("cost")),
+                decimal("margin", source=ref("gross") - ref("cost")),
                 name="sales",
                 anchor="D10",
             ),

@@ -13,13 +13,25 @@ from formata.core._values import freeze_mapping
 from formata.core.formatting import Alignment, DisplayFormat, Style
 from formata.core.ir import (
     CellAddress,
+    CellRange,
     ResolvedFormula,
+    SpreadsheetBlockKind,
+    SpreadsheetChartIR,
     SpreadsheetColumnIR,
     SpreadsheetFooterIR,
+    SpreadsheetImageIR,
+    SpreadsheetPlacementIR,
     SpreadsheetRowIR,
     SpreadsheetTableIR,
+    SpreadsheetTextIR,
+    SpreadsheetWorksheetIR,
 )
-from formata.core.models import AggregateFunction, Freeze, SpreadsheetDocument
+from formata.core.models import (
+    AggregateFunction,
+    ChartKind,
+    Freeze,
+    SpreadsheetDocument,
+)
 from formata.core.models.common import freeze_metadata
 
 from ._spec import SemanticTypeSpec, _inspect_semantic_type
@@ -214,15 +226,98 @@ class TableLayout:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class BlockLayout:
+    """One placed block with its resolved anchor and occupied range."""
+
+    kind: SpreadsheetBlockKind
+    path: str
+    anchor: str
+    cell_range: str | None
+    rows: int | None
+    columns: int
+    name: str | None = None
+    explicit: bool = False
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class TextLayout:
+    """One resolved heading placed by the flow layout."""
+
+    anchor: str
+    text: str
+    span: int
+    style: Style
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class ImageLayout:
+    """One resolved picture placed by the flow layout."""
+
+    anchor: str
+    width: int
+    height: int
+    name: str | None = None
+    description: str | None = None
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class SeriesLayout:
+    """One chart series bound to a resolved worksheet range."""
+
+    name: str
+    values: str
+    categories: str | None
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class ChartLayout:
+    """One resolved chart placed by the flow layout."""
+
+    anchor: str
+    kind: ChartKind
+    series: Sequence[SeriesLayout]
+    title: str | None = None
+    width: int = 480
+    height: int = 288
+    name: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "series", tuple(self.series))
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class WorksheetLayout:
-    """Resolved tables and cells for one worksheet."""
+    """Resolved blocks, tables and cells for one worksheet."""
 
     name: str
     tables: Sequence[TableLayout]
     freeze: Freeze | None = None
+    blocks: Sequence[BlockLayout] = ()
+    texts: Sequence[TextLayout] = ()
+    images: Sequence[ImageLayout] = ()
+    charts: Sequence[ChartLayout] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "tables", tuple(self.tables))
+        object.__setattr__(self, "blocks", tuple(self.blocks))
+        object.__setattr__(self, "texts", tuple(self.texts))
+        object.__setattr__(self, "images", tuple(self.images))
+        object.__setattr__(self, "charts", tuple(self.charts))
+
+    def block(self, path: str) -> BlockLayout:
+        """Select a placed block by its declaration path.
+
+        Returns:
+            The selected block layout.
+
+        Raises:
+            LookupError: If no block has the requested path.
+        """
+        for block in self.blocks:
+            if block.path == path:
+                return block
+        message = f"Block {path!r} was not placed in worksheet {self.name!r}"
+        raise LookupError(message)
 
     def table(self, name: str) -> TableLayout:
         """Select a named resolved table.
@@ -333,19 +428,90 @@ def inspect_layout(
     compiled = SpreadsheetCompiler().compile(document)
     return SpreadsheetLayout(
         worksheets=tuple(
-            WorksheetLayout(
-                name=worksheet.name,
-                tables=tuple(
-                    _inspect_table(table, row_scope) for table in worksheet.tables
-                ),
-                freeze=worksheet.freeze,
-            )
+            _inspect_worksheet(worksheet, row_scope)
             for worksheet in compiled.worksheets
         ),
         metadata=compiled.metadata,
         version=compiled.version,
         row_scope=row_scope,
     )
+
+
+def _inspect_worksheet(
+    worksheet: SpreadsheetWorksheetIR,
+    rows: Rows,
+) -> WorksheetLayout:
+    return WorksheetLayout(
+        name=worksheet.name,
+        tables=tuple(_inspect_table(table, rows) for table in worksheet.tables),
+        freeze=worksheet.freeze,
+        blocks=tuple(_inspect_placement(item) for item in worksheet.placements),
+        texts=tuple(_inspect_text(item) for item in worksheet.texts),
+        images=tuple(_inspect_image(item) for item in worksheet.images),
+        charts=tuple(_inspect_chart(item) for item in worksheet.charts),
+    )
+
+
+def _inspect_placement(placement: SpreadsheetPlacementIR) -> BlockLayout:
+    occupied = placement.occupied
+    return BlockLayout(
+        kind=placement.kind,
+        path=placement.path,
+        anchor=_format_coordinate(placement.anchor),
+        cell_range=None if occupied is None else _format_range(occupied),
+        rows=None if occupied is None else occupied.rows,
+        columns=1 if occupied is None else occupied.columns,
+        name=placement.name,
+        explicit=placement.explicit,
+    )
+
+
+def _inspect_text(text: SpreadsheetTextIR) -> TextLayout:
+    return TextLayout(
+        anchor=_format_coordinate(text.anchor),
+        text=text.text,
+        span=text.span,
+        style=text.style,
+    )
+
+
+def _inspect_image(image: SpreadsheetImageIR) -> ImageLayout:
+    return ImageLayout(
+        anchor=_format_coordinate(image.anchor),
+        width=image.width,
+        height=image.height,
+        name=image.name,
+        description=image.description,
+    )
+
+
+def _inspect_chart(chart: SpreadsheetChartIR) -> ChartLayout:
+    return ChartLayout(
+        anchor=_format_coordinate(chart.anchor),
+        kind=chart.kind,
+        series=tuple(
+            SeriesLayout(
+                name=series.name,
+                values=_format_range(series.values),
+                categories=(
+                    None
+                    if series.categories is None
+                    else _format_range(series.categories)
+                ),
+            )
+            for series in chart.series
+        ),
+        title=chart.title,
+        width=chart.width,
+        height=chart.height,
+        name=chart.name,
+    )
+
+
+def _format_range(cell_range: CellRange) -> str:
+    start = _format_coordinate(cell_range.start)
+    end = _format_coordinate(cell_range.end)
+    return f"{start}:{end}"
 
 
 def _inspect_table(table: SpreadsheetTableIR, rows: Rows) -> TableLayout:
@@ -441,16 +607,21 @@ def _table_label(table: TableLayout) -> str:
 
 
 __all__ = (
+    "BlockLayout",
     "CellKind",
     "CellLayout",
+    "ChartLayout",
     "ColumnLayout",
     "ConditionalRuleLayout",
     "FooterLayout",
+    "ImageLayout",
     "RowLayout",
     "Rows",
     "RowsMode",
+    "SeriesLayout",
     "SpreadsheetLayout",
     "TableLayout",
+    "TextLayout",
     "TotalLayout",
     "WorksheetLayout",
     "inspect_layout",

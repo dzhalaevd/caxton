@@ -10,6 +10,7 @@ from formata import (
     col,
     decimal,
     field,
+    ref,
     render,
     sheet,
     sheet_ref,
@@ -223,7 +224,7 @@ def test_python_expr_rejects_formula_column() -> None:
                 [{"value": 1}],
                 decimal("value"),
                 decimal("artifact_value", formula=col("value") + 1),
-                decimal("python_value", source=field("artifact_value") + 1),
+                decimal("python_value", source=ref("artifact_value") + 1),
             ),
         ),
     )
@@ -240,7 +241,7 @@ def test_layout_resolves_formula_references() -> None:
             "Sales",
             table(
                 [{"price": 10, "base_price": 8}],
-                decimal("price").title("Unit price"),
+                decimal("price").titled("Unit price"),
                 decimal("base_price"),
                 decimal(
                     "delta",
@@ -295,7 +296,7 @@ def test_xlsx_renderers_write_resolved_formulas(backend: str) -> None:
             "Sales Data",
             table(
                 [{"price": 10, "base_price": 8}],
-                decimal("price").title("Unit price"),
+                decimal("price").titled("Unit price"),
                 decimal("base_price"),
                 decimal(
                     "delta",

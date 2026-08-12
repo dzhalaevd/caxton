@@ -116,6 +116,12 @@ def _compare_worksheet(
         path=f"{path}.freeze",
         differences=differences,
     )
+    _compare_value(
+        actual.blocks,
+        expected.blocks,
+        path=f"{path}.blocks",
+        differences=differences,
+    )
     _compare_keyed(
         actual.tables,
         expected.tables,
@@ -160,7 +166,7 @@ def _compare_table(
         "footer",
         "rules",
         "autofilter",
-        "freeze",
+        "freeze_header",
         "auto_width",
     ):
         _compare_value(

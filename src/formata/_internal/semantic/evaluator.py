@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import dataclasses
-import operator
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from functools import singledispatchmethod
 from types import MappingProxyType
 from typing import Any, cast
 
+from formata._internal.const import _BINARY_OPERATIONS, _NOT_EVALUATED, _SOURCE_END
 from formata._internal.data.accessors import DefaultRowAccessor
 from formata.core._values import normalize_cell_value
 from formata.core.errors import (
+    ColumnNotFoundError,
+    CyclicColumnError,
     DataSourceIterationError,
     FieldAccessError,
     FormataError,
@@ -18,33 +20,16 @@ from formata.core.errors import (
 )
 from formata.core.models import (
     BinaryExpression,
-    BinaryOperator,
     CallableSource,
     Column,
+    ColumnRef,
     Expression,
     FieldRef,
-    Literal,
+    LiteralExpression,
     PathRef,
 )
 from formata.core.protocols import DataSource
 from formata.core.values import CellValue
-
-BinaryOperation = Callable[[Any, Any], object]
-
-_BINARY_OPERATIONS: Mapping[BinaryOperator, BinaryOperation] = {
-    BinaryOperator.ADD: operator.add,
-    BinaryOperator.SUBTRACT: operator.sub,
-    BinaryOperator.MULTIPLY: operator.mul,
-    BinaryOperator.DIVIDE: operator.truediv,
-    BinaryOperator.EQUAL: operator.eq,
-    BinaryOperator.NOT_EQUAL: operator.ne,
-    BinaryOperator.LESS_THAN: operator.lt,
-    BinaryOperator.LESS_THAN_OR_EQUAL: operator.le,
-    BinaryOperator.GREATER_THAN: operator.gt,
-    BinaryOperator.GREATER_THAN_OR_EQUAL: operator.ge,
-}
-_NOT_EVALUATED = object()
-_SOURCE_END = object()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -115,18 +100,30 @@ class SemanticRowEvaluator:
         return SemanticRow(index=row_index, values=ordered_values)
 
     def _evaluate_column(self, column_id: str, context: _RowContext) -> CellValue:
+        """Evaluate one semantic column, memoizing the result for the row.
+
+        Returns:
+            The evaluated cell value of the column.
+
+        Raises:
+            CyclicColumnError: If the column takes part in a reference cycle.
+            ColumnNotFoundError: If no column carries the requested identity.
+        """
         cached = context.values.get(column_id, _NOT_EVALUATED)
         if cached is not _NOT_EVALUATED:
             return cast("CellValue", cached)
         if column_id in context.resolving:
-            message = f"Cyclic expression reference to column {column_id!r}"
-            raise ValueError(message)
-        try:
-            column = context.columns[column_id]
-        except KeyError:
-            message = f"Unknown semantic column {column_id!r}"
-            raise KeyError(message) from None
-
+            raise CyclicColumnError(
+                column=column_id,
+                row_index=context.row_index,
+                path=_column_path(context.row_index, column_id),
+            )
+        column = context.columns.get(column_id)
+        if column is None:
+            raise ColumnNotFoundError(
+                column=column_id,
+                path=_column_path(context.row_index, column_id),
+            )
         return self._evaluate_uncached_column(column, context)
 
     def _evaluate_uncached_column(
@@ -142,7 +139,7 @@ class SemanticRowEvaluator:
         except (MissingFieldError, FieldAccessError) as error:
             enriched = _with_row_context(error, context, column.id)
             raise enriched from (error.__cause__ or error)
-        except SourceEvaluationError:
+        except (ColumnNotFoundError, CyclicColumnError, SourceEvaluationError):
             raise
         except Exception as error:
             raise _source_error(error, context, column.id) from error
@@ -200,12 +197,28 @@ class SemanticRowEvaluator:
         expression: FieldRef,
         context: _RowContext,
     ) -> object:
-        return self._evaluate_column(expression.name, context)
+        return self._field_source(expression, context)
+
+    @_evaluate_expression.register
+    def _path_expression(
+        self,
+        expression: PathRef,
+        context: _RowContext,
+    ) -> object:
+        return self._path_source(expression, context)
+
+    @_evaluate_expression.register
+    def _column_expression(
+        self,
+        expression: ColumnRef,
+        context: _RowContext,
+    ) -> object:
+        return self._evaluate_column(expression.column_id, context)
 
     @_evaluate_expression.register
     def _literal_expression(
         self,
-        expression: Literal,
+        expression: LiteralExpression,
         _context: _RowContext,
     ) -> object:
         return expression.value

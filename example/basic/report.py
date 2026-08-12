@@ -10,8 +10,8 @@ from io import BytesIO
 from pathlib import Path
 
 from formata import (  # noqa: WPS347
-    field,
     money,
+    ref,
     render,
     sheet,
     spreadsheet,
@@ -37,21 +37,21 @@ def sales_columns(*, include_profit: bool = True) -> tuple[Column, ...]:
         The columns selected for the report.
     """
     columns = (
-        text("product").title("Product").width(18),
+        text("product").titled("Product").width(18),
         money("revenue", currency="RUB")
-        .title("Revenue")
+        .titled("Revenue")
         .format(money_format(currency="RUB")),
         money("cost", currency="RUB")
-        .title("Cost")
+        .titled("Cost")
         .format(money_format(currency="RUB")),
     )
     if not include_profit:
         return columns
     profit = money(
         "profit",
-        source=field("revenue") - field("cost"),
+        source=ref("revenue") - ref("cost"),
         currency="RUB",
-    ).title("Profit")
+    ).titled("Profit")
     return *columns, profit.format(money_format(currency="RUB"))
 
 
@@ -75,8 +75,8 @@ def build_report(rows: Iterable[Mapping[str, object]]) -> SpreadsheetDocument:
             "Owners",
             table(
                 ({"team": "Retail", "owner": "Ada"},),
-                text("team").title("Team"),
-                text("owner").title("Owner"),
+                text("team").titled("Team"),
+                text("owner").titled("Owner"),
                 name="owners",
             ),
         ),

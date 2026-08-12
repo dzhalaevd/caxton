@@ -23,10 +23,10 @@ document = spreadsheet(
             footer=Totals(items=(Total("amount"),)),
             rules=(when(col("amount") > 0, style="number"),),
             autofilter=True,
-            freeze="header",
+            freeze_header=True,
             auto_width=True,
         ),
-        freeze=Freeze(columns=1),
+        freeze=Freeze(rows=0, columns=1),
     ),
     styles=styles,
     theme=CorporateTheme(

@@ -15,20 +15,30 @@ from formata.core.formatting import (
     StyleInput,
     StyleSheet,
 )
+from formata.core.ir import SpreadsheetBlockKind as BlockKind
 from formata.core.models import (
     BinaryExpression,
     CallableSource,
     CellReference,
+    Chart,
+    ColumnRef,
     ColumnSource,
     FieldRef,
     FormulaBinary,
     FormulaLiteral,
     Freeze,
-    Literal,
+    Image,
+    LiteralExpression,
     PathRef,
     RangeReference,
+    RowCallable,
+    Spacer,
+    SpreadsheetBlock,
     SpreadsheetDocument,
+    SpreadsheetTable,
+    Title,
     Totals,
+    iter_tables,
 )
 from formata.core.models.common import freeze_metadata
 from formata.core.types import SemanticType
@@ -38,6 +48,7 @@ class SourceKind(enum.StrEnum):
     """Stable kinds of semantic column source."""
 
     FIELD = "field"
+    COLUMN = "column"
     PATH = "path"
     LITERAL = "literal"
     BINARY = "binary"
@@ -147,7 +158,7 @@ class TableSpec:
     footer: Totals | None = None
     rules: Sequence[ConditionalRuleSpec] = ()
     autofilter: bool = False
-    freeze: str | None = None
+    freeze_header: bool = False
     auto_width: bool = False
 
     def __post_init__(self) -> None:
@@ -176,15 +187,42 @@ class TableSpec:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class BlockSpec:
+    """Stable, read-only description of one declared layout block."""
+
+    kind: BlockKind
+    anchor: str | None = None
+    name: str | None = None
+    text: str | None = None
+    rows: int | None = None
+    columns: int | None = None
+    width: int | None = None
+    height: int | None = None
+    chart_kind: str | None = None
+    source: str | None = None
+    category: str | None = None
+    values: Sequence[str] = ()
+    direction: str | None = None
+    gap: int | None = None
+    items: Sequence[BlockSpec] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "values", tuple(self.values))
+        object.__setattr__(self, "items", tuple(self.items))
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class WorksheetSpec:
     """Stable, read-only description of one semantic worksheet."""
 
     name: str
     tables: Sequence[TableSpec]
     freeze: Freeze | None = None
+    blocks: Sequence[BlockSpec] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "tables", tuple(self.tables))
+        object.__setattr__(self, "blocks", tuple(self.blocks))
 
     def table(self, name: str) -> TableSpec:
         """Select a named table.
@@ -241,6 +279,7 @@ def inspect_spec(document: SpreadsheetDocument) -> SpreadsheetSpec:
         worksheets=tuple(
             WorksheetSpec(
                 name=worksheet.name,
+                blocks=tuple(_inspect_block(block) for block in worksheet.blocks),
                 tables=tuple(
                     TableSpec(
                         name=table.name,
@@ -256,7 +295,7 @@ def inspect_spec(document: SpreadsheetDocument) -> SpreadsheetSpec:
                             for rule in table.rules
                         ),
                         autofilter=table.autofilter,
-                        freeze=table.freeze,
+                        freeze_header=table.freeze_header,
                         auto_width=table.auto_width,
                         columns=tuple(
                             ColumnSpec(
@@ -284,7 +323,7 @@ def inspect_spec(document: SpreadsheetDocument) -> SpreadsheetSpec:
                             for column in table.columns
                         ),
                     )
-                    for table in worksheet.blocks
+                    for table in iter_tables(worksheet.blocks)
                 ),
                 freeze=worksheet.freeze,
             )
@@ -293,6 +332,58 @@ def inspect_spec(document: SpreadsheetDocument) -> SpreadsheetSpec:
         metadata=document.metadata,
         styles=document.styles,
         theme=document.theme,
+    )
+
+
+def _inspect_block(block: SpreadsheetBlock) -> BlockSpec:  # noqa: WPS212
+    if isinstance(block, SpreadsheetTable):
+        return BlockSpec(BlockKind.TABLE, anchor=block.anchor, name=block.name)
+    if isinstance(block, Title):
+        return BlockSpec(
+            BlockKind.TITLE,
+            anchor=block.anchor,
+            text=block.text,
+            rows=1,
+            columns=block.span,
+        )
+    if isinstance(block, Spacer):
+        return BlockSpec(
+            BlockKind.SPACER,
+            anchor=block.anchor,
+            rows=block.rows,
+            columns=block.columns,
+        )
+    if isinstance(block, Image):
+        return BlockSpec(
+            BlockKind.IMAGE,
+            anchor=block.anchor,
+            name=block.name,
+            width=block.width,
+            height=block.height,
+        )
+    if isinstance(block, Chart):
+        return _inspect_chart_block(block)
+    return BlockSpec(
+        BlockKind.STACK,
+        anchor=block.anchor,
+        direction=block.direction.value,
+        gap=block.gap,
+        items=tuple(_inspect_block(item) for item in block.items),
+    )
+
+
+def _inspect_chart_block(chart: Chart) -> BlockSpec:
+    return BlockSpec(
+        BlockKind.CHART,
+        anchor=chart.anchor,
+        name=chart.name,
+        text=chart.title,
+        width=chart.width,
+        height=chart.height,
+        chart_kind=chart.kind.value,
+        source=chart.source.name,
+        category=chart.x,
+        values=tuple(chart.y),
     )
 
 
@@ -309,13 +400,19 @@ def _inspect_semantic_type(semantic_type: SemanticType) -> SemanticTypeSpec:
     return SemanticTypeSpec(name=semantic_type.name, parameters=parameters)
 
 
+_LEAF_SOURCE_KINDS: Mapping[type, tuple[SourceKind, str]] = {
+    FieldRef: (SourceKind.FIELD, "name"),
+    ColumnRef: (SourceKind.COLUMN, "column_id"),
+    PathRef: (SourceKind.PATH, "segments"),
+    LiteralExpression: (SourceKind.LITERAL, "value"),
+}
+
+
 def _inspect_source(source: ColumnSource) -> SourceSpec:
-    if isinstance(source, FieldRef):
-        return SourceSpec(SourceKind.FIELD, source.name)
-    if isinstance(source, PathRef):
-        return SourceSpec(SourceKind.PATH, source.segments)
-    if isinstance(source, Literal):
-        return SourceSpec(SourceKind.LITERAL, source.value)
+    leaf = _LEAF_SOURCE_KINDS.get(type(source))
+    if leaf is not None:
+        kind, attribute = leaf
+        return SourceSpec(kind, getattr(source, attribute))
     if isinstance(source, BinaryExpression):
         return SourceSpec(
             SourceKind.BINARY,
@@ -323,17 +420,17 @@ def _inspect_source(source: ColumnSource) -> SourceSpec:
             (_inspect_source(source.left), _inspect_source(source.right)),
         )
     if isinstance(source, CallableSource):
-        function = source.function
-        return SourceSpec(
-            SourceKind.CALLABLE,
-            CallableSpec(
-                module=getattr(function, "__module__", None),
-                qualname=getattr(function, "__qualname__", type(function).__name__),
-                identity=_callable_identity(function),
-            ),
-        )
+        return SourceSpec(SourceKind.CALLABLE, _inspect_callable(source.function))
     message = f"Unsupported column source: {type(source).__name__}"
     raise TypeError(message)
+
+
+def _inspect_callable(function: RowCallable) -> CallableSpec:
+    return CallableSpec(
+        module=getattr(function, "__module__", None),
+        qualname=getattr(function, "__qualname__", type(function).__name__),
+        identity=_callable_identity(function),
+    )
 
 
 def _inspect_formula(formula: object) -> FormulaSpec:
@@ -473,6 +570,8 @@ def _type_name(value: object) -> str:
 
 
 __all__ = (
+    "BlockKind",
+    "BlockSpec",
     "CallableSpec",
     "ColumnSpec",
     "ConditionalRuleSpec",

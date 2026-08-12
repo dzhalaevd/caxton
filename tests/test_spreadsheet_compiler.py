@@ -6,8 +6,8 @@ from formata import (
     DataSourceConsumedError,
     ValidationError,
     decimal,
-    field,
     money,
+    ref,
     sheet,
     spreadsheet,
     table,
@@ -31,7 +31,7 @@ def test_validation_collects_schema_issues() -> None:
                 rows,
                 decimal("amount"),
                 decimal("amount"),
-                decimal("delta", source=field("missing") - field("amount")),
+                decimal("delta", source=ref("missing") - ref("amount")),
                 name="sales",
                 anchor="invalid",
             ),
@@ -89,8 +89,8 @@ def test_validation_is_lazy_and_detects_cycles() -> None:
             "Cycles",
             table(
                 rows(),
-                decimal("left", source=field("right") + 1),
-                decimal("right", source=field("left") + 1),
+                decimal("left", source=ref("right") + 1),
+                decimal("right", source=ref("left") + 1),
             ),
         ),
     )
@@ -102,25 +102,40 @@ def test_validation_is_lazy_and_detects_cycles() -> None:
     assert captured.value.issues[0].code == "cyclic_column_reference"
 
 
-def test_later_tables_require_anchor() -> None:
+def test_later_tables_flow_below_predecessor() -> None:
     document = spreadsheet(
         sheet(
             "Sales",
-            table([], text("first")),
-            table([], text("second")),
+            table([{"first": "a"}, {"first": "b"}], text("first")),
+            table([{"second": "c"}], text("second"), name="second"),
+        ),
+    )
+
+    validate(document)
+    layout = inspect_layout(document)
+
+    assert layout.worksheet("Sales").table("second").anchor == "A4"
+
+
+def test_overlapping_explicit_blocks_are_rejected() -> None:
+    document = spreadsheet(
+        sheet(
+            "Sales",
+            table([{"first": "a"}], text("first"), anchor="A1"),
+            table([{"second": "c"}], text("second"), anchor="A2"),
         ),
     )
 
     with pytest.raises(ValidationError) as captured:
         validate(document)
 
-    assert captured.value.issues[0].code == "missing_anchor"
+    assert captured.value.issues[0].code == "block_overlap"
 
 
 def test_compiler_builds_resolved_layout() -> None:  # noqa: WPS218
     gross = (
         money("gross", source="gross_value", currency="USD")
-        .title("Gross")
+        .titled("Gross")
         .align("right")
         .width(18)
         .format(money_format(currency="USD"))
@@ -132,7 +147,7 @@ def test_compiler_builds_resolved_layout() -> None:  # noqa: WPS218
                 [{"gross_value": 90, "cost_value": 30}],
                 gross,
                 money("cost", source="cost_value"),
-                decimal("margin", source=field("gross") - field("cost")),
+                decimal("margin", source=ref("gross") - ref("cost")),
                 name="sales",
                 anchor="d10",
             ),

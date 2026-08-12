@@ -2,34 +2,45 @@ from __future__ import annotations
 
 import dataclasses
 import enum
-from collections.abc import Mapping, Sequence
-from typing import Any
+from collections.abc import Iterator, Sequence
+from typing import Any, TypeAlias
 
 from formata.core.errors import FormataTypeError, FormataValueError
 from formata.core.formatting import (
     DocumentTheme,
+    Style,
     StyleInput,
     StyleSheet,
 )
 from formata.core.protocols.data import DataSource
 
+from ._validation import (
+    require_name,
+    require_non_negative,
+    require_optional_name,
+    require_positive,
+)
 from .columns import Column
 from .common import DocumentKind, DocumentMetadata, freeze_metadata
-from .formulas import Formula, FormulaInput, as_formula
+from .formulas import Formula, FormulaInput, TableReference, as_formula
+
+DEFAULT_OBJECT_WIDTH = 480
+DEFAULT_OBJECT_HEIGHT = 288
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Freeze:
-    """Number of leading worksheet rows and columns kept visible."""
+    """Number of leading worksheet rows and columns kept visible.
 
-    rows: int = 0
+    The default freezes the first row, which is the common header case.
+    """
+
+    rows: int = 1
     columns: int = 0
 
     def __post_init__(self) -> None:
-        for name, value in (("rows", self.rows), ("columns", self.columns)):
-            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                message = f"Freeze {name} must be non-negative"
-                raise FormataValueError(message)
+        require_non_negative(self.rows, "Freeze rows")
+        require_non_negative(self.columns, "Freeze columns")
         if self.rows == 0 and self.columns == 0:
             message = "Freeze must include at least one row or column"
             raise FormataValueError(message)
@@ -45,7 +56,11 @@ class AggregateFunction(enum.StrEnum):
 
 @dataclasses.dataclass(frozen=True, slots=True, init=False)
 class Total:
-    """Aggregate placed in one semantic column of a totals footer."""
+    """Aggregate placed in one semantic column of a totals footer.
+
+    Every aggregate, including ``COUNT``, names the column it is placed in and
+    aggregates that column's values.
+    """
 
     column: str
     function: AggregateFunction = AggregateFunction.SUM
@@ -65,12 +80,16 @@ class Total:
         self.__post_init__()
 
     def __post_init__(self) -> None:
-        _validate_required_name(self.column, "Total column")
+        require_name(self.column, "Total column")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Totals:
-    """One totals/footer row."""
+    """One totals/footer row.
+
+    ``label_column`` selects where the label is written; when it is ``None``
+    the first column without an aggregate is used.
+    """
 
     label: str = "Total"
     items: Sequence[Total] = ()
@@ -78,10 +97,14 @@ class Totals:
     style: StyleInput | None = None
 
     def __post_init__(self) -> None:
-        _validate_required_name(self.label, "Totals label")
-        if self.label_column is not None:
-            _validate_required_name(self.label_column, "Totals label column")
-        object.__setattr__(self, "items", tuple(self.items))
+        require_name(self.label, "Totals label")
+        require_optional_name(self.label_column, "Totals label column")
+        items = tuple(self.items)
+        for item in items:
+            if not isinstance(item, Total):
+                message = "Totals items must be Total values"
+                raise FormataTypeError(message)
+        object.__setattr__(self, "items", items)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -91,8 +114,17 @@ class ConditionalRule:
     condition: Formula
     style: StyleInput
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "condition", as_formula(self.condition))
+        _validate_style(self.style, "Conditional rule style")
+
 
 def when(condition: FormulaInput, *, style: StyleInput) -> ConditionalRule:
+    """Declare a conditional style applied to a table data range.
+
+    Returns:
+        An immutable conditional rule.
+    """
     return ConditionalRule(condition=as_formula(condition), style=style)
 
 
@@ -104,12 +136,26 @@ class TableData:
     columns: Sequence[Column]
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "columns", tuple(self.columns))
+        if not isinstance(self.source, DataSource):
+            message = "Table data source must implement the DataSource protocol"
+            raise FormataTypeError(message)
+        columns = tuple(self.columns)
+        for column in columns:
+            if not isinstance(column, Column):
+                message = "Table columns must be Column values"
+                raise FormataTypeError(message)
+        object.__setattr__(self, "columns", columns)
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
 class SpreadsheetTable:
-    """Spreadsheet placement of semantic table data."""
+    """Spreadsheet placement of semantic table data.
+
+    ``freeze_header`` keeps the header row of this table visible; worksheet
+    level freezing stays in ``Worksheet.freeze``. ``auto_width`` applies to
+    every column that declares no explicit width, while a column's own
+    ``auto_width`` always wins.
+    """
 
     data: TableData
     name: str | None = None
@@ -119,23 +165,184 @@ class SpreadsheetTable:
     footer: Totals | None = None
     rules: Sequence[ConditionalRule] = ()
     autofilter: bool = False
-    freeze: str | None = None
+    freeze_header: bool = False
     auto_width: bool = False
 
     def __post_init__(self) -> None:
-        _validate_optional_name(self.name, "Table name")
-        _validate_optional_name(self.anchor, "Table anchor")
-        if self.freeze is not None and self.freeze != "header":
-            message = "Table freeze must be 'header'"
-            raise FormataValueError(message)
-        object.__setattr__(self, "rules", tuple(self.rules))
+        require_optional_name(self.name, "Table name")
+        require_optional_name(self.anchor, "Table anchor")
+        if self.footer is not None and not isinstance(self.footer, Totals):
+            message = "Table footer must be a Totals value"
+            raise FormataTypeError(message)
+        rules = tuple(self.rules)
+        for rule in rules:
+            if not isinstance(rule, ConditionalRule):
+                message = "Table rules must be ConditionalRule values"
+                raise FormataTypeError(message)
+        object.__setattr__(self, "rules", rules)
 
     @property
     def columns(self) -> Sequence[Column]:
         return self.data.columns
 
 
-SpreadsheetBlock = SpreadsheetTable
+@dataclasses.dataclass(frozen=True, slots=True, eq=False)
+class Title:
+    """One line of heading text occupying a single worksheet row."""
+
+    text: str
+    level: int = 1
+    span: int = 1
+    style: StyleInput | None = None
+    anchor: str | None = None
+
+    def __post_init__(self) -> None:
+        require_name(self.text, "Title text")
+        require_positive(self.level, "Title level")
+        require_positive(self.span, "Title span")
+        require_optional_name(self.anchor, "Title anchor")
+
+
+@dataclasses.dataclass(frozen=True, slots=True, eq=False)
+class Spacer:
+    """Empty layout gap measured in whole rows and columns."""
+
+    rows: int = 1
+    columns: int = 1
+    anchor: str | None = None
+
+    def __post_init__(self) -> None:
+        require_non_negative(self.rows, "Spacer rows")
+        require_non_negative(self.columns, "Spacer columns")
+        require_optional_name(self.anchor, "Spacer anchor")
+
+
+@dataclasses.dataclass(frozen=True, slots=True, eq=False)
+class Image:
+    """Picture placed by declared pixel size instead of engine coordinates."""
+
+    source: str | bytes
+    width: int = DEFAULT_OBJECT_WIDTH
+    height: int = DEFAULT_OBJECT_HEIGHT
+    name: str | None = None
+    description: str | None = None
+    anchor: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, (str, bytes)):
+            message = "Image source must be a path string or raw bytes"
+            raise FormataTypeError(message)
+        if isinstance(self.source, str) and not self.source.strip():
+            message = "Image source cannot be empty"
+            raise FormataValueError(message)
+        require_positive(self.width, "Image width")
+        require_positive(self.height, "Image height")
+        require_optional_name(self.name, "Image name")
+        require_optional_name(self.anchor, "Image anchor")
+
+
+class ChartKind(enum.StrEnum):
+    """Closed set of chart shapes supported by the spreadsheet family."""
+
+    AREA = "area"
+    BAR = "bar"
+    COLUMN = "column"
+    DOUGHNUT = "doughnut"
+    LINE = "line"
+    PIE = "pie"
+    RADAR = "radar"
+    SCATTER = "scatter"
+
+
+@dataclasses.dataclass(frozen=True, slots=True, eq=False, init=False)
+class Chart:
+    """Chart whose data is bound to columns of one named table."""
+
+    source: TableReference
+    x: str  # noqa: WPS111
+    y: Sequence[str]  # noqa: WPS111
+    kind: ChartKind = ChartKind.COLUMN
+    title: str | None = None
+    width: int = DEFAULT_OBJECT_WIDTH
+    height: int = DEFAULT_OBJECT_HEIGHT
+    name: str | None = None
+    anchor: str | None = None
+
+    def __init__(  # noqa: WPS211, WPS213
+        self,
+        source: TableReference,
+        *,
+        x: str,  # noqa: WPS111
+        y: str | Sequence[str],  # noqa: WPS111
+        kind: ChartKind | str = ChartKind.COLUMN,
+        title: str | None = None,
+        width: int = DEFAULT_OBJECT_WIDTH,
+        height: int = DEFAULT_OBJECT_HEIGHT,
+        name: str | None = None,
+        anchor: str | None = None,
+    ) -> None:
+        object.__setattr__(self, "source", source)
+        object.__setattr__(self, "x", x)
+        object.__setattr__(self, "y", (y,) if isinstance(y, str) else tuple(y))
+        object.__setattr__(self, "kind", _chart_kind(kind))
+        object.__setattr__(self, "title", title)
+        object.__setattr__(self, "width", width)
+        object.__setattr__(self, "height", height)
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "anchor", anchor)
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, TableReference):
+            message = "Chart source must be a table reference"
+            raise FormataTypeError(message)
+        require_name(self.x, "Chart category column")
+        if not self.y:
+            message = "Chart requires at least one value column"
+            raise FormataValueError(message)
+        for column in self.y:
+            require_name(column, "Chart value column")
+        require_positive(self.width, "Chart width")
+        require_positive(self.height, "Chart height")
+        require_optional_name(self.name, "Chart name")
+        require_optional_name(self.anchor, "Chart anchor")
+
+
+class BlockDirection(enum.StrEnum):
+    """Direction in which a flow container advances its layout cursor."""
+
+    VERTICAL = "vertical"
+    HORIZONTAL = "horizontal"
+
+
+@dataclasses.dataclass(frozen=True, slots=True, eq=False, init=False)
+class Stack:
+    """Minimal flow container placing nested blocks one after another."""
+
+    items: Sequence[SpreadsheetBlock]
+    direction: BlockDirection = BlockDirection.VERTICAL
+    gap: int = 0
+    anchor: str | None = None
+
+    def __init__(
+        self,
+        items: Sequence[SpreadsheetBlock],
+        direction: BlockDirection | str = BlockDirection.VERTICAL,
+        gap: int = 0,
+        anchor: str | None = None,
+    ) -> None:
+        object.__setattr__(self, "items", tuple(items))
+        object.__setattr__(self, "direction", _block_direction(direction))
+        object.__setattr__(self, "gap", gap)
+        object.__setattr__(self, "anchor", anchor)
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
+        require_non_negative(self.gap, "Stack gap")
+        require_optional_name(self.anchor, "Stack anchor")
+
+
+SpreadsheetBlock: TypeAlias = SpreadsheetTable | Title | Spacer | Image | Chart | Stack
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
@@ -146,13 +353,13 @@ class Worksheet:
     blocks: Sequence[SpreadsheetBlock]
     freeze: Freeze | None = None
 
+    @property
+    def tables(self) -> Sequence[SpreadsheetTable]:
+        """Every table block of this worksheet, including nested ones."""
+        return tuple(iter_tables(self.blocks))
+
     def __post_init__(self) -> None:
-        if not isinstance(self.name, str):
-            message = "Worksheet name must be a string"
-            raise FormataTypeError(message)
-        if not self.name.strip():
-            message = "Worksheet name cannot be empty"
-            raise FormataValueError(message)
+        require_name(self.name, "Worksheet name")
         object.__setattr__(self, "blocks", tuple(self.blocks))
 
 
@@ -174,42 +381,76 @@ class SpreadsheetDocument:
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 
 
-def metadata_or_empty(
-    metadata: Mapping[str, object] | None,
-) -> Mapping[str, object]:
-    return {} if metadata is None else metadata
-
-
-def _validate_optional_name(value: str | None, label: str) -> None:
-    if value is None:
-        return
-    if not isinstance(value, str):
-        message = f"{label} must be a string"
+def _validate_style(value: StyleInput, label: str) -> None:
+    if not isinstance(value, (Style, str)):
+        message = f"{label} must be a Style or a style name"
         raise FormataTypeError(message)
-    if not value.strip():
-        message = f"{label} cannot be empty"
-        raise FormataValueError(message)
 
 
-def _validate_required_name(value: object, label: str) -> None:
-    if not isinstance(value, str):
-        message = f"{label} must be a string"
-        raise FormataTypeError(message)
-    if not value.strip():
-        message = f"{label} cannot be empty"
-        raise FormataValueError(message)
+def _block_direction(value: BlockDirection | str) -> BlockDirection:
+    try:
+        return BlockDirection(value)
+    except ValueError as error:
+        message = f"Unsupported stack direction {value!r}"
+        raise FormataValueError(message) from error
+
+
+def _chart_kind(value: ChartKind | str) -> ChartKind:
+    try:
+        return ChartKind(value)
+    except ValueError as error:
+        message = f"Unsupported chart kind {value!r}"
+        raise FormataValueError(message) from error
+
+
+def iter_blocks(
+    blocks: Sequence[SpreadsheetBlock],
+) -> Iterator[SpreadsheetBlock]:
+    """Walk blocks depth-first, yielding containers before their items.
+
+    Yields:
+        Every declared block, including blocks nested in a ``Stack``.
+    """
+    for block in blocks:
+        yield block
+        if isinstance(block, Stack):
+            yield from iter_blocks(block.items)
+
+
+def iter_tables(
+    blocks: Sequence[SpreadsheetBlock],
+) -> Iterator[SpreadsheetTable]:
+    """Walk every table block, including tables nested in a ``Stack``.
+
+    Yields:
+        Each declared spreadsheet table in declaration order.
+    """
+    for block in iter_blocks(blocks):
+        if isinstance(block, SpreadsheetTable):
+            yield block
 
 
 __all__ = (
+    "DEFAULT_OBJECT_HEIGHT",
+    "DEFAULT_OBJECT_WIDTH",
     "AggregateFunction",
+    "BlockDirection",
+    "Chart",
+    "ChartKind",
     "ConditionalRule",
     "Freeze",
+    "Image",
+    "Spacer",
     "SpreadsheetBlock",
     "SpreadsheetDocument",
     "SpreadsheetTable",
+    "Stack",
     "TableData",
+    "Title",
     "Total",
     "Totals",
     "Worksheet",
+    "iter_blocks",
+    "iter_tables",
     "when",
 )

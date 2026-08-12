@@ -94,10 +94,10 @@ def test_spreadsheet_features_are_immutable_lazy_semantic_intent() -> None:
                     ),
                 ),
                 autofilter=True,
-                freeze="header",
+                freeze_header=True,
                 auto_width=True,
             ),
-            freeze=Freeze(columns=1),
+            freeze=Freeze(rows=0, columns=1),
         ),
         styles=styles,
         theme=CorporateTheme(
@@ -113,11 +113,11 @@ def test_spreadsheet_features_are_immutable_lazy_semantic_intent() -> None:
     assert not visited
     assert spec.styles["money"].display_format == money_format()
     assert spec.theme.default.font == FontStyle(name="Arial")
-    assert spec.worksheet("Sales").freeze == Freeze(columns=1)
+    assert spec.worksheet("Sales").freeze == Freeze(rows=0, columns=1)
     assert isinstance(sales.header_style, Style)
     assert sales.header_style.fill is not None
     assert sales.autofilter
-    assert sales.freeze == "header"
+    assert sales.freeze_header
     assert sales.auto_width
     assert sales.footer == Totals(
         label="Total",
@@ -148,10 +148,10 @@ def test_spreadsheet_features_compile_to_resolved_layout() -> None:
                     ),
                 ),
                 autofilter=True,
-                freeze="header",
+                freeze_header=True,
                 auto_width=True,
             ),
-            freeze=Freeze(columns=1),
+            freeze=Freeze(rows=0, columns=1),
         ),
         styles=StyleSheet(
             {
@@ -220,10 +220,10 @@ def test_spreadsheet_features_render_backend_neutral_xlsx(backend: str) -> None:
                     ),
                 ),
                 autofilter=True,
-                freeze="header",
+                freeze_header=True,
                 auto_width=True,
             ),
-            freeze=Freeze(columns=1),
+            freeze=Freeze(rows=0, columns=1),
         ),
         styles=StyleSheet(
             {
@@ -294,7 +294,7 @@ def test_capability_analysis_declares_each_stage_three_feature() -> None:
                 footer=Totals(items=(Total("amount"),)),
                 rules=(when(col("amount") > 0, style=Style(fill="#C6EFCE")),),
                 autofilter=True,
-                freeze="header",
+                freeze_header=True,
             ),
         ),
         styles=StyleSheet(

@@ -18,7 +18,7 @@
 
 ## :mag: About
 
-Formata is a declarative Python library for describing and generating documents
+Declarative Python library for describing and generating documents
 from application data. Users define the document structure and semantics, while
 renderers handle output formats and backend-specific details.
 
@@ -32,29 +32,26 @@ renderers handle output formats and backend-specific details.
 ## Quick start
 
 ```python
-from formata import render, sheet, spreadsheet, table, text
+from formata import render, sheet, spreadsheet, table, text, write
+
+rows = [{"name": "Ada Lovelace"}, {"name": "Grace Hopper"}]
 
 report = spreadsheet(
     sheet(
         "People",
         table(
-            [{"name": "Ada Lovelace"}, {"name": "Grace Hopper"}],
-            text("name").title("Name"),
+            rows,
+            text("name").titled("Name"),
         ),
     ),
 )
 
 result = render(report)
 
-with open("people.xlsx", "wb") as output:
-    output.write(result.data)
+write(report, "people.xlsx")
 ```
 
 For direct file output, use `write(report, "people.xlsx")`.
-
-Compatible append-only spreadsheets automatically use XlsxWriter's constant-memory plan.
-Use `mode="standard"` to opt out or `mode="stream"` to require streaming;
-an incompatible explicit request fails before the target is opened.
 
 More examples are available in the [example projects](example/README.md).
 

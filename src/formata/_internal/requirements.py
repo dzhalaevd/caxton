@@ -1,8 +1,23 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from formata.core.formatting import DocumentTheme, Style, StyleInput
 from formata.core.ir import SPREADSHEET_IR_VERSION
-from formata.core.models import Column, DocumentKind, SpreadsheetDocument
+from formata.core.models import (
+    Chart,
+    Column,
+    DocumentKind,
+    Image,
+    Spacer,
+    SpreadsheetBlock,
+    SpreadsheetDocument,
+    SpreadsheetTable,
+    Stack,
+    Title,
+    iter_blocks,
+    iter_tables,
+)
 from formata.core.protocols import DataSourceInfo, Repeatability
 from formata.core.rendering import (
     DataSourceRequirements,
@@ -38,8 +53,12 @@ def analyze_spreadsheet_requirements(  # noqa: C901, WPS213
     for worksheet_index, worksheet in enumerate(document.worksheets):
         if worksheet.freeze is not None:
             features.add("freeze_panes")
-        append_only = append_only and len(worksheet.blocks) == 1
-        for table_index, table in enumerate(worksheet.blocks):
+        blocks = tuple(iter_blocks(worksheet.blocks))
+        features.update(_block_features(blocks))
+        append_only = (
+            append_only and len(blocks) == 1 and isinstance(blocks[0], SpreadsheetTable)
+        )
+        for table_index, table in enumerate(iter_tables(worksheet.blocks)):
             features.add("table")
             if table.name is not None:
                 features.add("native_table")
@@ -57,7 +76,7 @@ def analyze_spreadsheet_requirements(  # noqa: C901, WPS213
                 features.update(("conditional_format", "formula", "style"))
             if table.autofilter:
                 features.add("autofilter")
-            if table.freeze is not None:
+            if table.freeze_header:
                 features.add("freeze_panes")
             if table.auto_width:
                 features.add("auto_width")
@@ -82,6 +101,27 @@ def analyze_spreadsheet_requirements(  # noqa: C901, WPS213
             has_named_tables=has_named_tables,
         ),
     )
+
+
+def _block_feature(block: SpreadsheetBlock) -> str | None:
+    if isinstance(block, Title):
+        return "text"
+    if isinstance(block, Spacer):
+        return "spacer"
+    if isinstance(block, Image):
+        return "image"
+    if isinstance(block, Chart):
+        return "chart"
+    return "stack" if isinstance(block, Stack) else None
+
+
+def _block_features(blocks: Sequence[SpreadsheetBlock]) -> set[str]:
+    features: set[str] = set()
+    for block in blocks:
+        feature = _block_feature(block)
+        if feature is not None:
+            features.update(("flow_layout", feature))
+    return features
 
 
 def _source_requirements(

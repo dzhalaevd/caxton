@@ -7,19 +7,32 @@ from typing import ClassVar
 
 import xlsxwriter  # type: ignore[import-untyped]
 from xlsxwriter.format import Format  # type: ignore[import-untyped]
+from xlsxwriter.image import Image as XlsxImage  # type: ignore[import-untyped]
 from xlsxwriter.worksheet import Worksheet  # type: ignore[import-untyped]
 
 from formata._internal.backends._xlsx_formats import number_format
+from formata._internal.const import (
+    _AGGREGATES,
+    _BORDER_STYLES,
+    _CHART_TYPES,
+    _MIME_TYPE,
+    _SEMANTIC_FEATURES,
+)
 from formata._internal.formulas import lower_excel_formula
 from formata._internal.rendering import run_backend
 from formata._internal.sinks import BufferSink, FileSink, MemorySink
 from formata.core.errors import UnsupportedFeatureError
-from formata.core.formatting import BorderLineStyle, Style
+from formata.core.formatting import Style
 from formata.core.ir import (
     SPREADSHEET_IR_VERSION,
+    CellRange,
+    SpreadsheetChartIR,
     SpreadsheetColumnIR,
+    SpreadsheetImageIR,
     SpreadsheetIR,
     SpreadsheetTableIR,
+    SpreadsheetTextIR,
+    SpreadsheetWorksheetIR,
 )
 from formata.core.models import AggregateFunction, DocumentKind
 from formata.core.protocols import OutputSink
@@ -33,23 +46,6 @@ from formata.core.rendering import (
     WorkbookOperation,
 )
 from formata.core.types import Link
-
-_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-_SEMANTIC_FEATURES = frozenset(
-    (
-        "semantic:boolean",
-        "semantic:date",
-        "semantic:datetime",
-        "semantic:decimal",
-        "semantic:duration",
-        "semantic:integer",
-        "semantic:link",
-        "semantic:money",
-        "semantic:percentage",
-        "semantic:text",
-        "semantic:time",
-    ),
-)
 
 
 class XlsxWriterRenderer:
@@ -71,14 +67,20 @@ class XlsxWriterRenderer:
                     "alignment",
                     "autofilter",
                     "auto_width",
+                    "chart",
                     "column_width",
                     "conditional_format",
                     "display_format",
                     "explicit_anchor",
+                    "flow_layout",
                     "formula",
                     "freeze_panes",
+                    "image",
                     "native_table",
+                    "spacer",
+                    "stack",
                     "table",
+                    "text",
                     "style",
                     "totals",
                 ),
@@ -135,19 +137,122 @@ class XlsxWriterRenderer:
         )
 
 
+def _populate_worksheet(
+    workbook: xlsxwriter.Workbook,
+    worksheet_ir: SpreadsheetWorksheetIR,
+) -> None:
+    worksheet = workbook.add_worksheet(worksheet_ir.name)
+    if worksheet_ir.freeze is not None:
+        worksheet.freeze_panes(
+            worksheet_ir.freeze.rows,
+            worksheet_ir.freeze.columns,
+        )
+    for text in worksheet_ir.texts:
+        _render_text(workbook, worksheet, text)
+    for table in worksheet_ir.tables:
+        _render_table(workbook, worksheet, table)
+    for picture in worksheet_ir.images:
+        _render_image(worksheet, picture)
+    for chart in worksheet_ir.charts:
+        _render_chart(workbook, worksheet, chart)
+
+
 def _populate_workbook(
     workbook: xlsxwriter.Workbook,
     document: SpreadsheetIR,
 ) -> None:
     for worksheet_ir in document.worksheets:
-        worksheet = workbook.add_worksheet(worksheet_ir.name)
-        if worksheet_ir.freeze is not None:
-            worksheet.freeze_panes(
-                worksheet_ir.freeze.rows,
-                worksheet_ir.freeze.columns,
-            )
-        for table in worksheet_ir.tables:
-            _render_table(workbook, worksheet, table)
+        _populate_worksheet(workbook, worksheet_ir)
+
+
+def _render_text(
+    workbook: xlsxwriter.Workbook,
+    worksheet: Worksheet,
+    text: SpreadsheetTextIR,
+) -> None:
+    row = text.anchor.row - 1
+    column = text.anchor.column - 1
+    cell_format = _style_format(workbook, text.style)
+    if text.span > 1:
+        worksheet.merge_range(
+            row,
+            column,
+            row,
+            column + text.span - 1,
+            text.text,
+            cell_format,
+        )
+        return
+    worksheet.write(row, column, text.text, cell_format)
+
+
+def _render_image(worksheet: Worksheet, picture: SpreadsheetImageIR) -> None:
+    source = picture.source
+    filename = source if isinstance(source, str) else f"{picture.name or 'image'}.png"
+    options: dict[str, object] = {}
+    if isinstance(source, bytes):
+        options["image_data"] = BytesIO(source)
+    if picture.description is not None:
+        options["description"] = picture.description
+    natural = _natural_size(source)
+    if natural is not None:
+        options["x_scale"] = picture.width / natural[0]
+        options["y_scale"] = picture.height / natural[1]
+    worksheet.insert_image(
+        picture.anchor.row - 1,
+        picture.anchor.column - 1,
+        filename,
+        options,
+    )
+
+
+def _natural_size(source: str | bytes) -> tuple[float, float] | None:
+    probe = XlsxImage(BytesIO(source) if isinstance(source, bytes) else source)
+    width = float(probe.width)
+    height = float(probe.height)
+    return (width, height) if width and height else None
+
+
+def _render_chart(
+    workbook: xlsxwriter.Workbook,
+    worksheet: Worksheet,
+    chart: SpreadsheetChartIR,
+) -> None:
+    native = workbook.add_chart({"type": _CHART_TYPES[chart.kind]})
+    if native is None:
+        message = f"XlsxWriter rejected chart kind {chart.kind.value!r}"
+        raise ValueError(message)
+    for series in chart.series:
+        native.add_series(
+            {
+                "name": series.name,
+                "categories": _range_reference(chart.sheet_name, series.categories),
+                "values": _range_reference(chart.sheet_name, series.values),
+            },
+        )
+    if chart.title is not None:
+        native.set_title({"name": chart.title})
+    native.set_size({"width": chart.width, "height": chart.height})
+    worksheet.insert_chart(
+        chart.anchor.row - 1,
+        chart.anchor.column - 1,
+        native,
+    )
+
+
+def _range_reference(
+    sheet_name: str,
+    cell_range: CellRange | None,
+) -> list[object] | None:
+    if cell_range is None:
+        return None
+    return [
+        sheet_name,
+        cell_range.start.row - 1,
+        cell_range.start.column - 1,
+        cell_range.end.row - 1,
+        cell_range.end.column - 1,
+    ]
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -546,25 +651,6 @@ def _style_properties(style: Style) -> dict[str, object]:  # noqa: C901
                 if line.color is not None:
                     properties[f"{side}_color"] = line.color
     return properties
-
-
-_BORDER_STYLES = {
-    BorderLineStyle.THIN: 1,
-    BorderLineStyle.MEDIUM: 2,
-    BorderLineStyle.THICK: 5,
-    BorderLineStyle.DASHED: 3,
-    BorderLineStyle.DOTTED: 4,
-    BorderLineStyle.DOUBLE: 6,
-}
-
-
-_AGGREGATES = {
-    AggregateFunction.SUM: "SUM",
-    AggregateFunction.AVG: "AVERAGE",
-    AggregateFunction.MIN: "MIN",
-    AggregateFunction.MAX: "MAX",
-    AggregateFunction.COUNT: "COUNT",
-}
 
 
 def _aggregate_formula(

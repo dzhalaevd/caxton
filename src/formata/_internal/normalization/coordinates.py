@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import re
-
+from formata._internal.const import _CELL_ADDRESS
 from formata.core.ir import CellAddress
-
-_CELL_ADDRESS = re.compile(r"^(?P<column>[A-Za-z]+)(?P<row>[1-9][0-9]*)$")
 
 
 def parse_cell_address(value: str) -> CellAddress:

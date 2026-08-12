@@ -7,6 +7,8 @@ from formata import decimal, field, money, path, sheet, spreadsheet, table, text
 from formata.core.formatting import Alignment, money_format
 from formata.core.models import Column
 from formata.testing import (
+    BlockKind,
+    BlockSpec,
     ColumnSpec,
     Difference,
     DifferenceKind,
@@ -39,7 +41,7 @@ def test_inspection_does_not_consume_rows() -> None:
             table(
                 rows(),
                 money("revenue")
-                .title("Revenue")
+                .titled("Revenue")
                 .align("right")
                 .width(18)
                 .format(money_format(currency="USD")),
@@ -85,6 +87,7 @@ def test_value_objects_expose_declaration_order() -> None:
         worksheets=(
             WorksheetSpec(
                 name="Summary",
+                blocks=(BlockSpec(BlockKind.TABLE, name="sales"),),
                 tables=(
                     TableSpec(
                         name="sales",
@@ -162,13 +165,13 @@ def test_spreadsheet_difference_has_semantic_path() -> None:
     actual = spreadsheet(
         sheet(
             "Sales",
-            table([], money("revenue").title("Actual"), name="sales"),
+            table([], money("revenue").titled("Actual"), name="sales"),
         ),
     )
     expected = spreadsheet(
         sheet(
             "Sales",
-            table([], money("revenue").title("Expected"), name="sales"),
+            table([], money("revenue").titled("Expected"), name="sales"),
         ),
     )
 
@@ -321,26 +324,26 @@ def test_duplicate_identities_use_positions(
 ) -> None:
     if duplicate_level == "worksheet":
         actual = spreadsheet(
-            sheet("Same", table([], text("value").title("Actual"))),
-            sheet("Same", table([], text("value").title("Shared"))),
+            sheet("Same", table([], text("value").titled("Actual"))),
+            sheet("Same", table([], text("value").titled("Shared"))),
         )
         expected = spreadsheet(
-            sheet("Same", table([], text("value").title("Expected"))),
-            sheet("Same", table([], text("value").title("Shared"))),
+            sheet("Same", table([], text("value").titled("Expected"))),
+            sheet("Same", table([], text("value").titled("Shared"))),
         )
     elif duplicate_level == "table":
         actual = spreadsheet(
             sheet(
                 "Data",
-                table([], text("value").title("Actual"), name="same"),
-                table([], text("value").title("Shared"), name="same"),
+                table([], text("value").titled("Actual"), name="same"),
+                table([], text("value").titled("Shared"), name="same"),
             ),
         )
         expected = spreadsheet(
             sheet(
                 "Data",
-                table([], text("value").title("Expected"), name="same"),
-                table([], text("value").title("Shared"), name="same"),
+                table([], text("value").titled("Expected"), name="same"),
+                table([], text("value").titled("Shared"), name="same"),
             ),
         )
     else:
@@ -349,8 +352,8 @@ def test_duplicate_identities_use_positions(
                 "Data",
                 table(
                     [],
-                    text("same").title("Actual"),
-                    text("same").title("Shared"),
+                    text("same").titled("Actual"),
+                    text("same").titled("Shared"),
                     name="data",
                 ),
             ),
@@ -360,8 +363,8 @@ def test_duplicate_identities_use_positions(
                 "Data",
                 table(
                     [],
-                    text("same").title("Expected"),
-                    text("same").title("Shared"),
+                    text("same").titled("Expected"),
+                    text("same").titled("Shared"),
                     name="data",
                 ),
             ),

@@ -4,27 +4,32 @@ import dataclasses
 from collections.abc import Iterator, Sequence
 from functools import singledispatch
 
+from formata._internal.layout import plan_worksheet
 from formata._internal.normalization.coordinates import parse_cell_address
 from formata.core.errors import (
     ColumnNotFoundError,
     DuplicateColumnError,
     Notification,
+    UnsupportedFeatureError,
 )
 from formata.core.formatting import StyleInput
 from formata.core.models import (
     BinaryExpression,
     CellReference,
+    Chart,
     Column,
+    ColumnRef,
     Expression,
-    FieldRef,
     Formula,
     FormulaBinary,
     FormulaLiteral,
-    Literal,
     RangeReference,
+    SpreadsheetBlock,
     SpreadsheetDocument,
     SpreadsheetTable,
     Worksheet,
+    iter_blocks,
+    iter_tables,
 )
 from formata.core.protocols import DataSourceInfo
 
@@ -39,7 +44,74 @@ def validate_spreadsheet(document: SpreadsheetDocument) -> None:
     _validate_tables(document, notification)
     _validate_spreadsheet_features(document, notification)
     _validate_formula_references(document, notification)
+    _validate_chart_sources(document, notification)
+    _validate_placement(document, notification)
     notification.raise_if_errors("Spreadsheet structural validation failed")
+
+
+def _validate_placement(
+    document: SpreadsheetDocument,
+    notification: Notification,
+) -> None:
+    for worksheet in document.worksheets:
+        try:
+            plan = plan_worksheet(worksheet)
+        except (UnsupportedFeatureError, ValueError):
+            continue
+        for overlap in plan.overlaps:
+            notification.add(
+                f"Blocks {overlap.first} and {overlap.second} overlap",
+                path=f'worksheet["{worksheet.name}"].{overlap.first}',
+                code="block_overlap",
+                context={
+                    "first": overlap.first,
+                    "second": overlap.second,
+                    "worksheet": worksheet.name,
+                },
+            )
+
+
+def _validate_chart_sources(
+    document: SpreadsheetDocument,
+    notification: Notification,
+) -> None:
+    tables = {
+        table.name: table
+        for worksheet in document.worksheets
+        for table in iter_tables(worksheet.blocks)
+        if table.name is not None
+    }
+    for worksheet in document.worksheets:
+        for index, block in enumerate(iter_blocks(worksheet.blocks)):
+            if isinstance(block, Chart):
+                _validate_chart(
+                    block,
+                    tables,
+                    path=f'worksheet["{worksheet.name}"].chart[{index}]',
+                    notification=notification,
+                )
+
+
+def _validate_chart(
+    chart: Chart,
+    tables: dict[str, SpreadsheetTable],
+    *,
+    path: str,
+    notification: Notification,
+) -> None:
+    table = tables.get(chart.source.name)
+    if table is None:
+        notification.add(
+            f"Table {chart.source.name!r} was not found",
+            path=f"{path}.source",
+            code="table_not_found",
+            context={"table": chart.source.name},
+        )
+        return
+    column_ids = {column.id for column in table.columns}
+    for column_id in (chart.x, *chart.y):
+        if column_id not in column_ids:
+            notification.add(ColumnNotFoundError(column=column_id, path=path))
 
 
 def _validate_document_shape(
@@ -77,12 +149,12 @@ def _validate_tables(
 ) -> None:
     table_names: set[str] = set()
     for worksheet in document.worksheets:
-        anchor_names: set[str] = set()
-        for index, table in enumerate(worksheet.blocks):
-            table_path = f'worksheet["{worksheet.name}"].table[{index}]'
+        for index, block in enumerate(iter_blocks(worksheet.blocks)):
+            block_path = f'worksheet["{worksheet.name}"].block[{index}]'
+            _validate_anchor(block, block_path, notification)
+        for table_index, table in enumerate(iter_tables(worksheet.blocks)):
+            table_path = f'worksheet["{worksheet.name}"].table[{table_index}]'
             _validate_table_name(table, table_path, table_names, notification)
-            _validate_anchor(table, table_path, anchor_names, notification)
-            _validate_implicit_placement(table, index, table_path, notification)
             _validate_columns(table.columns, table_path, notification)
 
 
@@ -91,7 +163,7 @@ def _validate_spreadsheet_features(  # noqa: C901
     notification: Notification,
 ) -> None:
     for worksheet in document.worksheets:
-        for index, table in enumerate(worksheet.blocks):
+        for index, table in enumerate(iter_tables(worksheet.blocks)):
             path = f'worksheet["{worksheet.name}"].table[{index}]'
             _validate_style_ref(table.style, document, f"{path}.style", notification)
             _validate_style_ref(
@@ -187,45 +259,20 @@ def _validate_table_name(
 
 
 def _validate_anchor(
-    table: SpreadsheetTable,
+    block: SpreadsheetBlock,
     path: str,
-    seen: set[str],
     notification: Notification,
 ) -> None:
-    if table.anchor is None:
+    if block.anchor is None:
         return
-    normalized = table.anchor.upper()
     try:
-        parse_cell_address(normalized)
+        parse_cell_address(block.anchor)
     except ValueError:
         notification.add(
-            f"Invalid table anchor {table.anchor!r}",
+            f"Invalid block anchor {block.anchor!r}",
             path=f"{path}.anchor",
             code="invalid_anchor",
-            context={"anchor": table.anchor},
-        )
-        return
-    if normalized in seen:
-        notification.add(
-            f"Duplicate table anchor {table.anchor!r}",
-            path=f"{path}.anchor",
-            code="duplicate_anchor",
-            context={"anchor": table.anchor},
-        )
-    seen.add(normalized)
-
-
-def _validate_implicit_placement(
-    table: SpreadsheetTable,
-    index: int,
-    path: str,
-    notification: Notification,
-) -> None:
-    if index > 0 and table.anchor is None:
-        notification.add(
-            "Every table after the first requires an explicit anchor",
-            path=f"{path}.anchor",
-            code="missing_anchor",
+            context={"anchor": block.anchor},
         )
 
 
@@ -290,7 +337,7 @@ def _validate_python_reference(
 
 
 def _column_references(column: Column) -> Iterator[str]:
-    if isinstance(column.source, BinaryExpression):
+    if isinstance(column.source, Expression):
         yield from _expression_references(column.source)
 
 
@@ -300,13 +347,8 @@ def _expression_references(_expression: Expression) -> Iterator[str]:
 
 
 @_expression_references.register
-def _field_reference(expression: FieldRef) -> Iterator[str]:
-    yield expression.name
-
-
-@_expression_references.register
-def _literal_reference(_expression: Literal) -> Iterator[str]:
-    return iter(())
+def _column_reference(expression: ColumnRef) -> Iterator[str]:
+    yield expression.column_id
 
 
 @_expression_references.register
@@ -337,18 +379,18 @@ def _validate_formula_references(
     tables = {
         table.name: (worksheet, table)
         for worksheet in document.worksheets
-        for table in worksheet.blocks
+        for table in iter_tables(worksheet.blocks)
         if table.name is not None
     }
     table_keys = {
         id(table): (worksheet_index, table_index)
         for worksheet_index, worksheet in enumerate(document.worksheets)
-        for table_index, table in enumerate(worksheet.blocks)
+        for table_index, table in enumerate(iter_tables(worksheet.blocks))
     }
     dependencies: dict[FormulaNode, set[FormulaNode]] = {}
     paths: dict[FormulaNode, str] = {}
     for worksheet_index, worksheet in enumerate(document.worksheets):
-        for table_index, table in enumerate(worksheet.blocks):
+        for table_index, table in enumerate(iter_tables(worksheet.blocks)):
             table_path = f'worksheet["{worksheet.name}"].table[{table_index}]'
             for column in table.columns:
                 if column.excel_formula is None:
@@ -564,7 +606,7 @@ def _resolve_sheet_table(
             context={"worksheet": reference.sheet_name},
         )
         return None
-    for candidate in target_worksheet.blocks:
+    for candidate in iter_tables(target_worksheet.blocks):
         if candidate.name == reference.table_name:
             return target_worksheet, candidate
     notification.add(

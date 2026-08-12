@@ -4,39 +4,57 @@ import dataclasses
 from collections.abc import Iterator, Sequence
 from typing import Any
 
-from formata._internal.normalization import parse_cell_address
+from formata._internal.const import _TITLE_FONT_SIZES
+from formata._internal.layout import DocumentPlan, WorksheetPlan, plan_document
 from formata._internal.semantic import SemanticRowEvaluator
 from formata._internal.validation import validate_spreadsheet
 from formata.core.errors import UnsupportedFeatureError
-from formata.core.formatting import CellAlignment, Style, StyleInput, StyleSheet
+from formata.core.formatting import (
+    CellAlignment,
+    FontStyle,
+    Style,
+    StyleInput,
+    StyleSheet,
+)
 from formata.core.ir import (
     SPREADSHEET_IR_VERSION,
     CellAddress,
+    CellRange,
     ResolvedCellReference,
     ResolvedFormula,
     ResolvedFormulaBinary,
     ResolvedFormulaLiteral,
     ResolvedRangeReference,
+    SpreadsheetChartIR,
     SpreadsheetColumnIR,
     SpreadsheetConditionalRuleIR,
     SpreadsheetFooterIR,
+    SpreadsheetImageIR,
     SpreadsheetIR,
+    SpreadsheetPlacementIR,
     SpreadsheetRowIR,
+    SpreadsheetSeriesIR,
     SpreadsheetTableIR,
+    SpreadsheetTextIR,
     SpreadsheetTotalIR,
     SpreadsheetWorksheetIR,
 )
 from formata.core.models import (
     CellReference,
+    Chart,
     Column,
     DocumentKind,
     Formula,
     FormulaBinary,
     FormulaLiteral,
     Freeze,
+    Image,
     RangeReference,
+    SpreadsheetBlock,
     SpreadsheetDocument,
     SpreadsheetTable,
+    TableReference,
+    Title,
     Total,
     Totals,
     Worksheet,
@@ -98,10 +116,15 @@ class SpreadsheetCompiler:
             A read-only spreadsheet IR with lazy table row streams.
         """
         ir_version = _select_ir_version(capabilities)
-        catalog = _FormulaCatalog.from_document(document)
+        plan = plan_document(document)
+        catalog = _FormulaCatalog.from_document(document, plan)
         worksheets = tuple(
-            self._compile_worksheet(worksheet, catalog, document)
-            for worksheet in document.worksheets
+            self._compile_worksheet(worksheet, worksheet_plan, catalog, document)
+            for worksheet, worksheet_plan in zip(
+                document.worksheets,
+                plan.worksheets,
+                strict=True,
+            )
         )
         return SpreadsheetIR(
             worksheets=worksheets,
@@ -112,26 +135,32 @@ class SpreadsheetCompiler:
     def _compile_worksheet(
         self,
         worksheet: Worksheet,
+        plan: WorksheetPlan,
         catalog: _FormulaCatalog,
         document: SpreadsheetDocument,
     ) -> SpreadsheetWorksheetIR:
+        tables = tuple(
+            self._compile_table(table, anchor, worksheet, catalog, document)
+            for table, anchor in _placed_tables(plan)
+        )
         return SpreadsheetWorksheetIR(
             name=worksheet.name,
-            tables=tuple(
-                self._compile_table(table, worksheet, catalog, document)
-                for table in worksheet.blocks
-            ),
-            freeze=_compile_freeze(worksheet),
+            tables=tables,
+            freeze=_compile_freeze(worksheet, plan),
+            texts=tuple(_compile_texts(plan, document)),
+            images=tuple(_compile_images(plan)),
+            charts=tuple(_compile_charts(plan, worksheet, catalog)),
+            placements=tuple(_compile_placements(plan)),
         )
 
-    def _compile_table(
+    def _compile_table(  # noqa: WPS211
         self,
         table: SpreadsheetTable,
+        anchor: CellAddress,
         worksheet: Worksheet,
         catalog: _FormulaCatalog,
         document: SpreadsheetDocument,
     ) -> SpreadsheetTableIR:
-        anchor = parse_cell_address(table.anchor or "A1")
         table_style = _resolve_style(
             table.style,
             document.styles,
@@ -299,13 +328,128 @@ def _compile_footer(
     )
 
 
-def _compile_freeze(worksheet: Worksheet) -> Freeze | None:
+def _compile_freeze(worksheet: Worksheet, plan: WorksheetPlan) -> Freeze | None:
     rows = worksheet.freeze.rows if worksheet.freeze is not None else 0
     columns = worksheet.freeze.columns if worksheet.freeze is not None else 0
-    for table in worksheet.blocks:
-        if table.freeze == "header":
-            rows = max(rows, parse_cell_address(table.anchor or "A1").row)
+    for placement in plan.placements:
+        table = placement.block
+        if isinstance(table, SpreadsheetTable) and table.freeze_header:
+            rows = max(rows, placement.anchor.row)
     return None if rows == 0 and columns == 0 else Freeze(rows=rows, columns=columns)
+
+
+def _placed_tables(
+    plan: WorksheetPlan,
+) -> Iterator[tuple[SpreadsheetTable, CellAddress]]:
+    for placement in plan.placements:
+        block = placement.block
+        if isinstance(block, SpreadsheetTable):
+            yield block, placement.anchor
+
+
+def _compile_placements(plan: WorksheetPlan) -> Iterator[SpreadsheetPlacementIR]:
+    for placement in plan.placements:
+        yield SpreadsheetPlacementIR(
+            kind=placement.kind,
+            path=placement.path,
+            anchor=placement.anchor,
+            occupied=placement.occupied,
+            name=_block_name(placement.block),
+            explicit=placement.explicit,
+        )
+
+
+def _block_name(block: SpreadsheetBlock) -> str | None:
+    if isinstance(block, (Chart, Image, SpreadsheetTable)):
+        return block.name
+    return None
+
+
+def _compile_texts(
+    plan: WorksheetPlan,
+    document: SpreadsheetDocument,
+) -> Iterator[SpreadsheetTextIR]:
+    for placement in plan.placements:
+        title = placement.block
+        if isinstance(title, Title):
+            yield SpreadsheetTextIR(
+                anchor=placement.anchor,
+                text=title.text,
+                span=title.span,
+                style=_resolve_style(
+                    title.style,
+                    document.styles,
+                    base=_title_base_style(title.level, document),
+                ),
+            )
+
+
+def _title_base_style(level: int, document: SpreadsheetDocument) -> Style:
+    size = _TITLE_FONT_SIZES.get(level, 11.0)
+    heading = Style(font=FontStyle(bold=True, size=size))
+    return heading.merged_over(document.theme.default)
+
+
+def _compile_images(plan: WorksheetPlan) -> Iterator[SpreadsheetImageIR]:
+    for placement in plan.placements:
+        image = placement.block
+        if isinstance(image, Image):
+            yield SpreadsheetImageIR(
+                anchor=placement.anchor,
+                source=image.source,
+                width=image.width,
+                height=image.height,
+                name=image.name,
+                description=image.description,
+            )
+
+
+def _compile_charts(
+    plan: WorksheetPlan,
+    worksheet: Worksheet,
+    catalog: _FormulaCatalog,
+) -> Iterator[SpreadsheetChartIR]:
+    for placement in plan.placements:
+        chart = placement.block
+        if isinstance(chart, Chart):
+            yield _compile_chart(chart, placement.anchor, worksheet, catalog)
+
+
+def _compile_chart(
+    chart: Chart,
+    anchor: CellAddress,
+    worksheet: Worksheet,
+    catalog: _FormulaCatalog,
+) -> SpreadsheetChartIR:
+    location = catalog.locate(chart.source, current_worksheet=worksheet)
+    categories = _chart_range(location, chart.x)
+    return SpreadsheetChartIR(
+        anchor=anchor,
+        kind=chart.kind,
+        sheet_name=location.worksheet.name,
+        series=tuple(
+            SpreadsheetSeriesIR(
+                name=_column(location, column_id).column.display_title,
+                values=_chart_range(location, column_id),
+                categories=categories,
+            )
+            for column_id in chart.y
+        ),
+        title=chart.title,
+        width=chart.width,
+        height=chart.height,
+        name=chart.name,
+    )
+
+
+def _chart_range(location: _TableLocation, column_id: str) -> CellRange:
+    offset = _column(location, column_id).offset
+    physical_column = location.anchor.column + offset
+    row_count = _known_row_count(location.table)
+    return CellRange(
+        start=CellAddress(location.anchor.row + 1, physical_column),
+        end=CellAddress(location.anchor.row + row_count, physical_column),
+    )
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -327,15 +471,19 @@ class _FormulaCatalog:
     by_sheet_and_name: dict[tuple[str, str], _TableLocation]
 
     @classmethod
-    def from_document(cls, document: SpreadsheetDocument) -> _FormulaCatalog:
+    def from_document(
+        cls,
+        document: SpreadsheetDocument,
+        plan: DocumentPlan,
+    ) -> _FormulaCatalog:
         locations = tuple(
-            _TableLocation(
-                worksheet=worksheet,
-                table=table,
-                anchor=parse_cell_address(table.anchor or "A1"),
+            _TableLocation(worksheet=worksheet, table=table, anchor=anchor)
+            for worksheet, worksheet_plan in zip(
+                document.worksheets,
+                plan.worksheets,
+                strict=True,
             )
-            for worksheet in document.worksheets
-            for table in worksheet.blocks
+            for table, anchor in _placed_tables(worksheet_plan)
             if table.name is not None
         )
         return cls(
@@ -345,6 +493,32 @@ class _FormulaCatalog:
                 for location in locations
             },
         )
+
+    def locate(
+        self,
+        reference: TableReference,
+        *,
+        current_worksheet: Worksheet,
+    ) -> _TableLocation:
+        """Resolve a semantic table reference into its placed table.
+
+        Returns:
+            The resolved table location.
+
+        Raises:
+            UnsupportedFeatureError: If the referenced table does not exist.
+        """
+        key = reference.sheet_name or current_worksheet.name
+        location = self.by_sheet_and_name.get(
+            (key, reference.name),
+        ) or self.by_name.get(reference.name)
+        if location is None:
+            message = f"Table {reference.name!r} was not found"
+            raise UnsupportedFeatureError(
+                message,
+                context={"table": reference.name, "reason": "table_not_found"},
+            )
+        return location
 
     def resolve_formula(  # noqa: WPS211
         self,

@@ -24,7 +24,7 @@ execution: a semantic node can reference a stateful or one-shot `DataSource`.
 ## Public boundaries and dependencies
 
 ```text
-formata                 short public façade
+formata                 short public facade
 ├── api                 factories and render/write/validate
 ├── core
 │   ├── models          immutable semantic nodes
@@ -120,14 +120,40 @@ evaluates callables and expressions. An error from an existing property or
 descriptor does not appear as a missing-field error.
 
 Python row expressions and spreadsheet formulas form separate semantic
-hierarchies. `field()`/`path()` are evaluated by the library before rendering,
-while `col()`, `table_ref()`, and `sheet_ref()` remain formula intent. The
+hierarchies. `field()`/`path()` read raw data-source values and `ref()` reads
+the evaluated value of another semantic column; all three are evaluated by the
+library before rendering, while `col()`, `table_ref()`, and `sheet_ref()`
+remain formula intent. `field()` never resolves a column id and `ref()` never
+reads a row field, so the two namespaces cannot be confused. The
 compiler resolves their semantic IDs into cell/range nodes in the Spreadsheet
 IR; the XLSX renderer materializes A1 or structured references. A Python
 expression cannot depend on a formula-backed column because its value appears
 only in the artifact. A range reference requires a known `row_count`: the
 compiler does not perform a hidden pass over a one-shot or `UNKNOWN` source to
 calculate the end of the range.
+
+## Spreadsheet block layout
+
+A worksheet holds a closed set of spreadsheet blocks: `SpreadsheetTable`,
+`Title`, `Spacer`, `Image`, `Chart`, and the `Stack` flow container. Blocks
+carry intent only; the compiler owns placement. A dedicated layout pass walks
+the declared blocks in order, measures each one, and assigns a physical anchor
+and occupied range before any IR node is built. Measurements are structural:
+a table is one header row plus its non-consuming `row_count` plus an optional
+footer row, a title is one row, and images and charts convert their declared
+pixel size into whole cells.
+
+Explicit `anchor` remains the escape hatch. An anchored block keeps its declared
+position and still advances the flow cursor, so a following implicit block never
+lands inside it. Overlaps between placed blocks are reported as `block_overlap`
+validation issues rather than silently overwritten cells. When a table height is
+unknown the flow cursor becomes invalid instead of guessing; the next implicit
+block raises an `UnsupportedFeatureError` and the document keeps working if
+every following block is anchored explicitly.
+
+Charts bind to data through `table_ref(...)` plus semantic column ids. The
+compiler resolves them into physical ranges of the placed table, so a chart, like
+a range reference, requires a known `row_count`.
 
 A source declares its repeatability as `REITERABLE`, `ONE_SHOT`, or `UNKNOWN`.
 Coercion and structural validation do not read rows. A second pass over a
