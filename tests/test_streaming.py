@@ -20,7 +20,9 @@ from caxton import (  # noqa: WPS347
     write,
 )
 from caxton._internal import requirements as requirements_module  # noqa: PLC2701
-from caxton._internal.backends import xlsxwriter as xlsx_backend  # noqa: PLC2701
+from caxton._internal.backends.xlsxwriter import (  # noqa: PLC2701
+    destination,
+)
 from caxton.core.protocols import Repeatability
 
 
@@ -180,7 +182,7 @@ def test_path_output_does_not_stage_in_memory(
         message = "unexpected staging buffer"
         raise AssertionError(message)
 
-    monkeypatch.setattr(xlsx_backend, "BytesIO", reject_staging)
+    monkeypatch.setattr(destination, "BytesIO", reject_staging)
     target = tmp_path / "direct.xlsx"
 
     result = write(_document([{"value": "Ada"}]), target)
@@ -214,7 +216,7 @@ def test_seekable_output_does_not_stage_in_memory(
         message = "unexpected staging buffer"
         raise AssertionError(message)
 
-    monkeypatch.setattr(xlsx_backend, "BytesIO", reject_staging)
+    monkeypatch.setattr(destination, "BytesIO", reject_staging)
     target = BytesIO()
 
     result = write(_document([{"value": "Ada"}]), target)

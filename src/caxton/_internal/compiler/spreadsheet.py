@@ -1,3 +1,5 @@
+"""Coordinate validation, preparation, layout, and Spreadsheet IR lowering."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -10,6 +12,12 @@ from caxton._internal.aggregation import (
     prepare_matrix,
     prepare_table,
     table_needs_preparation,
+)
+from caxton._internal.block_paths import iter_blocks_with_paths
+from caxton._internal.compiler.formula_resolution import (
+    FormulaCatalog,
+    resolve_column,
+    resolve_data_range,
 )
 from caxton._internal.const import _TITLE_FONT_SIZES
 from caxton._internal.layout import DocumentPlan, WorksheetPlan, plan_document
@@ -30,8 +38,6 @@ from caxton.core.ir import (
     ResolvedCellReference,
     ResolvedFormula,
     ResolvedFormulaBinary,
-    ResolvedFormulaLiteral,
-    ResolvedRangeReference,
     SpreadsheetChartIR,
     SpreadsheetColumnIR,
     SpreadsheetConditionalRuleIR,
@@ -47,28 +53,21 @@ from caxton.core.ir import (
     SpreadsheetWorksheetIR,
 )
 from caxton.core.models import (
-    CellReference,
     Chart,
     Column,
     DocumentKind,
-    Formula,
-    FormulaBinary,
-    FormulaLiteral,
     Freeze,
     Image,
     Matrix,
-    RangeReference,
     SpreadsheetBlock,
     SpreadsheetDocument,
     SpreadsheetTable,
-    Stack,
-    TableReference,
     Title,
     Total,
     Totals,
     Worksheet,
 )
-from caxton.core.protocols import DataSource, DataSourceInfo
+from caxton.core.protocols import DataSource
 from caxton.core.rendering import RendererCapabilities
 
 
@@ -136,7 +135,7 @@ class SpreadsheetCompiler:
             },
         )
         _validate_prepared_placement(plan)
-        catalog = _FormulaCatalog.from_document(document, plan)
+        catalog = FormulaCatalog.from_document(document, plan)
         worksheets = tuple(
             self._compile_worksheet(
                 worksheet,
@@ -163,7 +162,7 @@ class SpreadsheetCompiler:
     ) -> dict[SpreadsheetTable | Matrix, PreparedTabularData]:
         prepared: dict[SpreadsheetTable | Matrix, PreparedTabularData] = {}
         for worksheet in document.worksheets:
-            for block, block_path in _iter_blocks_with_paths(worksheet.blocks):
+            for block, block_path in iter_blocks_with_paths(worksheet.blocks):
                 path = f'worksheet["{worksheet.name}"].{block_path}'
                 if isinstance(block, Matrix):
                     prepared[block] = prepare_matrix(
@@ -185,7 +184,7 @@ class SpreadsheetCompiler:
         self,
         worksheet: Worksheet,
         plan: WorksheetPlan,
-        catalog: _FormulaCatalog,
+        catalog: FormulaCatalog,
         document: SpreadsheetDocument,
         prepared: dict[SpreadsheetTable | Matrix, PreparedTabularData],
     ) -> SpreadsheetWorksheetIR:
@@ -216,7 +215,7 @@ class SpreadsheetCompiler:
         block: SpreadsheetTable | Matrix,
         anchor: CellAddress,
         worksheet: Worksheet,
-        catalog: _FormulaCatalog,
+        catalog: FormulaCatalog,
         document: SpreadsheetDocument,
         prepared: PreparedTabularData | None,
     ) -> SpreadsheetTableIR:
@@ -239,7 +238,7 @@ class SpreadsheetCompiler:
         table: SpreadsheetTable,
         anchor: CellAddress,
         worksheet: Worksheet,
-        catalog: _FormulaCatalog,
+        catalog: FormulaCatalog,
         document: SpreadsheetDocument,
         prepared: PreparedTabularData | None,
     ) -> SpreadsheetTableIR:
@@ -369,18 +368,6 @@ def _compile_prepared_column(
     )
 
 
-def _iter_blocks_with_paths(
-    blocks: Sequence[SpreadsheetBlock],
-    *,
-    prefix: str = "block",
-) -> Iterator[tuple[SpreadsheetBlock, str]]:
-    for index, block in enumerate(blocks):
-        path = f"{prefix}[{index}]"
-        yield block, path
-        if isinstance(block, Stack):
-            yield from _iter_blocks_with_paths(block.items, prefix=f"{path}.item")
-
-
 def _prepared_rows(prepared: PreparedTabularData) -> tuple[SpreadsheetRowIR, ...]:
     return tuple(
         SpreadsheetRowIR(index=index, values=values)
@@ -431,7 +418,7 @@ def _compile_column(  # noqa: WPS211
     worksheet: Worksheet,
     table: SpreadsheetTable,
     anchor: CellAddress,
-    catalog: _FormulaCatalog,
+    catalog: FormulaCatalog,
     styles: StyleSheet,
     base_style: Style,
     table_auto_width: bool,
@@ -544,15 +531,6 @@ def _compile_freeze(worksheet: Worksheet, plan: WorksheetPlan) -> Freeze | None:
     return None if rows == 0 and columns == 0 else Freeze(rows=rows, columns=columns)
 
 
-def _placed_tables(
-    plan: WorksheetPlan,
-) -> Iterator[tuple[SpreadsheetTable, CellAddress]]:
-    for placement in plan.placements:
-        block = placement.block
-        if isinstance(block, SpreadsheetTable):
-            yield block, placement.anchor
-
-
 def _compile_placements(plan: WorksheetPlan) -> Iterator[SpreadsheetPlacementIR]:
     for placement in plan.placements:
         yield SpreadsheetPlacementIR(
@@ -613,7 +591,7 @@ def _compile_images(plan: WorksheetPlan) -> Iterator[SpreadsheetImageIR]:
 def _compile_charts(
     plan: WorksheetPlan,
     worksheet: Worksheet,
-    catalog: _FormulaCatalog,
+    catalog: FormulaCatalog,
 ) -> Iterator[SpreadsheetChartIR]:
     for placement in plan.placements:
         chart = placement.block
@@ -625,18 +603,18 @@ def _compile_chart(
     chart: Chart,
     anchor: CellAddress,
     worksheet: Worksheet,
-    catalog: _FormulaCatalog,
+    catalog: FormulaCatalog,
 ) -> SpreadsheetChartIR:
     location = catalog.locate(chart.source, current_worksheet=worksheet)
-    categories = _chart_range(location, chart.x)
+    categories = resolve_data_range(location, chart.x)
     return SpreadsheetChartIR(
         anchor=anchor,
         kind=chart.kind,
         sheet_name=location.worksheet.name,
         series=tuple(
             SpreadsheetSeriesIR(
-                name=_column(location, column_id).column.display_title,
-                values=_chart_range(location, column_id),
+                name=resolve_column(location, column_id).column.display_title,
+                values=resolve_data_range(location, column_id),
                 categories=categories,
             )
             for column_id in chart.y
@@ -646,197 +624,6 @@ def _compile_chart(
         height=chart.height,
         name=chart.name,
     )
-
-
-def _chart_range(location: _TableLocation, column_id: str) -> CellRange:
-    offset = _column(location, column_id).offset
-    physical_column = location.anchor.column + offset
-    row_count = _known_row_count(location.table)
-    return CellRange(
-        start=CellAddress(location.anchor.row + 1, physical_column),
-        end=CellAddress(location.anchor.row + row_count, physical_column),
-    )
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class _TableLocation:
-    worksheet: Worksheet
-    table: SpreadsheetTable
-    anchor: CellAddress
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class _ColumnLocation:
-    column: Column
-    offset: int
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class _FormulaCatalog:
-    by_name: dict[str, _TableLocation]
-    by_sheet_and_name: dict[tuple[str, str], _TableLocation]
-
-    @classmethod
-    def from_document(
-        cls,
-        document: SpreadsheetDocument,
-        plan: DocumentPlan,
-    ) -> _FormulaCatalog:
-        locations = tuple(
-            _TableLocation(worksheet=worksheet, table=table, anchor=anchor)
-            for worksheet, worksheet_plan in zip(
-                document.worksheets,
-                plan.worksheets,
-                strict=True,
-            )
-            for table, anchor in _placed_tables(worksheet_plan)
-            if table.name is not None
-        )
-        return cls(
-            by_name={location.table.name: location for location in locations},  # type: ignore[misc]
-            by_sheet_and_name={
-                (location.worksheet.name, location.table.name): location  # type: ignore[misc]
-                for location in locations
-            },
-        )
-
-    def locate(
-        self,
-        reference: TableReference,
-        *,
-        current_worksheet: Worksheet,
-    ) -> _TableLocation:
-        """Resolve a semantic table reference into its placed table.
-
-        Returns:
-            The resolved table location.
-
-        Raises:
-            UnsupportedFeatureError: If the referenced table does not exist.
-        """
-        key = reference.sheet_name or current_worksheet.name
-        location = self.by_sheet_and_name.get(
-            (key, reference.name),
-        ) or self.by_name.get(reference.name)
-        if location is None:
-            message = f"Table {reference.name!r} was not found"
-            raise UnsupportedFeatureError(
-                message,
-                context={"table": reference.name, "reason": "table_not_found"},
-            )
-        return location
-
-    def resolve_formula(  # noqa: WPS211
-        self,
-        formula: Formula,
-        *,
-        current_worksheet: Worksheet,
-        current_table: SpreadsheetTable,
-        current_anchor: CellAddress,
-    ) -> ResolvedFormula:
-        if isinstance(formula, FormulaLiteral):
-            return ResolvedFormulaLiteral(formula.value)
-        if isinstance(formula, FormulaBinary):
-            return ResolvedFormulaBinary(
-                formula.operator,
-                self.resolve_formula(
-                    formula.left,
-                    current_worksheet=current_worksheet,
-                    current_table=current_table,
-                    current_anchor=current_anchor,
-                ),
-                self.resolve_formula(
-                    formula.right,
-                    current_worksheet=current_worksheet,
-                    current_table=current_table,
-                    current_anchor=current_anchor,
-                ),
-            )
-        if isinstance(formula, CellReference):
-            location = self._location(
-                formula,
-                current_worksheet=current_worksheet,
-                current_table=current_table,
-                current_anchor=current_anchor,
-            )
-            column = _column(location, formula.column_id)
-            return ResolvedCellReference(
-                column=location.anchor.column + column.offset,
-                row=(
-                    None
-                    if formula.row_index is None
-                    else location.anchor.row + formula.row_index + 1
-                ),
-                sheet_name=(
-                    location.worksheet.name
-                    if formula.sheet_name is not None
-                    or location.worksheet.name != current_worksheet.name
-                    else None
-                ),
-                column_absolute=formula.column_absolute,
-                row_absolute=formula.row_absolute,
-            )
-        if isinstance(formula, RangeReference):
-            location = self._location(
-                formula,
-                current_worksheet=current_worksheet,
-                current_table=current_table,
-                current_anchor=current_anchor,
-            )
-            column = _column(location, formula.column_id)
-            row_count = _known_row_count(location.table)
-            physical_column = location.anchor.column + column.offset
-            return ResolvedRangeReference(
-                sheet_name=location.worksheet.name,
-                start=CellAddress(location.anchor.row + 1, physical_column),
-                end=CellAddress(location.anchor.row + row_count, physical_column),
-                table_name=formula.table_name,
-                column_title=column.column.display_title,
-                column_absolute=formula.column_absolute,
-                row_absolute=formula.row_absolute,
-            )
-        message = f"Unsupported formula node: {type(formula).__name__}"
-        raise TypeError(message)
-
-    def _location(
-        self,
-        reference: CellReference | RangeReference,
-        *,
-        current_worksheet: Worksheet,
-        current_table: SpreadsheetTable,
-        current_anchor: CellAddress,
-    ) -> _TableLocation:
-        if reference.table_name is None:
-            return _TableLocation(current_worksheet, current_table, current_anchor)
-        if reference.sheet_name is not None:
-            return self.by_sheet_and_name[reference.sheet_name, reference.table_name]
-        return self.by_name[reference.table_name]
-
-
-def _column(location: _TableLocation, column_id: str) -> _ColumnLocation:
-    for offset, column in enumerate(location.table.columns):
-        if column.id == column_id:
-            return _ColumnLocation(column=column, offset=offset)
-    message = f"Column {column_id!r} was not found"
-    raise LookupError(message)
-
-
-def _known_row_count(table: SpreadsheetTable) -> int:
-    source = table.data.source
-    row_count = source.row_count if isinstance(source, DataSourceInfo) else None
-    if row_count is None:
-        message = f"Table {table.name!r} needs a known row count for a range reference"
-        raise UnsupportedFeatureError(
-            message,
-            context={"table": table.name, "reason": "unknown_row_count"},
-        )
-    if row_count < 1:
-        message = f"Table {table.name!r} has no data cells to reference"
-        raise UnsupportedFeatureError(
-            message,
-            context={"table": table.name, "reason": "empty_range"},
-        )
-    return row_count
 
 
 def compile_spreadsheet(document: SpreadsheetDocument) -> SpreadsheetIR:

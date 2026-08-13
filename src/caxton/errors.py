@@ -1,4 +1,5 @@
 from caxton.core.errors import (
+    AggregateEvaluationError,
     BackendError,
     CaxtonError,
     CaxtonTypeError,
@@ -13,8 +14,10 @@ from caxton.core.errors import (
     DuplicateColumnError,
     ExperimentalFeatureWarning,
     FieldAccessError,
+    GroupingError,
     InvalidOperationError,
     Issue,
+    MatrixConflictError,
     MissingFieldError,
     Notification,
     PerformanceWarning,
@@ -28,6 +31,7 @@ from caxton.core.errors import (
 )
 
 __all__ = (
+    "AggregateEvaluationError",
     "BackendError",
     "CaxtonError",
     "CaxtonTypeError",
@@ -42,8 +46,10 @@ __all__ = (
     "DuplicateColumnError",
     "ExperimentalFeatureWarning",
     "FieldAccessError",
+    "GroupingError",
     "InvalidOperationError",
     "Issue",
+    "MatrixConflictError",
     "MissingFieldError",
     "Notification",
     "PerformanceWarning",

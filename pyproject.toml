@@ -108,6 +108,26 @@ type = "forbidden"
 source_modules = ["caxton._internal"]
 forbidden_modules = ["caxton.api"]
 
+[[tool.importlinter.contracts]]
+name = "Internal spreadsheet pipeline is layered"
+type = "layers"
+layers = [
+    "caxton._internal.compiler",
+    "caxton._internal.validation",
+    "caxton._internal.layout",
+    "caxton._internal.aggregation",
+    "caxton._internal.semantic",
+    "caxton._internal.data",
+]
+
+[[tool.importlinter.contracts]]
+name = "Bundled XLSX backends are independent"
+type = "independence"
+modules = [
+    "caxton._internal.backends.openpyxl",
+    "caxton._internal.backends.xlsxwriter",
+]
+
 [dependency-groups]
 dev = [
     "coverage>=7.15,<8.0",
@@ -118,7 +138,7 @@ dev = [
     "hypothesis>=6.165,<7.0",
     "import-linter>=2.13,<3.0",
     "mypy>=2.3,<3.0",
-    "openpyxl>=3.1.5,<4.0",
+    "types-openpyxl>=3.1.5.20260518,<3.2",
     "pip>=25,<27",
     "pytest>=9.1,<10.0",
     "pytest-benchmark>=5.2,<6.0",

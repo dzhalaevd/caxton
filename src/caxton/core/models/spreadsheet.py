@@ -22,7 +22,7 @@ from ._validation import (
 )
 from .columns import Column
 from .common import DocumentKind, DocumentMetadata, freeze_metadata
-from .expressions import Expression, _contains_aggregate
+from .expressions import Expression, contains_aggregate
 from .formulas import Formula, FormulaInput, TableReference, as_formula
 
 DEFAULT_OBJECT_WIDTH = 480
@@ -216,7 +216,7 @@ class Matrix:
             if dimension.excel_formula is not None or dimension.source is None:
                 message = "Matrix dimensions cannot use Excel formulas"
                 raise CaxtonValueError(message)
-            if isinstance(dimension.source, Expression) and _contains_aggregate(
+            if isinstance(dimension.source, Expression) and contains_aggregate(
                 dimension.source,
             ):
                 message = "Matrix dimensions must be non-aggregate expressions"

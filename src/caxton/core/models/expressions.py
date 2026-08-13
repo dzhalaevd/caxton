@@ -134,11 +134,12 @@ class BinaryExpression(Expression):
     right: Expression
 
 
-def _contains_aggregate(expression: Expression) -> bool:
+def contains_aggregate(expression: Expression) -> bool:
+    """Return whether an expression tree contains aggregate intent."""
     if isinstance(expression, AggregateExpr):
         return True
     if isinstance(expression, BinaryExpression):
-        return _contains_aggregate(expression.left) or _contains_aggregate(
+        return contains_aggregate(expression.left) or contains_aggregate(
             expression.right,
         )
     return False
@@ -165,13 +166,11 @@ class AggregateExpr(Expression):
             message = "Aggregate requires at least one input expression"
             raise CaxtonValueError(message)
         for expression in expressions:
-            if not isinstance(expression, Expression) or _contains_aggregate(
-                expression
-            ):
+            if not isinstance(expression, Expression) or contains_aggregate(expression):
                 message = "Aggregate inputs must be non-aggregate expressions"
                 raise CaxtonTypeError(message)
         if self.where is not None and (
-            not isinstance(self.where, Expression) or _contains_aggregate(self.where)
+            not isinstance(self.where, Expression) or contains_aggregate(self.where)
         ):
             message = "Aggregate filter must be a non-aggregate expression"
             raise CaxtonTypeError(message)
@@ -276,6 +275,7 @@ __all__ = (
     "LiteralExpression",
     "PathRef",
     "RowCallable",
+    "contains_aggregate",
     "field",
     "path",
     "ref",

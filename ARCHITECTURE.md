@@ -146,7 +146,8 @@ and merge ranges from resolved hierarchical scopes. Group hierarchy follows the
 physical declaration order of grouped columns. Dimension identity is strict:
 Python value types are distinct, and `Decimal` scale is preserved, so `True`,
 `1`, `Decimal("1")`, and `Decimal("1.0")` form separate groups. Sorted groups
-place `None` last for both ascending and descending order.
+place `None` last for both ascending and descending order. Float identity folds
+`-0.0` into `0.0` and treats all NaN values as one canonical group.
 
 `Matrix` is a spreadsheet-family block with typed row-dimension,
 column-dimension, and value columns. Expressions accepted by the convenience
@@ -183,6 +184,11 @@ shapes receive a second placement check before rendering. When a table height is
 unknown the flow cursor becomes invalid instead of guessing; the next implicit
 block raises an `UnsupportedFeatureError` and the document keeps working if
 every following block is anchored explicitly.
+
+Because structural validation does not consume rows, a clean `validate()`
+result cannot guarantee a clean render for shape-dependent blocks. Grouped-table
+or matrix preparation can consume a `ONE_SHOT` source before the second placement
+check discovers an overlap; after that failure, the source remains consumed.
 
 Charts bind to data through `table_ref(...)` plus semantic column ids. The
 compiler resolves them into physical ranges of the placed table, so a chart, like

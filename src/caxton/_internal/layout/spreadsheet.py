@@ -5,6 +5,7 @@ import math
 from collections.abc import Iterator, Mapping, Sequence
 
 from caxton._internal.aggregation import table_needs_preparation
+from caxton._internal.block_paths import iter_blocks_with_paths
 from caxton._internal.const import (
     _BLOCK_KINDS,
     _OVERLAPPING_KINDS,
@@ -162,8 +163,11 @@ def _place_sequence(  # noqa: WPS211
     cursor = _Cursor(row=origin.row, column=origin.column)
     span_rows: int | None = 0
     span_columns = 0
-    for index, block in enumerate(blocks):
-        item_path = f"{path}[{index}]"
+    for block, item_path in iter_blocks_with_paths(
+        blocks,
+        prefix=path,
+        recursive=False,
+    ):
         placement = _place_block(
             block,
             cursor=cursor,

@@ -191,6 +191,25 @@ def test_overlapping_blocks_are_reported() -> None:
     assert captured.value.issues[0].code == "block_overlap"
 
 
+def test_nested_anchor_uses_declared_block_path() -> None:
+    document = spreadsheet(
+        sheet(
+            "Report",
+            stack(
+                title("Valid"),
+                title("Invalid", anchor="not-a-cell"),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        validate(document)
+
+    assert captured.value.issues[0].path == (
+        'worksheet["Report"].block[0].item[1].anchor'
+    )
+
+
 def test_unknown_table_height_stops_the_flow() -> None:
     def lazy() -> Iterator[dict[str, object]]:
         yield {"day": "d0"}
@@ -214,7 +233,7 @@ def test_chart_column_must_exist() -> None:
         sheet(
             "Report",
             table(_rows(), text("day"), name="sales"),
-            chart(table_ref("sales"), x="day", y="missing"),
+            stack(chart(table_ref("sales"), x="day", y="missing")),
         ),
     )
 
@@ -222,6 +241,7 @@ def test_chart_column_must_exist() -> None:
         validate(document)
 
     assert captured.value.issues[0].code == "ColumnNotFoundError"
+    assert captured.value.issues[0].path == ('worksheet["Report"].block[1].item[0]')
 
 
 def test_rendered_artifact_contains_blocks() -> None:

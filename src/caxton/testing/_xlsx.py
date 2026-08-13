@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from io import BytesIO
+from typing import cast
 
-from openpyxl.cell.cell import Cell  # type: ignore[import-untyped]
-from openpyxl.worksheet.table import Table  # type: ignore[import-untyped]
-from openpyxl.worksheet.worksheet import Worksheet  # type: ignore[import-untyped]
+from openpyxl.cell.cell import Cell, MergedCell
+from openpyxl.worksheet.table import Table
+from openpyxl.worksheet.worksheet import Worksheet
 
 from ._artifact import (
     ArtifactCell,
@@ -46,7 +47,7 @@ def inspect_xlsx(payload: bytes, *, source: str) -> SpreadsheetArtifact:
 
 
 def _inspect_workbook(payload: bytes) -> SpreadsheetArtifact:
-    from openpyxl import load_workbook  # type: ignore[import-untyped]  # noqa: PLC0415
+    from openpyxl import load_workbook  # noqa: PLC0415
 
     workbook = load_workbook(BytesIO(payload))
     try:
@@ -87,11 +88,11 @@ def _inspect_worksheet(worksheet: Worksheet) -> ArtifactWorksheet:
     )
 
 
-def _is_observed(cell: Cell) -> bool:
+def _is_observed(cell: Cell | MergedCell) -> bool:
     return cell.value is not None or cell.has_style or cell.hyperlink is not None
 
 
-def _inspect_cell(cell: Cell) -> ArtifactCell:
+def _inspect_cell(cell: Cell | MergedCell) -> ArtifactCell:
     formula = str(cell.value) if cell.data_type == "f" else None
     hyperlink = cell.hyperlink
     hyperlink_target = None
@@ -159,11 +160,16 @@ def _fill_color(fill: object) -> str | None:
 
 
 def _inspect_table(table: Table) -> ArtifactTable:
-    from openpyxl.utils import (  # type: ignore[import-untyped]  # noqa: PLC0415
-        range_boundaries,
-    )
+    from openpyxl.utils import range_boundaries  # noqa: PLC0415
 
-    min_column, min_row, max_column, max_row = range_boundaries(table.ref)
+    boundaries = range_boundaries(table.ref)
+    if not all(isinstance(boundary, int) for boundary in boundaries):
+        message = f"Table {table.displayName!r} has a non-cell range"
+        raise ArtifactInspectionError(message, context={"range": table.ref})
+    min_column, min_row, max_column, max_row = cast(
+        "tuple[int, int, int, int]",
+        boundaries,
+    )
     column_titles = tuple(column.name for column in table.tableColumns)
     expected_columns = max_column - min_column + 1
     if len(column_titles) != expected_columns:
