@@ -2,9 +2,9 @@ import dataclasses
 
 import pytest
 
-from formata import duration, link, money, time
-from formata.core.formatting import decimal_format
-from formata.core.types import (
+from caxton import duration, link, money, time
+from caxton.core.formatting import decimal_format
+from caxton.core.types import (
     Boolean,
     Date,
     DateTime,

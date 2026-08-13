@@ -8,6 +8,6 @@ package post-processing and writes ``output/monthly_sales_report.xlsx`` without
 mutating the source template. A namespaced OpenPyXL hook may configure the print
 area, but no backend-native object enters the semantic model.
 
-This remains documentation-only until Formata exposes template inspection,
+This remains documentation-only until Caxton exposes template inspection,
 named anchors, row repetition, pivot binding and backend extension contracts.
 """

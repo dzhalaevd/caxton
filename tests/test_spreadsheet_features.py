@@ -4,7 +4,7 @@ from itertools import starmap
 
 import pytest
 
-from formata import (
+from caxton import (
     AggregateFunction,
     CorporateTheme,
     FillStyle,
@@ -33,17 +33,17 @@ from formata import (
     validate,
     when,
 )
-from formata._internal.backends.openpyxl import (  # noqa: PLC2701
+from caxton._internal.backends.openpyxl import (  # noqa: PLC2701
     OpenpyxlRenderer,
 )
-from formata._internal.backends.xlsxwriter import (  # noqa: PLC2701
+from caxton._internal.backends.xlsxwriter import (  # noqa: PLC2701
     XlsxWriterRenderer,
 )
-from formata._internal.requirements import (  # noqa: PLC2701
+from caxton._internal.requirements import (  # noqa: PLC2701
     analyze_spreadsheet_requirements,
 )
-from formata.core.formatting import money_format
-from formata.testing import (
+from caxton.core.formatting import money_format
+from caxton.testing import (
     Rows,
     SpreadsheetAssertionError,
     assert_spreadsheet_equal,

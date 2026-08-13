@@ -12,7 +12,7 @@ from fastapi import FastAPI, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from formata import (
+from caxton import (
     boolean,
     date,
     decimal,
@@ -25,7 +25,7 @@ from formata import (
     table,
     text,
 )
-from formata.core.models import SpreadsheetDocument
+from caxton.core.models import SpreadsheetDocument
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 DATABASE_PATH = Path(__file__).with_name("stations.sqlite3")
@@ -40,7 +40,7 @@ class Owner:
 
 @dataclass(frozen=True, slots=True)
 class Station:
-    """Repository DTO consumed by Formata without a framework adapter."""
+    """Repository DTO consumed by Caxton without a framework adapter."""
 
     id: int
     emis_code: str
@@ -181,7 +181,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Formata backend example", lifespan=lifespan)
+app = FastAPI(title="Caxton backend example", lifespan=lifespan)
 
 
 @app.post("/stations", status_code=status.HTTP_201_CREATED)

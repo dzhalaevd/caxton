@@ -3,10 +3,10 @@ from collections.abc import Callable, Iterator
 
 import pytest
 
-from formata import decimal, field, money, path, sheet, spreadsheet, table, text
-from formata.core.formatting import Alignment, money_format
-from formata.core.models import Column
-from formata.testing import (
+from caxton import decimal, field, money, path, sheet, spreadsheet, table, text
+from caxton.core.formatting import Alignment, money_format
+from caxton.core.models import Column
+from caxton.testing import (
     BlockKind,
     BlockSpec,
     ColumnSpec,

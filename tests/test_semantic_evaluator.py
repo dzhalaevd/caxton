@@ -3,7 +3,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from formata import (
+from caxton import (
     ColumnNotFoundError,
     CyclicColumnError,
     DataSourceIterationError,
@@ -20,10 +20,10 @@ from formata import (
     table,
     text,
 )
-from formata._internal.data import coerce_data_source  # noqa: PLC2701
-from formata._internal.semantic import SemanticRowEvaluator  # noqa: PLC2701
-from formata.core.models import Column
-from formata.testing import RowLayout, Rows, inspect_layout
+from caxton._internal.data import coerce_data_source  # noqa: PLC2701
+from caxton._internal.semantic import SemanticRowEvaluator  # noqa: PLC2701
+from caxton.core.models import Column
+from caxton.testing import RowLayout, Rows, inspect_layout
 
 
 @dataclasses.dataclass

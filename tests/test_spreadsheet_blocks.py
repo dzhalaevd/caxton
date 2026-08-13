@@ -3,7 +3,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from formata import (
+from caxton import (
     ValidationError,
     chart,
     decimal,
@@ -20,9 +20,9 @@ from formata import (
     title,
     validate,
 )
-from formata.core.errors import UnsupportedFeatureError
-from formata.core.models import ChartKind, SpreadsheetDocument
-from formata.testing import BlockKind, Rows, inspect_artifact, inspect_layout
+from caxton.core.errors import UnsupportedFeatureError
+from caxton.core.models import ChartKind, SpreadsheetDocument
+from caxton.testing import BlockKind, Rows, inspect_artifact, inspect_layout
 
 _PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFElEQVR4nGP8"

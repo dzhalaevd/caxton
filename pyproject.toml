@@ -3,7 +3,7 @@ requires = ["hatchling>=1.31,<2.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "formata"
+name = "caxton"
 dynamic = ["version"]
 description = "A declarative way to describe files in Python"
 readme = "README.md"
@@ -32,15 +32,15 @@ dependencies = [
 hypothesis = ["hypothesis>=6.165,<7.0"]
 
 [project.urls]
-Homepage = "https://github.com/dzhalaevd/formata"
-Repository = "https://github.com/dzhalaevd/formata"
-Issues = "https://github.com/dzhalaevd/formata/issues"
+Homepage = "https://github.com/dzhalaevd/caxton"
+Repository = "https://github.com/dzhalaevd/caxton"
+Issues = "https://github.com/dzhalaevd/caxton/issues"
 
 [tool.hatch.version]
-path = "src/formata/__version__.py"
+path = "src/caxton/__version__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/formata"]
+packages = ["src/caxton"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -62,7 +62,7 @@ dependency-groups = ["dev"]
 lint = "flake8 ."
 typecheck = "mypy"
 test = "pytest {args:tests}"
-api-compatibility = "griffe check --search src formata {args}"
+api-compatibility = "griffe check --search src caxton {args}"
 check = [
     "flake8 .",
     "mypy",
@@ -80,33 +80,33 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["formata"]
+source = ["caxton"]
 
 [tool.coverage.report]
 fail_under = 85
 show_missing = true
 
 [tool.deptry]
-known_first_party = ["formata"]
+known_first_party = ["caxton"]
 
 [tool.importlinter]
-root_packages = ["formata"]
+root_packages = ["caxton"]
 
 [[tool.importlinter.contracts]]
 name = "Core does not depend on orchestration"
 type = "forbidden"
-source_modules = ["formata.core"]
+source_modules = ["caxton.core"]
 forbidden_modules = [
-    "formata.api",
-    "formata._internal",
-    "formata.testing",
+    "caxton.api",
+    "caxton._internal",
+    "caxton.testing",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Internal implementation does not depend on public API"
 type = "forbidden"
-source_modules = ["formata._internal"]
-forbidden_modules = ["formata.api"]
+source_modules = ["caxton._internal"]
+forbidden_modules = ["caxton.api"]
 
 [dependency-groups]
 dev = [
@@ -131,7 +131,7 @@ dev = [
 [tool.towncrier]
 directory = "changelog.d"
 filename = "CHANGELOG.md"
-issue_format = "[#{issue}](https://github.com/dzhalaevd/formata/issues/{issue})"
+issue_format = "[#{issue}](https://github.com/dzhalaevd/caxton/issues/{issue})"
 orphan_prefix = "+"
 start_string = "<!-- towncrier release notes start -->\n"
 title_format = "## [{version}] - {project_date}"

@@ -1,7 +1,7 @@
 import base64
 from pathlib import Path
 
-from formata import (
+from caxton import (
     Style,
     StyleSheet,
     chart,
@@ -17,8 +17,8 @@ from formata import (
     title,
     write as write_spreadsheet,
 )
-from formata.core.models import SpreadsheetDocument
-from formata.testing import inspect_artifact, inspect_layout
+from caxton.core.models import SpreadsheetDocument
+from caxton.testing import inspect_artifact, inspect_layout
 
 LOGO = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFElEQVR4nGP8"

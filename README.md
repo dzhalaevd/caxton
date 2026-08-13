@@ -1,6 +1,6 @@
 <div align="center">
 
-# Formata
+# Caxton
 
 **Declarative document generation for Python**
 
@@ -32,7 +32,7 @@ renderers handle output formats and backend-specific details.
 ## Quick start
 
 ```python
-from formata import render, sheet, spreadsheet, table, text, write
+from caxton import render, sheet, spreadsheet, table, text, write
 
 rows = [{"name": "Ada Lovelace"}, {"name": "Grace Hopper"}]
 
@@ -51,8 +51,6 @@ result = render(report)
 write(report, "people.xlsx")
 ```
 
-For direct file output, use `write(report, "people.xlsx")`.
-
 More examples are available in the [example projects](example/README.md).
 
 ## :scroll: Licensing
@@ -68,21 +66,21 @@ If you find this project interesting, consider giving it a ⭐
 </div>
 
 
-[contributors-shield]: https://img.shields.io/github/contributors/dzhalaevd/formata.svg?style=for-the-badge
+[contributors-shield]: https://img.shields.io/github/contributors/dzhalaevd/caxton.svg?style=for-the-badge
 
-[contributors-url]: https://github.com/dzhalaevd/formata/graphs/contributors
+[contributors-url]: https://github.com/dzhalaevd/caxton/graphs/contributors
 
-[forks-shield]: https://img.shields.io/github/forks/dzhalaevd/formata.svg?style=for-the-badge
+[forks-shield]: https://img.shields.io/github/forks/dzhalaevd/caxton.svg?style=for-the-badge
 
-[forks-url]: https://github.com/dzhalaevd/formata/network/members
+[forks-url]: https://github.com/dzhalaevd/caxton/network/members
 
-[stars-shield]: https://img.shields.io/github/stars/dzhalaevd/formata.svg?style=for-the-badge
+[stars-shield]: https://img.shields.io/github/stars/dzhalaevd/caxton.svg?style=for-the-badge
 
-[stars-url]: https://github.com/dzhalaevd/formata/stargazers
+[stars-url]: https://github.com/dzhalaevd/caxton/stargazers
 
-[issues-shield]: https://img.shields.io/github/issues/dzhalaevd/formata.svg?style=for-the-badge
+[issues-shield]: https://img.shields.io/github/issues/dzhalaevd/caxton.svg?style=for-the-badge
 
-[issues-url]: https://github.com/dzhalaevd/formata/issues
+[issues-url]: https://github.com/dzhalaevd/caxton/issues
 
 [python-shield]: https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54
 

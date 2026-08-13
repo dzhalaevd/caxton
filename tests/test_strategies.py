@@ -1,9 +1,9 @@
 from hypothesis import given, settings
 
-from formata import validate
-from formata.core.models import SpreadsheetDocument
-from formata.testing import canonical_snapshot, inspect_spec
-from formata.testing.strategies import spreadsheet_documents
+from caxton import validate
+from caxton.core.models import SpreadsheetDocument
+from caxton.testing import canonical_snapshot, inspect_spec
+from caxton.testing.strategies import spreadsheet_documents
 
 
 @given(spreadsheet_documents())

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import xlsxwriter as xlsxwriter_engine  # type: ignore[import-untyped]
 
-from formata import (  # noqa: WPS347
+from caxton import (  # noqa: WPS347
     DataSourceConsumedError,
     DataSourceIterationError,
     ExecutionMode,
@@ -19,9 +19,9 @@ from formata import (  # noqa: WPS347
     text,
     write,
 )
-from formata._internal import requirements as requirements_module  # noqa: PLC2701
-from formata._internal.backends import xlsxwriter as xlsx_backend  # noqa: PLC2701
-from formata.core.protocols import Repeatability
+from caxton._internal import requirements as requirements_module  # noqa: PLC2701
+from caxton._internal.backends import xlsxwriter as xlsx_backend  # noqa: PLC2701
+from caxton.core.protocols import Repeatability
 
 
 class _UnknownSource:

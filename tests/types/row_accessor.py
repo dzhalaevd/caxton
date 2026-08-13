@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from formata.core.protocols import RowAccessor
+from caxton.core.protocols import RowAccessor
 
 
 class MappingAccessor:

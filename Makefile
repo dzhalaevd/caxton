@@ -7,10 +7,10 @@ GRIFFE_AGAINST := $(if $(strip $(API_BASELINE)),--against $(API_BASELINE),)
 validate: lint typecheck dependencies imports coverage
 
 api-compatibility:
-	griffe check --search src --format verbose $(GRIFFE_AGAINST) formata
+	griffe check --search src --format verbose $(GRIFFE_AGAINST) caxton
 
 benchmark:
-	pytest benchmarks/benchmark_data_sources.py --benchmark-only $(BENCHMARK_ARGS)
+	pytest tests/test_benchmark_*.py --benchmark-only $(BENCHMARK_ARGS)
 
 lint:
 	ruff check --no-fix

@@ -1,10 +1,10 @@
 [project]
-name = "formata-backend-example"
+name = "caxton-backend-example"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.116,<1.0",
-    "formata",
+    "caxton",
     "pydantic>=2.11,<3.0",
     "uvicorn[standard]>=0.35,<1.0",
 ]
@@ -13,4 +13,4 @@ dependencies = [
 package = false
 
 [tool.uv.sources]
-formata = { path = "../..", editable = true }
+caxton = { path = "../..", editable = true }

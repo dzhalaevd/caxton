@@ -1,7 +1,7 @@
 from typing import assert_type
 
-from formata import absolute, col, decimal, sheet_ref, table_ref
-from formata.core.models import (
+from caxton import absolute, col, decimal, sheet_ref, table_ref
+from caxton.core.models import (
     CellReference,
     Column,
     FormulaBinary,

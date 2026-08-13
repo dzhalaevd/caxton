@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from formata import sheet, spreadsheet, table, text
-from formata.testing import (
+from caxton import sheet, spreadsheet, table, text
+from caxton.testing import (
     SNAPSHOT_SCHEMA,
     Difference,
     DifferenceKind,

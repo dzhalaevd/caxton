@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from formata import (
+from caxton import (
     UnsupportedFeatureError,
     ValidationError,
     col,
@@ -20,12 +20,12 @@ from formata import (
     validate,
     write as write_spreadsheet,
 )
-from formata.core.models import (
+from caxton.core.models import (
     CellReference,
     FormulaBinary,
     RangeReference,
 )
-from formata.testing import (
+from caxton.testing import (
     Rows,
     SpreadsheetAssertionError,
     assert_spreadsheet_equal,

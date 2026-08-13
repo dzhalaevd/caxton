@@ -1,6 +1,6 @@
 import pytest
 
-from formata._internal.normalization import (  # noqa: PLC2701
+from caxton._internal.normalization import (  # noqa: PLC2701
     format_cell_address,
     parse_cell_address,
 )

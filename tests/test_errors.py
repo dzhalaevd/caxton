@@ -1,13 +1,13 @@
 import pytest
 
-from formata._internal.rendering import run_backend  # noqa: PLC2701
-from formata.errors import (
+from caxton._internal.rendering import run_backend  # noqa: PLC2701
+from caxton.errors import (
     BackendError,
+    CaxtonError,
+    CaxtonTypeError,
+    CaxtonValueError,
     ColumnNotFoundError,
     DuplicateColumnError,
-    FormataError,
-    FormataTypeError,
-    FormataValueError,
     InvalidOperationError,
     Issue,
     Notification,
@@ -20,16 +20,16 @@ from formata.errors import (
 def test_error_hierarchy() -> None:
     assert issubclass(ColumnNotFoundError, SchemaError)
     assert issubclass(SchemaError, ValidationError)
-    assert issubclass(ValidationError, FormataError)
-    assert issubclass(RenderError, FormataError)
-    assert issubclass(InvalidOperationError, FormataError)
+    assert issubclass(ValidationError, CaxtonError)
+    assert issubclass(RenderError, CaxtonError)
+    assert issubclass(InvalidOperationError, CaxtonError)
 
 
 def test_argument_error_hierarchy() -> None:
-    assert issubclass(FormataTypeError, FormataError)
-    assert issubclass(FormataTypeError, TypeError)
-    assert issubclass(FormataValueError, FormataError)
-    assert issubclass(FormataValueError, ValueError)
+    assert issubclass(CaxtonTypeError, CaxtonError)
+    assert issubclass(CaxtonTypeError, TypeError)
+    assert issubclass(CaxtonValueError, CaxtonError)
+    assert issubclass(CaxtonValueError, ValueError)
 
 
 def test_missing_column_context() -> None:

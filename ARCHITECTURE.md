@@ -1,6 +1,6 @@
-# Formata Architecture
+# Caxton Architecture
 
-Formata is a declarative document-generation library. The user describes the
+Caxton is a declarative document-generation library. The user describes the
 content and meaning of a document, and the compiler and the selected renderer
 transform this specification into the target artifact. XLSX is the first primary
 format, but its engines and constraints do not define the Core.
@@ -24,7 +24,7 @@ execution: a semantic node can reference a stateful or one-shot `DataSource`.
 ## Public boundaries and dependencies
 
 ```text
-formata                 short public facade
+caxton                 short public facade
 ├── api                 factories and render/write/validate
 ├── core
 │   ├── models          immutable semantic nodes
@@ -132,21 +132,54 @@ only in the artifact. A range reference requires a known `row_count`: the
 compiler does not perform a hidden pass over a one-shot or `UNKNOWN` source to
 calculate the end of the range.
 
+  Aggregation is expression intent represented by backend-independent
+`AggregateExpr(function, expressions, where, default)`. The initial execution adapter
+passes one Python value sequence per expression to an arbitrary Python callable;
+it does not normalize inputs or remove `None`. An ungrouped aggregate uses the
+whole source as one scope, while grouped tables use one leaf group per scope.
+When filtering leaves a scope empty, an explicitly declared `default` is returned
+without invoking the callable; without a default, the callable retains authority
+over the empty input and any failure is reported as `AggregateEvaluationError`.
+Grouping belongs to `SpreadsheetTable` columns rather than a separate public
+`GroupedTable`; order defaults to first seen, and the compiler derives exact row
+and merge ranges from resolved hierarchical scopes. Group hierarchy follows the
+physical declaration order of grouped columns. Dimension identity is strict:
+Python value types are distinct, and `Decimal` scale is preserved, so `True`,
+`1`, `Decimal("1")`, and `Decimal("1.0")` form separate groups. Sorted groups
+place `None` last for both ascending and descending order.
+
+`Matrix` is a spreadsheet-family block with typed row-dimension,
+column-dimension, and value columns. Expressions accepted by the convenience
+factory are normalized into columns; explicit columns carry semantic type,
+format, style, width, and stable ids. Its compiler path discovers dynamic keys
+in first-seen order, uses the same strict identity as grouping, and requires an
+`AggregateExpr` when more than one source value resolves to a cell. Generated
+value columns expose their dimension key through the public testing layout, so
+tests do not depend on compiler-generated ids. Grouped tables and matrices
+buffer semantic rows internally and
+consume `ONE_SHOT` sources exactly once. They are not append-only streaming
+plans. `DataSource` remains responsible only for row ingestion and never gains
+`groupby`, pivot, or aggregation operations.
+
 ## Spreadsheet block layout
 
 A worksheet holds a closed set of spreadsheet blocks: `SpreadsheetTable`,
-`Title`, `Spacer`, `Image`, `Chart`, and the `Stack` flow container. Blocks
-carry intent only; the compiler owns placement. A dedicated layout pass walks
-the declared blocks in order, measures each one, and assigns a physical anchor
-and occupied range before any IR node is built. Measurements are structural:
-a table is one header row plus its non-consuming `row_count` plus an optional
-footer row, a title is one row, and images and charts convert their declared
-pixel size into whole cells.
+`Matrix`, `Title`, `Spacer`, `Image`, `Chart`, and the `Stack` flow container.
+Blocks carry intent only; the compiler owns placement. A dedicated layout pass
+walks the declared blocks in order, measures each one, and assigns a physical
+anchor and occupied range before any IR node is built. Ordinary-table
+measurements are structural: one header row plus non-consuming `row_count` plus
+an optional footer row. Grouped tables and matrices are measured from their
+single-pass prepared result because their output shape differs from the input.
+Titles occupy one row; images and charts convert their declared pixel size into
+whole cells.
 
 Explicit `anchor` remains the escape hatch. An anchored block keeps its declared
 position and still advances the flow cursor, so a following implicit block never
-lands inside it. Overlaps between placed blocks are reported as `block_overlap`
-validation issues rather than silently overwritten cells. When a table height is
+lands inside it. Overlaps between statically measurable blocks are reported as
+`block_overlap` validation issues before any source is consumed, even when the
+worksheet also contains a shape-dependent grouped table or matrix. Prepared
+shapes receive a second placement check before rendering. When a table height is
 unknown the flow cursor becomes invalid instead of guessing; the next implicit
 block raises an `UnsupportedFeatureError` and the document keeps working if
 every following block is anchored explicitly.
@@ -159,8 +192,11 @@ A source declares its repeatability as `REITERABLE`, `ONE_SHOT`, or `UNKNOWN`.
 Coercion and structural validation do not read rows. A second pass over a
 one-shot source raises `DataSourceConsumedError`; an unknown source does not
 permit a hidden repeated pass. A multi-pass feature is rejected before writing
-or uses an explicit documented buffering policy. Data validation and inspection
-read rows only with an explicit `sample`/`full` scope and limit.
+or uses an explicit documented buffering policy. Data validation and semantic
+inspection never read rows implicitly. Ordinary layout inspection reads rows
+only with an explicit `sample`/`full` scope; grouped/matrix layout compilation
+still performs its documented single-pass buffering because shape resolution
+requires the complete source.
 
 An error while retrieving the next row from an iterator is a
 `DataSourceIterationError`, not a backend failure, and it preserves the index of
@@ -188,25 +224,25 @@ create-new. Constant-memory/write-only is a renderer execution plan with
 verifiable capabilities, not a separate document type. Backend hooks and
 post-processing are explicit, namespaced, and absent from the Core model.
 
-Formata ships as a single distribution. XlsxWriter and OpenPyXL are part of the
+Caxton ships as a single distribution. XlsxWriter and OpenPyXL are part of the
 base runtime dependencies, but they do not form a shared rendering pipeline:
 the built-in XLSX artifact inspector also uses OpenPyXL. Official backends ship
-with `formata`; they do not use separate packages.
+with `caxton`; they do not use separate packages.
 
 ## Validation, diagnostics, and testing
 
 Validation has three levels: construction-time local invariants, structural
 cross-node rules without data reads, and explicitly requested data validation.
-All library errors inherit from `FormataError`; the public categories distinguish
+All library errors inherit from `CaxtonError`; the public categories distinguish
 validation, data source/evaluation, invalid operation, unsupported feature, and
 render/backend failures. Errors contain a semantic path and structured context,
 and exception chaining preserves the original cause. Multiple validation issues
 are aggregated; non-fatal issues use `warnings` categories. Type and value
 errors in the public construction API use the Python-compatible `TypeError` and
-`ValueError` subclasses `FormataTypeError` and `FormataValueError`, so callers
-can also catch them through `FormataError`.
+`ValueError` subclasses `CaxtonTypeError` and `CaxtonValueError`, so callers
+can also catch them through `CaxtonError`.
 
-`formata.testing` is a stable, pytest-independent API with three levels:
+`caxton.testing` is a stable, pytest-independent API with three levels:
 
 - semantic inspection by IDs, domain-aware comparison, and canonical snapshots;
 - read-only family layout inspection with an explicit row scope;

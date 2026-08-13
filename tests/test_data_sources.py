@@ -5,7 +5,7 @@ from typing import NamedTuple
 
 import pytest
 
-from formata import (
+from caxton import (
     DataSourceConsumedError,
     FieldAccessError,
     MissingFieldError,
@@ -13,12 +13,12 @@ from formata import (
     table,
     text,
 )
-from formata._internal.data import (  # noqa: PLC2701
+from caxton._internal.data import (  # noqa: PLC2701
     AttributeRowAccessor,
     MappingRowAccessor,
     coerce_data_source,
 )
-from formata.core.protocols import (
+from caxton.core.protocols import (
     DataSource,
     DataSourceInfo,
     Repeatability,

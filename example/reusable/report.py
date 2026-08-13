@@ -6,7 +6,7 @@ import datetime as dt
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
-from formata import (  # noqa: WPS347
+from caxton import (  # noqa: WPS347
     date,
     money,
     sheet,
@@ -15,7 +15,7 @@ from formata import (  # noqa: WPS347
     text,
     write,
 )
-from formata.core.models import SpreadsheetDocument
+from caxton.core.models import SpreadsheetDocument
 
 
 def sales_report(

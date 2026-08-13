@@ -3,9 +3,9 @@ import typing
 from collections.abc import Callable, Iterator
 from types import ModuleType
 
-import formata
-from formata import testing as testing_api
-from formata.core import (
+import caxton
+from caxton import testing as testing_api
+from caxton.core import (
     errors as core_errors,
     formatting,
     ir,
@@ -14,12 +14,12 @@ from formata.core import (
     rendering,
     types,
 )
-from formata.testing import strategies as testing_strategies
+from caxton.testing import strategies as testing_strategies
 
 AnnotationTarget = Callable[..., object]
 
 _PUBLIC_MODULES = (
-    formata,
+    caxton,
     core_errors,
     formatting,
     ir,
@@ -73,7 +73,7 @@ def _public_annotation_targets() -> Iterator[tuple[str, AnnotationTarget]]:
 
 
 def test_package_can_be_imported() -> None:
-    assert formata is not None
+    assert caxton is not None
 
 
 def test_public_annotations_resolve_at_runtime() -> None:

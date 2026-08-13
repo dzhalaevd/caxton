@@ -2,7 +2,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from formata import (
+from caxton import (
     DataSourceConsumedError,
     ValidationError,
     decimal,
@@ -14,12 +14,12 @@ from formata import (
     text,
     validate,
 )
-from formata.core.formatting import Alignment, money_format
-from formata.core.ir import (
+from caxton.core.formatting import Alignment, money_format
+from caxton.core.ir import (
     SPREADSHEET_IR_VERSION,
     SpreadsheetRowIR,
 )
-from formata.testing import Rows, inspect_layout
+from caxton.testing import Rows, inspect_layout
 
 
 def test_validation_collects_schema_issues() -> None:

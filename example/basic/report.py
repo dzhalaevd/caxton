@@ -9,7 +9,7 @@ from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
 
-from formata import (  # noqa: WPS347
+from caxton import (  # noqa: WPS347
     money,
     ref,
     render,
@@ -20,9 +20,9 @@ from formata import (  # noqa: WPS347
     validate,
     write,
 )
-from formata.core.formatting import money_format
-from formata.core.models import Column, SpreadsheetDocument
-from formata.testing import Rows, inspect_artifact, inspect_layout, inspect_spec
+from caxton.core.formatting import money_format
+from caxton.core.models import Column, SpreadsheetDocument
+from caxton.testing import Rows, inspect_artifact, inspect_layout, inspect_spec
 
 SALES = (
     {"product": "Coffee", "revenue": Decimal(1250), "cost": Decimal(700)},

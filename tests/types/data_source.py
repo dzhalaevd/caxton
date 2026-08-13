@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from collections.abc import Iterator
 
-from formata.core.protocols import DataSource, DataSourceInfo, Repeatability
+from caxton.core.protocols import DataSource, DataSourceInfo, Repeatability
 
 
 @dataclasses.dataclass(frozen=True)

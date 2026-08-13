@@ -3,7 +3,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from formata import (
+from caxton import (
     DataSourceConsumedError,
     decimal,
     field,
@@ -15,8 +15,8 @@ from formata import (
     table,
     text,
 )
-from formata.core.formatting import Alignment, decimal_format
-from formata.core.models import (
+from caxton.core.formatting import Alignment, decimal_format
+from caxton.core.models import (
     BinaryExpression,
     Column,
     FieldRef,
@@ -24,9 +24,9 @@ from formata.core.models import (
     PathRef,
     SpreadsheetDocument,
 )
-from formata.core.protocols import DataSourceInfo, Repeatability
-from formata.core.types import Decimal
-from formata.testing import inspect_spec
+from caxton.core.protocols import DataSourceInfo, Repeatability
+from caxton.core.types import Decimal
+from caxton.testing import inspect_spec
 
 
 class _MutableLeaf:

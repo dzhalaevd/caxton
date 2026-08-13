@@ -9,8 +9,8 @@ from typing import ClassVar
 
 import pytest
 
-from formata import (  # noqa: WPS347
-    FormataError,
+from caxton import (  # noqa: WPS347
+    CaxtonError,
     RenderError,
     UnsupportedFeatureError,
     ValidationError,
@@ -32,15 +32,15 @@ from formata import (  # noqa: WPS347
     time,
     write,
 )
-from formata._internal import operations as operations_module  # noqa: PLC2701
-from formata._internal.compiler import spreadsheet as compiler_module  # noqa: PLC2701
-from formata._internal.resolver import BuiltinRendererResolver  # noqa: PLC2701
-from formata._internal.validation import validate_spreadsheet  # noqa: PLC2701
-from formata.core.formatting import money_format
-from formata.core.ir import SPREADSHEET_IR_VERSION
-from formata.core.models import DocumentKind, SpreadsheetDocument
-from formata.core.protocols import OutputSink
-from formata.core.rendering import (
+from caxton._internal import operations as operations_module  # noqa: PLC2701
+from caxton._internal.compiler import spreadsheet as compiler_module  # noqa: PLC2701
+from caxton._internal.resolver import BuiltinRendererResolver  # noqa: PLC2701
+from caxton._internal.validation import validate_spreadsheet  # noqa: PLC2701
+from caxton.core.formatting import money_format
+from caxton.core.ir import SPREADSHEET_IR_VERSION
+from caxton.core.models import DocumentKind, SpreadsheetDocument
+from caxton.core.protocols import OutputSink
+from caxton.core.rendering import (
     RENDERER_CONTRACT_VERSION,
     RenderContext,
     RendererCapabilities,
@@ -49,7 +49,7 @@ from formata.core.rendering import (
     RequiredCapabilities,
     WorkbookOperation,
 )
-from formata.testing import ArtifactInspectionError, inspect_artifact
+from caxton.testing import ArtifactInspectionError, inspect_artifact
 
 _RENDERER_FEATURES = frozenset(
     (
@@ -442,10 +442,10 @@ def test_render_validates_structure_once(monkeypatch: pytest.MonkeyPatch) -> Non
     assert calls == 1
 
 
-def test_construction_uses_formata_errors() -> None:
-    with pytest.raises(FormataError):
+def test_construction_uses_caxton_errors() -> None:
+    with pytest.raises(CaxtonError):
         text("name").width(0)
-    with pytest.raises(FormataError):
+    with pytest.raises(CaxtonError):
         text("name").align("diagonal")
-    with pytest.raises(FormataError):
+    with pytest.raises(CaxtonError):
         spreadsheet(metadata={"unsupported": object()})

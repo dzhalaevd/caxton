@@ -583,7 +583,7 @@ wheels = [
 ]
 
 [[package]]
-name = "formata"
+name = "caxton"
 source = { editable = "." }
 dependencies = [
     { name = "openpyxl" },

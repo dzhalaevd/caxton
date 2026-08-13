@@ -8,7 +8,7 @@ VERSION_RE = re.compile(
     r'^__version__[ \t]*=[ \t]*"(?P<version>\d+\.\d+\.\d+)"[ \t]*$',
     re.MULTILINE,
 )
-DEFAULT_VERSION_FILE = Path("src/formata/__version__.py")
+DEFAULT_VERSION_FILE = Path("src/caxton/__version__.py")
 
 
 def bump_version(version: str, part: str) -> str:

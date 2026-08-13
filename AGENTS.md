@@ -1,6 +1,6 @@
 # Repository guide for agents
 
-Formata is a typed, declarative Python library for building documents. The
+Caxton is a typed, declarative Python library for building documents. The
 current production path is spreadsheet → XLSX; other families and advanced XLSX
 features may be specified but not implemented.
 
@@ -36,7 +36,7 @@ features may be specified but not implemented.
   `REITERABLE`/`ONE_SHOT`/`UNKNOWN` behavior and reject hidden extra passes.
 - Resolve requirements, workbook operation, capabilities, and renderer
   compatibility before opening or writing the target.
-- Raise stable `FormataError` subclasses with semantic context and preserve
+- Raise stable `CaxtonError` subclasses with semantic context and preserve
   implementation exceptions through chaining.
 
 ## Implementation workflow
@@ -86,11 +86,11 @@ backend example has an independent environment under `example/backend`.
 
 ## Tests and examples
 
-- Test public behavior through `formata`/`formata.api`; import `_internal` only
+- Test public behavior through `caxton`/`caxton.api`; import `_internal` only
   for an explicitly internal contract test.
 - Add typing fixtures under `tests/typing` when changing protocols or public
   generic signatures.
-- Use `formata.testing` semantic and layout views for structural assertions;
+- Use `caxton.testing` semantic and layout views for structural assertions;
   inspect the finished artifact when renderer output matters.
 - One-shot tests must prove when the source is first consumed and that a second
   pass raises the focused error instead of silently returning no rows.

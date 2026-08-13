@@ -6,7 +6,7 @@ from typing import cast
 import pytest
 from pytest_benchmark.fixture import BenchmarkFixture
 
-from formata import data_source
+from caxton import data_source
 
 Row = dict[str, int]
 MaterializedRows = list[Row]
@@ -21,7 +21,7 @@ def _direct_list_access(rows: MaterializedRows) -> int:
     return sum(row["value"] for row in rows)
 
 
-def _formata_list_access(rows: MaterializedRows) -> int:
+def _caxton_list_access(rows: MaterializedRows) -> int:
     source = data_source(rows)
     values = (source.get_value(row, "value") for row in source.iter_rows())
     return sum(cast("Iterator[int]", values))
@@ -36,7 +36,7 @@ def _direct_generator_access(row_count: int) -> int:
     return sum(row["value"] for row in _rows_iterator(row_count))
 
 
-def _formata_generator_access(row_count: int) -> int:
+def _caxton_generator_access(row_count: int) -> int:
     source = data_source(_rows_iterator(row_count))
     values = (source.get_value(row, "value") for row in source.iter_rows())
     return sum(cast("Iterator[int]", values))
@@ -50,8 +50,8 @@ def materialized_rows() -> MaterializedRows:
 @pytest.mark.benchmark(group="list-of-dicts")
 @pytest.mark.parametrize(
     "operation",
-    [_direct_list_access, _formata_list_access],
-    ids=("direct-python", "formata-data-source"),
+    [_direct_list_access, _caxton_list_access],
+    ids=("direct-python", "caxton-data-source"),
 )
 def test_materialized_mapping_field_access(
     benchmark: BenchmarkFixture,
@@ -66,8 +66,8 @@ def test_materialized_mapping_field_access(
 @pytest.mark.benchmark(group="one-shot-generator")
 @pytest.mark.parametrize(
     "operation",
-    [_direct_generator_access, _formata_generator_access],
-    ids=("direct-python", "formata-data-source"),
+    [_direct_generator_access, _caxton_generator_access],
+    ids=("direct-python", "caxton-data-source"),
 )
 def test_one_shot_generator_field_access(
     benchmark: BenchmarkFixture,
