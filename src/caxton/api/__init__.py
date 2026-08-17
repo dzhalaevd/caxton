@@ -36,6 +36,8 @@ from caxton.core.models import (
     Grouping,
     GroupOrder,
     Matrix,
+    TemplateRepeat,
+    TemplateSpecification,
     Total,
     Totals,
     absolute,
@@ -74,6 +76,7 @@ from .spreadsheet import (  # noqa: WPS347
     table,
     title,
 )
+from .templates import repeat, template
 
 __all__ = (
     "AggregateExpr",
@@ -103,6 +106,8 @@ __all__ = (
     "PercentageFormat",
     "Style",
     "StyleSheet",
+    "TemplateRepeat",
+    "TemplateSpecification",
     "TimeFormat",
     "Total",
     "Totals",
@@ -131,6 +136,7 @@ __all__ = (
     "percentage_format",
     "ref",
     "render",
+    "repeat",
     "sheet",
     "sheet_ref",
     "spacer",
@@ -138,6 +144,7 @@ __all__ = (
     "stack",
     "table",
     "table_ref",
+    "template",
     "text",
     "time",
     "time_format",

@@ -13,6 +13,7 @@ from caxton.core.models import (
     Chart,
     ChartKind,
     Column,
+    ColumnRef,
     ConditionalRule,
     Expression,
     FieldRef,
@@ -26,6 +27,8 @@ from caxton.core.models import (
     Stack,
     TableData,
     TableReference,
+    TemplateRepeat,
+    TemplateSpecification,
     Title,
     Total,
     Totals,
@@ -50,6 +53,7 @@ def table(  # noqa: WPS211
     autofilter: bool = False,
     freeze_header: bool = False,
     auto_width: bool = False,
+    into: ColumnRef | TemplateRepeat | None = None,
 ) -> SpreadsheetTable:
     """Create a spreadsheet table without consuming its row source.
 
@@ -64,6 +68,7 @@ def table(  # noqa: WPS211
         data=TableData(source=source, columns=tuple(columns)),
         name=name,
         anchor=anchor,
+        into=into,
         style=style,
         header_style=header_style,
         footer=_resolve_footer(footer),
@@ -264,6 +269,7 @@ def spreadsheet(
     metadata: Mapping[str, Any] | None = None,
     styles: StyleSheet | Mapping[str, Style] | None = None,
     theme: DocumentTheme | None = None,
+    template: TemplateSpecification | None = None,  # noqa: WPS125
 ) -> SpreadsheetDocument:
     """Create a spreadsheet document from declared worksheets.
 
@@ -276,6 +282,7 @@ def spreadsheet(
         metadata={} if metadata is None else metadata,
         styles=style_sheet,
         theme=theme or DocumentTheme(),
+        template=template,
     )
 
 

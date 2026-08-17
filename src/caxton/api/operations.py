@@ -4,7 +4,7 @@ from caxton._internal.operations import render_document, write_document
 from caxton._internal.validation import validate_spreadsheet
 from caxton.core.ir import SpreadsheetIR
 from caxton.core.models import SpreadsheetDocument
-from caxton.core.protocols import OutputTarget, Renderer
+from caxton.core.protocols import OutputTarget, Renderer, TemplateRenderer
 from caxton.core.rendering import ExecutionMode, RenderResult
 
 
@@ -19,7 +19,7 @@ def render(
     format: str = "xlsx",  # noqa: A002
     backend: str | None = None,
     mode: ExecutionMode | str = ExecutionMode.AUTO,
-    renderer: Renderer[SpreadsheetIR] | None = None,
+    renderer: Renderer[SpreadsheetIR] | TemplateRenderer[SpreadsheetIR] | None = None,
 ) -> RenderResult:
     """Render a spreadsheet document and return its artifact bytes.
 
@@ -42,7 +42,7 @@ def write(  # noqa: WPS211
     format: str | None = None,  # noqa: A002
     backend: str | None = None,
     mode: ExecutionMode | str = ExecutionMode.AUTO,
-    renderer: Renderer[SpreadsheetIR] | None = None,
+    renderer: Renderer[SpreadsheetIR] | TemplateRenderer[SpreadsheetIR] | None = None,
 ) -> RenderResult:
     """Render a spreadsheet document into a path or binary buffer.
 

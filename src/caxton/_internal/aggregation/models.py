@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
+from typing import Self
 
 from caxton.core.formatting import Alignment, DisplayFormat, StyleInput
 from caxton.core.models import Column
@@ -32,18 +33,36 @@ class PreparedColumn:
     auto_width: bool = False
     matrix_key: tuple[CellValue, ...] | None = None
 
+    @classmethod
+    def from_column(cls, column: Column) -> Self:
+        """Copy renderer-neutral column metadata from semantic intent.
+
+        Returns:
+            A prepared column detached from the public semantic node.
+        """
+        return cls(
+            id=column.id,
+            title=column.display_title,
+            semantic_type=column.semantic_type,
+            alignment=column.alignment,
+            width_hint=column.width_hint,
+            display_format=column.display_format,
+            style_ref=column.style_ref,
+            auto_width=column.auto_width,
+        )
+
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class PreparedTabularData:
     """Buffered output of grouped-table or matrix semantic execution."""
 
-    columns: Sequence[Column | PreparedColumn]
-    rows: Sequence[Sequence[CellValue]]
+    columns: Sequence[PreparedColumn]
+    rows: Iterable[Sequence[CellValue]]
+    row_count: int
     merges: Sequence[RelativeMerge] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "columns", tuple(self.columns))
-        object.__setattr__(self, "rows", tuple(tuple(row) for row in self.rows))
         object.__setattr__(self, "merges", tuple(self.merges))
 
 

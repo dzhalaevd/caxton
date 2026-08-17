@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from caxton._internal.backends._common import display_width, fitted_width
 from caxton._internal.backends.openpyxl.styles import apply_style, style_cell
 from caxton._internal.formulas import lower_excel_formula
 from caxton.core.ir import SpreadsheetTableIR
@@ -66,7 +67,7 @@ def _write_row(  # noqa: WPS211
     widths: list[int],
 ) -> None:
     for column, value in zip(table.columns, values, strict=True):
-        widths[column.offset] = max(widths[column.offset], _display_width(value))
+        widths[column.offset] = max(widths[column.offset], display_width(value))
         cell_value: CellValue = value
         if column.formula is not None:
             cell_value = lower_excel_formula(
@@ -102,14 +103,9 @@ def apply_auto_widths(
     for column in table.columns:
         if column.auto_width:
             letter = get_column_letter(start_column + column.offset)
-            worksheet.column_dimensions[letter].width = min(
-                80,
-                max(1, widths[column.offset] + 2),
+            worksheet.column_dimensions[letter].width = fitted_width(
+                widths[column.offset],
             )
-
-
-def _display_width(value: object) -> int:
-    return 0 if value is None else len(str(value))
 
 
 __all__ = ("apply_auto_widths", "apply_merges", "write_headers", "write_rows")

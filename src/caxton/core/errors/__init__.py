@@ -19,7 +19,17 @@ from .data import (
     SourceEvaluationError,
     UnsupportedDataSourceError,
 )
-from .rendering import BackendError, RenderError
+from .rendering import (
+    AmbiguousTemplateRefError,
+    BackendError,
+    IncompatibleTemplateRefError,
+    InvalidTemplateRefError,
+    MissingTemplateRefError,
+    RenderError,
+    TemplateError,
+    TemplateFormatError,
+    TemplateRefError,
+)
 from .validation import (
     ColumnNotFoundError,
     DuplicateColumnError,
@@ -38,6 +48,7 @@ from .warnings import (
 
 __all__ = (
     "AggregateEvaluationError",
+    "AmbiguousTemplateRefError",
     "BackendError",
     "CaxtonError",
     "CaxtonTypeError",
@@ -54,16 +65,22 @@ __all__ = (
     "ExperimentalFeatureWarning",
     "FieldAccessError",
     "GroupingError",
+    "IncompatibleTemplateRefError",
     "InvalidOperationError",
+    "InvalidTemplateRefError",
     "Issue",
     "MatrixConflictError",
     "MissingFieldError",
+    "MissingTemplateRefError",
     "Notification",
     "PerformanceWarning",
     "RenderError",
     "SchemaError",
     "ShapeError",
     "SourceEvaluationError",
+    "TemplateError",
+    "TemplateFormatError",
+    "TemplateRefError",
     "UnsupportedDataSourceError",
     "UnsupportedFeatureError",
     "ValidationError",

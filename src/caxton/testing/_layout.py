@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import dataclasses
-import decimal
 import enum
 import itertools
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Self
 
+from caxton._internal.aggregation.keys import dimension_token
 from caxton._internal.compiler import SpreadsheetCompiler
 from caxton._internal.formulas import lower_excel_formula
 from caxton._internal.normalization import format_cell_address, parse_cell_address
@@ -612,11 +612,7 @@ def _same_matrix_key(left: Sequence[object], right: Sequence[object]) -> bool:
 
 
 def _same_matrix_dimension(left: object, right: object) -> bool:
-    if left.__class__ is not right.__class__:
-        return False
-    if isinstance(left, decimal.Decimal) and isinstance(right, decimal.Decimal):
-        return left.as_tuple() == right.as_tuple()
-    return left == right
+    return dimension_token(left) == dimension_token(right)
 
 
 def _inspect_footer(footer: SpreadsheetFooterIR | None) -> FooterLayout | None:

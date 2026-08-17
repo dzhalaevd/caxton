@@ -86,7 +86,10 @@ def test_stream_plan_enables_xlsxwriter_option(
     workbook_class = xlsxwriter_engine.Workbook
     observed: dict[str, bool] = {}
 
-    def recording_workbook(filename: object, options: dict[str, bool]):  # type: ignore[no-untyped-def]
+    def recording_workbook(
+        filename: object,
+        options: dict[str, bool],
+    ) -> object:
         observed.update(options)
         return workbook_class(filename, options)
 

@@ -96,6 +96,8 @@ _TITLE_FONT_SIZES: Final[dict[int, float]] = {1: 16.0, 2: 14.0, 3: 12.0}
 
 ROW_HEIGHT_PIXELS: Final[int] = 20
 COLUMN_WIDTH_PIXELS: Final[int] = 64
+SPREADSHEET_MAX_ROWS: Final[int] = 1_048_576
+SPREADSHEET_MAX_COLUMNS: Final[int] = 16_384
 
 _BlockKindPair: TypeAlias = tuple[type, SpreadsheetBlockKind]
 

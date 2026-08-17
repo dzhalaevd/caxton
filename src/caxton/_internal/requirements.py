@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from caxton._internal.aggregation import table_needs_preparation
+from caxton._internal.shape import table_needs_preparation
 from caxton.core.formatting import DocumentTheme, Style, StyleInput
 from caxton.core.ir import SPREADSHEET_IR_VERSION
 from caxton.core.models import (
@@ -17,6 +17,7 @@ from caxton.core.models import (
     SpreadsheetDocument,
     SpreadsheetTable,
     Stack,
+    TemplateRepeat,
     Title,
     iter_blocks,
     iter_tables,
@@ -110,9 +111,8 @@ def analyze_spreadsheet_requirements(  # noqa: C901, WPS213
                     table_index=table_index,
                 ),
             )
-        for matrix_index, block in enumerate(blocks):
-            if not isinstance(block, Matrix):
-                continue
+        matrices = tuple(block for block in blocks if isinstance(block, Matrix))
+        for matrix_index, block in enumerate(matrices):
             requires_buffering = True
             features.update(("matrix", "table"))
             if block.anchor is not None:
@@ -136,11 +136,31 @@ def analyze_spreadsheet_requirements(  # noqa: C901, WPS213
                     table_index=len(tables) + matrix_index,
                 ),
             )
+    if document.template is not None:
+        features.update(("template", "template_references"))
+        if any(
+            table.into is not None
+            for worksheet in document.worksheets
+            for table in iter_tables(worksheet.blocks)
+        ):
+            features.add("xlsx_named_ranges")
+        if any(
+            isinstance(table.into, TemplateRepeat)
+            for worksheet in document.worksheets
+            for table in iter_tables(worksheet.blocks)
+        ):
+            features.add("template_repeat")
+        for extension in document.template.extensions:
+            features.update(extension.required_capabilities)
     return RequiredCapabilities(
         document_kind=DocumentKind.SPREADSHEET,
         ir_versions=frozenset((SPREADSHEET_IR_VERSION,)),
         features=frozenset(features),
-        workbook_operation=WorkbookOperation.CREATE_NEW_WORKBOOK,
+        workbook_operation=(
+            WorkbookOperation.CREATE_NEW_WORKBOOK
+            if document.template is None
+            else WorkbookOperation.USE_EXISTING_TEMPLATE
+        ),
         execution=ExecutionRequirements(
             mode=ExecutionMode(mode),
             data_sources=tuple(data_sources),

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Iterator, Mapping, Sequence
-from functools import singledispatchmethod
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from types import MappingProxyType
 from typing import Any, cast
 
@@ -15,10 +14,12 @@ from caxton.core.errors import (
     CyclicColumnError,
     DataSourceIterationError,
     FieldAccessError,
+    InvalidOperationError,
     MissingFieldError,
     SourceEvaluationError,
 )
 from caxton.core.models import (
+    AggregateExpr,
     BinaryExpression,
     CallableSource,
     Column,
@@ -52,8 +53,12 @@ class _RowContext:
     row: object
     row_index: int
     columns: Mapping[str, Column]
-    values: dict[str, CellValue] = dataclasses.field(default_factory=dict)
+    values: Mapping[str, CellValue] = dataclasses.field(default_factory=dict)
+    evaluated: dict[str, CellValue] = dataclasses.field(default_factory=dict)
     resolving: set[str] = dataclasses.field(default_factory=set)
+
+
+ExpressionHandler = Callable[[Any, _RowContext], object]
 
 
 class SemanticRowEvaluator:
@@ -61,8 +66,14 @@ class SemanticRowEvaluator:
 
     def __init__(self) -> None:
         self._path_accessor = DefaultRowAccessor()
-        self._evaluate_source_dispatch = self._evaluate_source
-        self._evaluate_expression_dispatch = self._evaluate_expression
+        self._expression_handlers: Mapping[type[object], ExpressionHandler] = {
+            FieldRef: cast("ExpressionHandler", self._field_expression),
+            PathRef: cast("ExpressionHandler", self._path_expression),
+            ColumnRef: cast("ExpressionHandler", self._column_expression),
+            LiteralExpression: cast("ExpressionHandler", self._literal_expression),
+            BinaryExpression: cast("ExpressionHandler", self._binary_expression),
+            AggregateExpr: cast("ExpressionHandler", self._aggregate_expression),
+        }
 
     def iter_rows(
         self,
@@ -92,7 +103,7 @@ class SemanticRowEvaluator:
         self,
         data_source: DataSource[Any],
         row: object,
-        columns: Sequence[Column],
+        columns: Sequence[Column] | Mapping[str, Column],
         expression: Expression,
         *,
         row_index: int,
@@ -107,10 +118,36 @@ class SemanticRowEvaluator:
             data_source=data_source,
             row=row,
             row_index=row_index,
-            columns={column.id: column for column in columns},
-            values={} if values is None else dict(values),
+            columns=_column_catalog(columns),
+            values={} if values is None else values,
         )
-        return self._evaluate_expression_dispatch(expression, context)
+        return self._evaluate_expression(expression, context)
+
+    def evaluate_expressions(  # noqa: WPS211
+        self,
+        data_source: DataSource[Any],
+        row: object,
+        columns: Sequence[Column] | Mapping[str, Column],
+        expressions: Sequence[Expression],
+        *,
+        row_index: int,
+        values: Mapping[str, CellValue] | None = None,
+    ) -> tuple[object, ...]:
+        """Evaluate several expressions in one reusable row context.
+
+        Returns:
+            Results in declaration order.
+        """
+        context = _RowContext(
+            data_source=data_source,
+            row=row,
+            row_index=row_index,
+            columns=_column_catalog(columns),
+            values={} if values is None else values,
+        )
+        return tuple(
+            self._evaluate_expression(expression, context) for expression in expressions
+        )
 
     def evaluate_row(
         self,
@@ -119,6 +156,7 @@ class SemanticRowEvaluator:
         columns: Sequence[Column],
         *,
         row_index: int,
+        column_catalog: Mapping[str, Column] | None = None,
     ) -> SemanticRow:
         """Evaluate one raw row against a semantic column schema.
 
@@ -129,11 +167,13 @@ class SemanticRowEvaluator:
             data_source=data_source,
             row=row,
             row_index=row_index,
-            columns={column.id: column for column in columns},
+            columns=(
+                _column_catalog(columns) if column_catalog is None else column_catalog
+            ),
         )
-        for column in columns:
-            self._evaluate_column(column.id, context)
-        ordered_values = {column.id: context.values[column.id] for column in columns}
+        ordered_values = {
+            column.id: self._evaluate_column(column.id, context) for column in columns
+        }
         return SemanticRow(index=row_index, values=ordered_values)
 
     def _evaluate_column(self, column_id: str, context: _RowContext) -> CellValue:
@@ -146,7 +186,9 @@ class SemanticRowEvaluator:
             CyclicColumnError: If the column takes part in a reference cycle.
             ColumnNotFoundError: If no column carries the requested identity.
         """
-        cached = context.values.get(column_id, _NOT_EVALUATED)
+        cached = context.evaluated.get(column_id, _NOT_EVALUATED)
+        if cached is _NOT_EVALUATED:
+            cached = context.values.get(column_id, _NOT_EVALUATED)
         if cached is not _NOT_EVALUATED:
             return cast("CellValue", cached)
         if column_id in context.resolving:
@@ -171,31 +213,36 @@ class SemanticRowEvaluator:
         context.resolving.add(column.id)
         try:
             value = normalize_cell_value(
-                self._evaluate_source_dispatch(column.source, context),
+                self._evaluate_source(column.source, context),
             )
         except (MissingFieldError, FieldAccessError) as error:
             enriched = _with_row_context(error, context, column.id)
             raise enriched from (error.__cause__ or error)
-        except (ColumnNotFoundError, CyclicColumnError, SourceEvaluationError):
+        except CaxtonError:
             raise
         except Exception as error:
             raise _source_error(error, context, column.id) from error
         finally:
             context.resolving.discard(column.id)
 
-        context.values[column.id] = value
+        context.evaluated[column.id] = value
         return value
 
-    @singledispatchmethod
-    def _evaluate_source(self, source: object, _context: _RowContext) -> object:
+    def _evaluate_source(self, source: object, context: _RowContext) -> object:
+        if isinstance(source, FieldRef):
+            return self._field_source(source, context)
+        if isinstance(source, PathRef):
+            return self._path_source(source, context)
+        if isinstance(source, CallableSource):
+            return self._callable_source(source, context)
+        if isinstance(source, Expression):
+            return self._evaluate_expression(source, context)
         message = f"Unsupported column source: {type(source).__name__}"
         raise TypeError(message)
 
-    @_evaluate_source.register
     def _field_source(self, source: FieldRef, context: _RowContext) -> object:
         return context.data_source.get_value(context.row, source.name)
 
-    @_evaluate_source.register
     def _path_source(self, source: PathRef, context: _RowContext) -> object:
         first, *remaining = source.segments
         value = context.data_source.get_value(context.row, first)
@@ -203,7 +250,6 @@ class SemanticRowEvaluator:
             value = self._path_accessor(value, segment)
         return value
 
-    @_evaluate_source.register
     def _callable_source(
         self,
         source: CallableSource,
@@ -211,24 +257,28 @@ class SemanticRowEvaluator:
     ) -> object:
         return source.function(context.row)
 
-    @_evaluate_source.register
-    def _expression_source(
-        self,
-        source: Expression,
-        context: _RowContext,
-    ) -> object:
-        return self._evaluate_expression_dispatch(source, context)
-
-    @singledispatchmethod
     def _evaluate_expression(
         self,
         expression: object,
-        _context: _RowContext,
+        context: _RowContext,
     ) -> object:
-        message = f"Unsupported expression: {type(expression).__name__}"
-        raise TypeError(message)
+        handler = self._expression_handlers.get(type(expression))
+        if handler is None:
+            message = f"Unsupported expression: {type(expression).__name__}"
+            raise TypeError(message)
+        return handler(expression, context)
 
-    @_evaluate_expression.register
+    def _aggregate_expression(
+        self,
+        _expression: AggregateExpr,
+        context: _RowContext,
+    ) -> object:
+        message = "Aggregate expressions cannot be evaluated in row scope"
+        raise InvalidOperationError(
+            message,
+            path=f"row[{context.row_index}].expression",
+        )
+
     def _field_expression(
         self,
         expression: FieldRef,
@@ -236,7 +286,6 @@ class SemanticRowEvaluator:
     ) -> object:
         return self._field_source(expression, context)
 
-    @_evaluate_expression.register
     def _path_expression(
         self,
         expression: PathRef,
@@ -244,7 +293,6 @@ class SemanticRowEvaluator:
     ) -> object:
         return self._path_source(expression, context)
 
-    @_evaluate_expression.register
     def _column_expression(
         self,
         expression: ColumnRef,
@@ -252,7 +300,6 @@ class SemanticRowEvaluator:
     ) -> object:
         return self._evaluate_column(expression.column_id, context)
 
-    @_evaluate_expression.register
     def _literal_expression(
         self,
         expression: LiteralExpression,
@@ -260,15 +307,22 @@ class SemanticRowEvaluator:
     ) -> object:
         return expression.value
 
-    @_evaluate_expression.register
     def _binary_expression(
         self,
         expression: BinaryExpression,
         context: _RowContext,
     ) -> object:
-        left = self._evaluate_expression_dispatch(expression.left, context)
-        right = self._evaluate_expression_dispatch(expression.right, context)
+        left = self._evaluate_expression(expression.left, context)
+        right = self._evaluate_expression(expression.right, context)
         return _BINARY_OPERATIONS[expression.operator](left, right)
+
+
+def _column_catalog(
+    columns: Sequence[Column] | Mapping[str, Column],
+) -> Mapping[str, Column]:
+    if isinstance(columns, Mapping):
+        return columns
+    return {column.id: column for column in columns}
 
 
 def _with_row_context(

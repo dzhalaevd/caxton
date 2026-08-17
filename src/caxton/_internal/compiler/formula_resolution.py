@@ -66,9 +66,9 @@ class FormulaCatalog:
             if table.name is not None
         )
         return cls(
-            by_name={location.table.name: location for location in locations},  # type: ignore[misc]
+            by_name={_location_name(location): location for location in locations},
             by_sheet_and_name={
-                (location.worksheet.name, location.table.name): location  # type: ignore[misc]
+                (location.worksheet.name, _location_name(location)): location
                 for location in locations
             },
         )
@@ -184,6 +184,14 @@ class FormulaCatalog:
         if reference.sheet_name is not None:
             return self.by_sheet_and_name[reference.sheet_name, reference.table_name]
         return self.by_name[reference.table_name]
+
+
+def _location_name(location: TableLocation) -> str:
+    name = location.table.name
+    if name is None:
+        message = "Formula catalog location must have a table name"
+        raise RuntimeError(message)
+    return name
 
 
 def resolve_column(location: TableLocation, column_id: str) -> ColumnLocation:

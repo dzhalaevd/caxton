@@ -4,7 +4,6 @@ import dataclasses
 import math
 from collections.abc import Iterator, Mapping, Sequence
 
-from caxton._internal.aggregation import table_needs_preparation
 from caxton._internal.block_paths import iter_blocks_with_paths
 from caxton._internal.const import (
     _BLOCK_KINDS,
@@ -13,6 +12,7 @@ from caxton._internal.const import (
     ROW_HEIGHT_PIXELS,
 )
 from caxton._internal.normalization import parse_cell_address
+from caxton._internal.shape import table_needs_preparation
 from caxton.core.errors import UnsupportedFeatureError
 from caxton.core.ir import CellAddress, CellRange, SpreadsheetBlockKind
 from caxton.core.models import (
@@ -92,6 +92,7 @@ def plan_document(
     document: SpreadsheetDocument,
     *,
     measurements: Mapping[SpreadsheetBlock, tuple[int, int]] | None = None,
+    anchor_overrides: Mapping[SpreadsheetBlock, CellAddress] | None = None,
 ) -> DocumentPlan:
     """Resolve the flow layout of every worksheet without reading rows.
 
@@ -100,7 +101,11 @@ def plan_document(
     """
     return DocumentPlan(
         worksheets=tuple(
-            plan_worksheet(sheet, measurements=measurements)
+            plan_worksheet(
+                sheet,
+                measurements=measurements,
+                anchor_overrides=anchor_overrides,
+            )
             for sheet in document.worksheets
         ),
     )
@@ -110,6 +115,7 @@ def plan_worksheet(
     worksheet: Worksheet,
     *,
     measurements: Mapping[SpreadsheetBlock, tuple[int, int]] | None = None,
+    anchor_overrides: Mapping[SpreadsheetBlock, CellAddress] | None = None,
 ) -> WorksheetPlan:
     """Resolve the flow layout of one worksheet without reading rows.
 
@@ -125,6 +131,7 @@ def plan_worksheet(
         path="block",
         placements=placements,
         measurements={} if measurements is None else measurements,
+        anchor_overrides={} if anchor_overrides is None else anchor_overrides,
     )
     return WorksheetPlan(
         name=worksheet.name,
@@ -159,6 +166,7 @@ def _place_sequence(  # noqa: WPS211
     path: str,
     placements: list[BlockPlacement],
     measurements: Mapping[SpreadsheetBlock, tuple[int, int]],
+    anchor_overrides: Mapping[SpreadsheetBlock, CellAddress],
 ) -> tuple[int | None, int]:
     cursor = _Cursor(row=origin.row, column=origin.column)
     span_rows: int | None = 0
@@ -175,6 +183,7 @@ def _place_sequence(  # noqa: WPS211
             path=item_path,
             placements=placements,
             measurements=measurements,
+            anchor_overrides=anchor_overrides,
         )
         span_rows = _extend(
             span_rows,
@@ -198,14 +207,12 @@ def _place_block(  # noqa: WPS211
     path: str,
     placements: list[BlockPlacement],
     measurements: Mapping[SpreadsheetBlock, tuple[int, int]],
+    anchor_overrides: Mapping[SpreadsheetBlock, CellAddress],
 ) -> BlockPlacement:
+    overridden = anchor_overrides.get(block)
     declared = block.anchor
-    explicit = declared is not None
-    anchor = (
-        parse_cell_address(declared)
-        if declared is not None
-        else cursor.address(origin, path)
-    )
+    explicit = declared is not None or overridden is not None
+    anchor = _resolve_anchor(overridden, declared, cursor, origin, path)
     nested: list[BlockPlacement] = []
     rows, columns = _measure(
         block,
@@ -213,6 +220,7 @@ def _place_block(  # noqa: WPS211
         path=path,
         placements=nested,
         measurements=measurements,
+        anchor_overrides=anchor_overrides,
     )
     placement = BlockPlacement(
         block=block,
@@ -260,13 +268,28 @@ def _extend(
     return max(span, anchor_row + rows - origin_row)
 
 
-def _measure(  # noqa: C901, WPS212
+def _resolve_anchor(
+    overridden: CellAddress | None,
+    declared: str | None,
+    cursor: _Cursor,
+    origin: CellAddress,
+    path: str,
+) -> CellAddress:
+    if overridden is not None:
+        return overridden
+    if declared is not None:
+        return parse_cell_address(declared)
+    return cursor.address(origin, path)
+
+
+def _measure(  # noqa: C901, WPS211, WPS212
     block: SpreadsheetBlock,
     *,
     anchor: CellAddress,
     path: str,
     placements: list[BlockPlacement],
     measurements: Mapping[SpreadsheetBlock, tuple[int, int]],
+    anchor_overrides: Mapping[SpreadsheetBlock, CellAddress],
 ) -> tuple[int | None, int]:
     measured = measurements.get(block)
     if measured is not None:
@@ -293,6 +316,7 @@ def _measure(  # noqa: C901, WPS212
         path=f"{path}.item",
         placements=placements,
         measurements=measurements,
+        anchor_overrides=anchor_overrides,
     )
 
 

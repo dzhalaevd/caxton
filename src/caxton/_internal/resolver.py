@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from caxton.core.errors import RenderError, UnsupportedFeatureError
 from caxton.core.ir import SpreadsheetIR
-from caxton.core.protocols import Renderer
+from caxton.core.protocols import Renderer, TemplateRenderer
 from caxton.core.rendering import (
     RENDERER_CONTRACT_VERSION,
     RendererDescriptor,
@@ -12,13 +12,15 @@ from caxton.core.rendering import (
     WorkbookOperation,
 )
 
+RendererOption = Renderer[SpreadsheetIR] | TemplateRenderer[SpreadsheetIR]
+
 
 class BuiltinRendererResolver:
     """Select one compatible bundled or explicitly supplied renderer."""
 
     def __init__(
         self,
-        renderers: Sequence[Renderer[SpreadsheetIR]] | None = None,
+        renderers: Sequence[RendererOption] | None = None,
     ) -> None:
         self._renderers = tuple(renderers) if renderers is not None else None
 
@@ -28,8 +30,8 @@ class BuiltinRendererResolver:
         *,
         format_name: str,
         backend: str | None = None,
-        renderer: Renderer[SpreadsheetIR] | None = None,
-    ) -> Renderer[SpreadsheetIR]:
+        renderer: RendererOption | None = None,
+    ) -> RendererOption:
         """Resolve and preflight one renderer before compilation.
 
         Returns:
@@ -75,7 +77,7 @@ def _select_builtins(
     *,
     format_name: str,
     backend: str | None,
-) -> tuple[Renderer[SpreadsheetIR], ...]:
+) -> tuple[RendererOption, ...]:
     if not _matches_xlsx(format_name):
         return ()
     selected_backend = backend or _DEFAULT_BACKENDS.get(required.workbook_operation)
@@ -88,11 +90,11 @@ def _select_builtins(
 
 
 def _filter_renderers(
-    renderers: Sequence[Renderer[SpreadsheetIR]],
+    renderers: Sequence[RendererOption],
     *,
     format_name: str,
     backend: str | None,
-) -> tuple[Renderer[SpreadsheetIR], ...]:
+) -> tuple[RendererOption, ...]:
     return tuple(
         candidate
         for candidate in renderers
@@ -128,19 +130,40 @@ def _load_openpyxl() -> Renderer[SpreadsheetIR]:
     return OpenpyxlRenderer()
 
 
+def _load_openpyxl_template() -> TemplateRenderer[SpreadsheetIR]:
+    try:
+        from caxton._internal.backends.openpyxl import (  # noqa: PLC0415
+            OpenpyxlTemplateRenderer,
+        )
+    except ModuleNotFoundError as error:
+        if error.name != "openpyxl":
+            raise
+        message = "OpenPyXL runtime dependency is unavailable"
+        raise RenderError(message, context={"backend": "openpyxl-template"}) from error
+    return OpenpyxlTemplateRenderer()
+
+
 _DEFAULT_BACKENDS = {
     WorkbookOperation.CREATE_NEW_WORKBOOK: "xlsxwriter",
+    WorkbookOperation.USE_EXISTING_TEMPLATE: "openpyxl-template",
 }
-_BUILTIN_LOADERS = {
+_BUILTIN_LOADERS: dict[
+    tuple[WorkbookOperation, str],
+    Callable[[], RendererOption],
+] = {
     (WorkbookOperation.CREATE_NEW_WORKBOOK, "xlsxwriter"): _load_xlsxwriter,
-    # Transitional compatibility adapter. Template rendering gets a distinct
-    # loader once TemplateContext and its compilation result are implemented.
+    # Transitional explicit create-new compatibility adapter. Template
+    # rendering uses the separate loader below.
     (WorkbookOperation.CREATE_NEW_WORKBOOK, "openpyxl"): _load_openpyxl,
+    (
+        WorkbookOperation.USE_EXISTING_TEMPLATE,
+        "openpyxl-template",
+    ): _load_openpyxl_template,
 }
 
 
 def _preflight(
-    renderer: Renderer[SpreadsheetIR],
+    renderer: RendererOption,
     required: RequiredCapabilities,
     format_name: str,
 ) -> None:
@@ -173,7 +196,7 @@ def _preflight(
 
 
 def canonical_format_name(
-    renderer: Renderer[SpreadsheetIR],
+    renderer: RendererOption,
     format_hint: str,
 ) -> str:
     """Resolve a format, MIME type, or extension to one logical format.

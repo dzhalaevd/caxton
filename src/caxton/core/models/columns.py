@@ -189,6 +189,9 @@ class Column:
     ) -> Self:
         """Return a column that defines one hierarchical grouping level.
 
+        Sorted groups keep ``None`` last in both ascending and descending
+        order.
+
         Returns:
             A column carrying immutable grouping intent.
         """

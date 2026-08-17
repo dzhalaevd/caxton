@@ -376,15 +376,19 @@ def test_ambiguous_renderer_selection_is_rejected() -> None:
         resolver.select(required, format_name="xlsx")
 
 
-def test_template_has_no_create_fallback() -> None:
+def test_template_selects_dedicated_renderer() -> None:
     required = RequiredCapabilities(
         document_kind=DocumentKind.SPREADSHEET,
         ir_versions=frozenset((SPREADSHEET_IR_VERSION,)),
         workbook_operation=WorkbookOperation.USE_EXISTING_TEMPLATE,
     )
 
-    with pytest.raises(RenderError, match="No renderer is available"):
-        BuiltinRendererResolver().select(required, format_name="xlsx")
+    selected = BuiltinRendererResolver().select(required, format_name="xlsx")
+
+    assert selected.descriptor.name == "openpyxl-template"
+    assert selected.descriptor.capabilities.workbook_operations == frozenset(
+        (WorkbookOperation.USE_EXISTING_TEMPLATE,),
+    )
 
 
 def test_create_renderer_rejects_template() -> None:

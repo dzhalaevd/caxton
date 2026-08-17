@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import os
 from pathlib import Path
+from typing import cast
 
 from caxton._internal.compiler import SpreadsheetCompiler
 from caxton._internal.requirements import analyze_spreadsheet_requirements
@@ -13,11 +14,19 @@ from caxton._internal.sinks import (
     MemorySink,
     coerce_output_sink,
 )
+from caxton._internal.templates import XlsxTemplateCompiler, XlsxTemplateInspector
 from caxton._internal.validation import validate_spreadsheet
 from caxton.core.ir import SpreadsheetIR
 from caxton.core.models import SpreadsheetDocument
-from caxton.core.protocols import OutputSink, OutputTarget, Renderer
-from caxton.core.rendering import ExecutionMode, RenderContext, RenderResult
+from caxton.core.protocols import OutputSink, OutputTarget, Renderer, TemplateRenderer
+from caxton.core.rendering import (
+    ExecutionMode,
+    RenderContext,
+    RenderResult,
+    RequiredCapabilities,
+)
+
+RendererOption = Renderer[SpreadsheetIR] | TemplateRenderer[SpreadsheetIR]
 
 
 def render_document(
@@ -26,7 +35,7 @@ def render_document(
     format_name: str = "xlsx",
     backend: str | None = None,
     mode: ExecutionMode | str = ExecutionMode.AUTO,
-    renderer: Renderer[SpreadsheetIR] | None = None,
+    renderer: RendererOption | None = None,
 ) -> RenderResult:
     """Render a spreadsheet document into memory.
 
@@ -52,7 +61,7 @@ def write_document(  # noqa: WPS211
     format_name: str | None = None,
     backend: str | None = None,
     mode: ExecutionMode | str = ExecutionMode.AUTO,
-    renderer: Renderer[SpreadsheetIR] | None = None,
+    renderer: RendererOption | None = None,
 ) -> RenderResult:
     """Render a spreadsheet document into a path or binary buffer.
 
@@ -99,10 +108,19 @@ def _execute(  # noqa: WPS211
     format_name: str,
     backend: str | None,
     mode: ExecutionMode | str,
-    renderer: Renderer[SpreadsheetIR] | None,
+    renderer: RendererOption | None,
 ) -> RenderResult:
     validate_spreadsheet(document)
     required = analyze_spreadsheet_requirements(document, mode=mode)
+    if document.template is not None:
+        return _execute_template(
+            document,
+            sink,
+            required=required,
+            format_name=format_name,
+            backend=backend,
+            renderer=renderer,
+        )
     selected = BuiltinRendererResolver().select(
         required,
         format_name=format_name,
@@ -118,7 +136,62 @@ def _execute(  # noqa: WPS211
         backend=selected.descriptor.name,
         execution=required.execution,
     )
-    return selected.render(compiled, sink, context)
+    create_renderer = cast("Renderer[SpreadsheetIR]", selected)
+    return create_renderer.render(compiled, sink, context)
+
+
+def _execute_template(  # noqa: WPS211
+    document: SpreadsheetDocument,
+    sink: OutputSink,
+    *,
+    required: RequiredCapabilities,
+    format_name: str,
+    backend: str | None,
+    renderer: RendererOption | None,
+) -> RenderResult:
+    template = document.template
+    if template is None:
+        message = "Template execution requires a template"
+        raise RuntimeError(message)
+    if not _template_format_matches(format_name, template.format):
+        message = "Render format conflicts with the template format"
+        from caxton.core.errors import TemplateFormatError  # noqa: PLC0415
+
+        raise TemplateFormatError(
+            message,
+            context={"render_format": format_name, "template_format": template.format},
+        )
+    if template.format != "xlsx":
+        message = f"No template adapter is available for {template.format!r}"
+        from caxton.core.errors import UnsupportedFeatureError  # noqa: PLC0415
+
+        raise UnsupportedFeatureError(message)
+    inspected = XlsxTemplateInspector().inspect(template)
+    compiled = XlsxTemplateCompiler().compile(document, inspected)
+    selected = BuiltinRendererResolver().select(
+        required,
+        format_name=format_name,
+        backend=backend,
+        renderer=renderer,
+    )
+    context = RenderContext(
+        format=canonical_format_name(selected, format_name),
+        backend=selected.descriptor.name,
+        execution=required.execution,
+    )
+    template_renderer = cast("TemplateRenderer[SpreadsheetIR]", selected)
+    return template_renderer.render(compiled, sink, context)
+
+
+def _template_format_matches(format_hint: str, template_format: str) -> bool:
+    normalized = format_hint.lower()
+    if template_format == "xlsx":
+        return normalized in {
+            ".xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "xlsx",
+        }
+    return normalized.removeprefix(".") == template_format
 
 
 def _infer_format(target: OutputTarget) -> str | None:

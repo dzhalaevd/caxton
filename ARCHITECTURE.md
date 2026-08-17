@@ -132,7 +132,7 @@ only in the artifact. A range reference requires a known `row_count`: the
 compiler does not perform a hidden pass over a one-shot or `UNKNOWN` source to
 calculate the end of the range.
 
-  Aggregation is expression intent represented by backend-independent
+Aggregation is expression intent represented by backend-independent
 `AggregateExpr(function, expressions, where, default)`. The initial execution adapter
 passes one Python value sequence per expression to an arbitrary Python callable;
 it does not normalize inputs or remove `None`. An ungrouped aggregate uses the
@@ -153,14 +153,20 @@ place `None` last for both ascending and descending order. Float identity folds
 column-dimension, and value columns. Expressions accepted by the convenience
 factory are normalized into columns; explicit columns carry semantic type,
 format, style, width, and stable ids. Its compiler path discovers dynamic keys
-in first-seen order, uses the same strict identity as grouping, and requires an
-`AggregateExpr` when more than one source value resolves to a cell. Generated
+in first-seen order unless a dimension declares grouping order, uses the same
+strict identity as grouping, and requires an `AggregateExpr` when more than one
+source value resolves to a cell. Row-dimension merge intent produces vertical
+merges; flattened column headers reject merge intent. Generated
 value columns expose their dimension key through the public testing layout, so
 tests do not depend on compiler-generated ids. Grouped tables and matrices
-buffer semantic rows internally and
-consume `ONE_SHOT` sources exactly once. They are not append-only streaming
-plans. `DataSource` remains responsible only for row ingestion and never gains
-`groupby`, pivot, or aggregation operations.
+buffer semantic input rows internally and consume `ONE_SHOT` sources exactly
+once. Aggregate inputs are evaluated during that pass, after their filters, so
+the original source row object can be released before grouping. Matrix output
+rows are emitted lazily after the dynamic axes are known, so sparse inputs do
+not also retain the dense Cartesian output. They are not append-only streaming
+plans. Prepared placements are checked against the XLSX sheet bounds (1,048,576
+rows by 16,384 columns) before rendering. `DataSource` remains responsible only
+for row ingestion and never gains `groupby`, pivot, or aggregation operations.
 
 ## Spreadsheet block layout
 
@@ -218,17 +224,25 @@ global provider registry or entry-point discovery exists at this stage.
 
 For XLSX, the workbook operation is determined before adapter selection:
 
-| Operation                  | Adapter                                             |
-|----------------------------|-----------------------------------------------------|
-| `CREATE_NEW_WORKBOOK`      | default `XlsxWriterRenderer`                        |
-| explicit legacy create-new | `OpenpyxlRenderer`                                  |
-| `USE_EXISTING_TEMPLATE`    | planned `OpenpyxlTemplateRenderer` after inspection |
+| Operation                  | Adapter                                               |
+|----------------------------|-------------------------------------------------------|
+| `CREATE_NEW_WORKBOOK`      | default `XlsxWriterRenderer`                          |
+| explicit legacy create-new | `OpenpyxlRenderer`                                    |
+| `USE_EXISTING_TEMPLATE`    | dedicated `OpenpyxlTemplateRenderer` after inspection |
 
 The template pipeline first builds a read-only `TemplateContext` and then passes
 it to the family compiler. A template operation does not silently fall back to
 create-new. Constant-memory/write-only is a renderer execution plan with
 verifiable capabilities, not a separate document type. Backend hooks and
 post-processing are explicit, namespaced, and absent from the Core model.
+
+The XLSX adapter resolves generic `ref(...)` template targets through workbook-
+or worksheet-scoped defined names. A normal target is a data-only region; a
+`repeat(ref(...))` target copies the named block once per semantic row, including
+styles, translated relative formulas, and contained merges. The renderer works
+on a private workbook copy and writes to the sink only after rendering, hooks,
+and ordered XLSX package post-processing succeed. Pivot package paths and
+relationships remain backend-local descriptor data.
 
 Caxton ships as a single distribution. XlsxWriter and OpenPyXL are part of the
 base runtime dependencies, but they do not form a shared rendering pipeline:

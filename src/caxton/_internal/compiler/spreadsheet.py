@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
 
 from caxton._internal.aggregation import (
@@ -11,7 +11,6 @@ from caxton._internal.aggregation import (
     PreparedTabularData,
     prepare_matrix,
     prepare_table,
-    table_needs_preparation,
 )
 from caxton._internal.block_paths import iter_blocks_with_paths
 from caxton._internal.compiler.formula_resolution import (
@@ -19,9 +18,14 @@ from caxton._internal.compiler.formula_resolution import (
     resolve_column,
     resolve_data_range,
 )
-from caxton._internal.const import _TITLE_FONT_SIZES
+from caxton._internal.const import (
+    _TITLE_FONT_SIZES,
+    SPREADSHEET_MAX_COLUMNS,
+    SPREADSHEET_MAX_ROWS,
+)
 from caxton._internal.layout import DocumentPlan, WorksheetPlan, plan_document
 from caxton._internal.semantic import SemanticRowEvaluator
+from caxton._internal.shape import table_needs_preparation
 from caxton._internal.validation import validate_spreadsheet
 from caxton.core.errors import Notification, UnsupportedFeatureError
 from caxton.core.formatting import (
@@ -118,6 +122,8 @@ class SpreadsheetCompiler:
         document: SpreadsheetDocument,
         *,
         capabilities: RendererCapabilities | None = None,
+        anchor_overrides: Mapping[SpreadsheetBlock, CellAddress] | None = None,
+        check_overlaps: bool = True,
     ) -> SpreadsheetIR:
         """Compile a document whose structural validation already succeeded.
 
@@ -130,11 +136,13 @@ class SpreadsheetCompiler:
         plan = plan_document(
             document,
             measurements={
-                block: (len(item.rows), len(item.columns))
+                block: (item.row_count, len(item.columns))
                 for block, item in prepared.items()
             },
+            anchor_overrides=anchor_overrides,
         )
-        _validate_prepared_placement(plan)
+        if check_overlaps:
+            _validate_prepared_placement(plan)
         catalog = FormulaCatalog.from_document(document, plan)
         worksheets = tuple(
             self._compile_worksheet(
@@ -329,16 +337,16 @@ def _compile_matrix(
             document.styles,
             base=document.theme.header.merged_over(table_style),
         ),
+        merges=_absolute_merges(prepared, anchor),
     )
 
 
 def _compile_prepared_column(
-    column: Column | PreparedColumn,
+    column: PreparedColumn,
     offset: int,
     document: SpreadsheetDocument,
     table_style: Style,
 ) -> SpreadsheetColumnIR:
-    title = column.display_title if isinstance(column, Column) else column.title
     style_ref = column.style_ref
     resolved_style = _resolve_style(style_ref, document.styles, base=table_style)
     legacy = Style(
@@ -353,7 +361,7 @@ def _compile_prepared_column(
     return SpreadsheetColumnIR(
         offset=offset,
         id=column.id,
-        title=title,
+        title=column.title,
         semantic_type=column.semantic_type,
         alignment=(
             None
@@ -364,12 +372,12 @@ def _compile_prepared_column(
         display_format=resolved_style.display_format,
         style=resolved_style,
         auto_width=column.auto_width,
-        matrix_key=(None if isinstance(column, Column) else column.matrix_key),
+        matrix_key=column.matrix_key,
     )
 
 
-def _prepared_rows(prepared: PreparedTabularData) -> tuple[SpreadsheetRowIR, ...]:
-    return tuple(
+def _prepared_rows(prepared: PreparedTabularData) -> Iterator[SpreadsheetRowIR]:
+    return (
         SpreadsheetRowIR(index=index, values=values)
         for index, values in enumerate(prepared.rows)
     )
@@ -397,6 +405,33 @@ def _absolute_merges(
 def _validate_prepared_placement(plan: DocumentPlan) -> None:
     notification = Notification()
     for worksheet in plan.worksheets:
+        for placement in worksheet.placements:
+            occupied = placement.occupied
+            if occupied is None:
+                continue
+            exceeded = tuple(
+                dimension
+                for dimension, actual, limit in (
+                    ("rows", occupied.end.row, SPREADSHEET_MAX_ROWS),
+                    ("columns", occupied.end.column, SPREADSHEET_MAX_COLUMNS),
+                )
+                if actual > limit
+            )
+            if exceeded:
+                notification.add(
+                    "Block exceeds spreadsheet sheet bounds",
+                    path=f'worksheet["{worksheet.name}"].{placement.path}',
+                    code="sheet_bounds_exceeded",
+                    context={
+                        "anchor": (placement.anchor.row, placement.anchor.column),
+                        "columns": placement.columns,
+                        "dimensions": exceeded,
+                        "max_columns": SPREADSHEET_MAX_COLUMNS,
+                        "max_rows": SPREADSHEET_MAX_ROWS,
+                        "rows": placement.rows,
+                        "worksheet": worksheet.name,
+                    },
+                )
         for overlap in worksheet.overlaps:
             notification.add(
                 f"Blocks {overlap.first} and {overlap.second} overlap",

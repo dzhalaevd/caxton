@@ -2,18 +2,27 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Sequence
-from typing import Any, TypeAlias, cast
+from typing import TypeAlias, cast
 
 from caxton._internal.aggregation.execution import (
     InputRow,
     execute_aggregate,
     read_rows,
 )
-from caxton._internal.aggregation.keys import GroupKey, TokenKey, dimension_token
-from caxton._internal.aggregation.models import PreparedTabularData, RelativeMerge
+from caxton._internal.aggregation.keys import (
+    GroupKey,
+    TokenKey,
+    dimension_token,
+    order_group_values,
+)
+from caxton._internal.aggregation.models import (
+    PreparedColumn,
+    PreparedTabularData,
+    RelativeMerge,
+)
 from caxton._internal.semantic import SemanticRowEvaluator
-from caxton.core.errors import GroupingError
-from caxton.core.models import AggregateExpr, Column, GroupOrder, SpreadsheetTable
+from caxton.core.errors import InvalidOperationError
+from caxton.core.models import AggregateExpr, Column, Expression, SpreadsheetTable
 from caxton.core.values import CellValue
 
 PreparedRows: TypeAlias = tuple[tuple[CellValue, ...], ...]
@@ -32,14 +41,6 @@ class _Scope:
     keys: GroupKey
     tokens: TokenKey
     rows: Sequence[InputRow]
-
-
-def table_needs_preparation(table: SpreadsheetTable) -> bool:
-    """Return whether a table needs grouped/aggregate buffering."""
-    return any(
-        column.grouping is not None or isinstance(column.source, AggregateExpr)
-        for column in table.columns
-    )
 
 
 def prepare_table(
@@ -64,15 +65,21 @@ def prepare_table(
         for column in table.columns
         if column.excel_formula is None and not isinstance(column.source, AggregateExpr)
     )
-    inputs = read_rows(table.data.source, base_columns, evaluator)
+    inputs = read_rows(
+        table.data.source,
+        base_columns,
+        evaluator,
+        aggregates=tuple(
+            cast("AggregateExpr", column.source) for column in aggregate_columns
+        ),
+        path=path,
+    )
     scopes = _group_scopes(inputs, group_columns, path=path)
     if aggregate_columns:
         output, key_tokens = _aggregate_rows(
             table,
             scopes,
             group_columns,
-            base_columns,
-            evaluator,
             path=path,
         )
     else:
@@ -89,9 +96,10 @@ def prepare_table(
             for row in ordered
         )
     return PreparedTabularData(
-        columns=table.columns,
+        columns=tuple(PreparedColumn.from_column(column) for column in table.columns),
         rows=output,
-        merges=_resolve_merges(key_tokens, group_columns, table.columns),
+        row_count=len(output),
+        merges=resolve_group_merges(key_tokens, group_columns, table.columns),
     )
 
 
@@ -143,37 +151,13 @@ def _ordered_buckets(
     *,
     path: str,
 ) -> list[_Bucket]:
-    grouping = column.grouping
-    if grouping is None or grouping.order is GroupOrder.FIRST_SEEN:
-        return buckets
-    non_null = [item for item in buckets if item.key is not None]
-    nulls = [item for item in buckets if item.key is None]
-    try:
-        ordered = sorted(
-            non_null,
-            key=lambda item: cast("Any", item.key),
-            reverse=grouping.order is GroupOrder.DESCENDING,
-        )
-    except TypeError as error:
-        message = f"Group column {column.id!r} contains incomparable values"
-        raise GroupingError(
-            message,
-            path=f'{path}.column["{column.id}"].grouping',
-            context={
-                "column": column.id,
-                "order": grouping.order.value,
-                "value_types": sorted({type(item.key).__name__ for item in buckets}),
-            },
-        ) from error
-    return [*ordered, *nulls]
+    return order_group_values(buckets, column, lambda item: item.key, path=path)
 
 
 def _aggregate_rows(  # noqa: WPS211
     table: SpreadsheetTable,
     scopes: Sequence[_Scope],
     group_columns: Sequence[Column],
-    base_columns: Sequence[Column],
-    evaluator: SemanticRowEvaluator,
     *,
     path: str,
 ) -> AggregateRowsResult:
@@ -186,28 +170,44 @@ def _aggregate_rows(  # noqa: WPS211
             zip((item.id for item in group_columns), scope.keys, strict=True),
         )
         values: list[CellValue] = []
+        filter_cache: dict[Expression | None, tuple[InputRow, ...]] = {}
         for column in table.columns:
             if isinstance(column.source, AggregateExpr):
                 values.append(
                     execute_aggregate(
                         column.source,
                         scope.rows,
-                        source=table.data.source,
-                        columns=base_columns,
-                        evaluator=evaluator,
                         path=f'{path}.column["{column.id}"].source',
+                        filter_cache=filter_cache,
                     ),
                 )
             elif column.excel_formula is not None:
                 values.append(None)
             else:
-                values.append(group_values[column.id])
+                values.append(_group_output_value(column, group_values, path=path))
         output.append(tuple(values))
         keys.append(scope.tokens)
     return tuple(output), tuple(keys)
 
 
-def _resolve_merges(
+def _group_output_value(
+    column: Column,
+    group_values: dict[str, CellValue],
+    *,
+    path: str,
+) -> CellValue:
+    try:
+        return group_values[column.id]
+    except KeyError as error:
+        message = "Aggregate output requires every plain column to group"
+        raise InvalidOperationError(
+            message,
+            path=f'{path}.column["{column.id}"]',
+            context={"column": column.id},
+        ) from error
+
+
+def resolve_group_merges(
     keys: Sequence[TokenKey],
     group_columns: Sequence[Column],
     all_columns: Sequence[Column],
@@ -230,4 +230,4 @@ def _resolve_merges(
     return tuple(merges)
 
 
-__all__ = ("prepare_table", "table_needs_preparation")
+__all__ = ("prepare_table", "resolve_group_merges")

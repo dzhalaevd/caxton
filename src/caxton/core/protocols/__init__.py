@@ -13,6 +13,7 @@ if TYPE_CHECKING:
         OutputTarget,
         Renderer,
     )
+    from .templates import TemplateInspector, TemplateRenderer
 
 _RENDERING_EXPORTS = frozenset(
     (
@@ -23,14 +24,20 @@ _RENDERING_EXPORTS = frozenset(
         "Renderer",
     ),
 )
+_TEMPLATE_EXPORTS = frozenset(("TemplateInspector", "TemplateRenderer"))
 
 
 def __getattr__(name: str) -> object:  # noqa: WPS413
-    if name not in _RENDERING_EXPORTS:
+    if name in _RENDERING_EXPORTS:
+        rendering = importlib.import_module(f"{__name__}.rendering")
+        return getattr(rendering, name)
+    if name in _TEMPLATE_EXPORTS:
+        templates = importlib.import_module(f"{__name__}.templates")
+        return getattr(templates, name)
+    if name not in _RENDERING_EXPORTS | _TEMPLATE_EXPORTS:
         message = f"module {__name__!r} has no attribute {name!r}"
         raise AttributeError(message)
-    rendering = importlib.import_module(f"{__name__}.rendering")
-    return getattr(rendering, name)
+    raise AssertionError(name)
 
 
 __all__ = (
@@ -43,4 +50,6 @@ __all__ = (
     "Renderer",
     "Repeatability",
     "RowAccessor",
+    "TemplateInspector",
+    "TemplateRenderer",
 )

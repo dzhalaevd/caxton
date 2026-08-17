@@ -240,6 +240,8 @@ def _validate_matrix(
         notification,
     )
     columns = (*matrix.row_dimensions, *matrix.column_dimensions, matrix.value)
+    _validate_matrix_grouping(matrix, path, notification)
+    _validate_matrix_value(matrix, path, notification)
     for column in columns:
         _validate_style_ref(
             column.style_ref,
@@ -255,6 +257,44 @@ def _validate_matrix(
                 path=f'{path}.column["{column.id}"].source',
                 code="matrix_column_reference",
                 context={"column": reference},
+            )
+
+
+def _validate_matrix_value(
+    matrix: Matrix,
+    path: str,
+    notification: Notification,
+) -> None:
+    source = matrix.value.source
+    if (
+        isinstance(source, Expression)
+        and not isinstance(source, AggregateExpr)
+        and contains_aggregate(source)
+    ):
+        notification.add(
+            "Aggregate expressions must be the complete Python column source",
+            path=f'{path}.column["{matrix.value.id}"].source',
+            code="nested_aggregate_expression",
+        )
+
+
+def _validate_matrix_grouping(
+    matrix: Matrix,
+    path: str,
+    notification: Notification,
+) -> None:
+    if matrix.value.grouping is not None:
+        notification.add(
+            "Matrix value columns cannot define grouping",
+            path=f'{path}.column["{matrix.value.id}"].grouping',
+            code="matrix_value_grouping",
+        )
+    for column in matrix.column_dimensions:
+        if column.grouping is not None and column.grouping.merge:
+            notification.add(
+                "Matrix column dimensions cannot merge flattened headers",
+                path=f'{path}.column["{column.id}"].grouping',
+                code="matrix_column_dimension_merge",
             )
 
 

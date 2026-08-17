@@ -60,6 +60,12 @@ def validate_tables(
             _validate_anchor(block, path, notification)
         for table_index, table in enumerate(iter_tables(worksheet.blocks)):
             table_path = f'worksheet["{worksheet.name}"].table[{table_index}]'
+            if table.into is not None and document.template is None:
+                notification.add(
+                    "Template target requires a document template",
+                    path=f"{table_path}.into",
+                    code="template_required",
+                )
             _validate_table_name(table, table_path, table_names, notification)
             validate_columns(table.columns, table_path, notification)
 
@@ -89,6 +95,8 @@ def validate_placement(
     document: SpreadsheetDocument,
     notification: Notification,
 ) -> None:
+    if document.template is not None:
+        return
     for worksheet in document.worksheets:
         try:
             plan = plan_worksheet(worksheet)

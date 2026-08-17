@@ -22,8 +22,9 @@ from ._validation import (
 )
 from .columns import Column
 from .common import DocumentKind, DocumentMetadata, freeze_metadata
-from .expressions import Expression, contains_aggregate
+from .expressions import ColumnRef, Expression, contains_aggregate
 from .formulas import Formula, FormulaInput, TableReference, as_formula
+from .templates import TemplateRepeat, TemplateSpecification
 
 DEFAULT_OBJECT_WIDTH = 480
 DEFAULT_OBJECT_HEIGHT = 288
@@ -168,10 +169,20 @@ class SpreadsheetTable:
     autofilter: bool = False
     freeze_header: bool = False
     auto_width: bool = False
+    into: ColumnRef | TemplateRepeat | None = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self) -> None:  # noqa: WPS238
         require_optional_name(self.name, "Table name")
         require_optional_name(self.anchor, "Table anchor")
+        if self.anchor is not None and self.into is not None:
+            message = "Table anchor and template target are mutually exclusive"
+            raise CaxtonValueError(message)
+        if self.into is not None and not isinstance(
+            self.into,
+            (ColumnRef, TemplateRepeat),
+        ):
+            message = "Table template target must be created with ref() or repeat()"
+            raise CaxtonTypeError(message)
         if self.footer is not None and not isinstance(self.footer, Totals):
             message = "Table footer must be a Totals value"
             raise CaxtonTypeError(message)
@@ -423,12 +434,19 @@ class SpreadsheetDocument:
     metadata: DocumentMetadata = dataclasses.field(default_factory=dict)
     styles: StyleSheet = dataclasses.field(default_factory=lambda: StyleSheet({}))
     theme: DocumentTheme = dataclasses.field(default_factory=DocumentTheme)
+    template: TemplateSpecification | None = None
     kind: DocumentKind = dataclasses.field(
         default=DocumentKind.SPREADSHEET,
         init=False,
     )
 
     def __post_init__(self) -> None:
+        if self.template is not None and not isinstance(
+            self.template,
+            TemplateSpecification,
+        ):
+            message = "Spreadsheet template must be created with template()"
+            raise CaxtonTypeError(message)
         object.__setattr__(self, "worksheets", tuple(self.worksheets))
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 

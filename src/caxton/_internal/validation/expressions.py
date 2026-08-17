@@ -20,6 +20,14 @@ from caxton.core.models import (
 )
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class _ReferenceScope:
+    identifiers: set[str]
+    formula_identifiers: set[str]
+    aggregate_identifiers: set[str]
+    inside_aggregate: bool
+
+
 def validate_columns(
     columns: Sequence[Column],
     table_path: str,
@@ -36,6 +44,9 @@ def validate_columns(
     formula_identifiers = {
         column.id for column in columns if column.excel_formula is not None
     }
+    aggregate_identifiers = {
+        column.id for column in columns if isinstance(column.source, AggregateExpr)
+    }
     seen: set[str] = set()
     dependencies: dict[str, tuple[str, ...]] = {}
     for column in columns:
@@ -49,11 +60,16 @@ def validate_columns(
         dependencies[column.id] = tuple(
             reference for reference in references if reference in identifiers
         )
+        reference_scope = _ReferenceScope(
+            identifiers=identifiers,
+            formula_identifiers=formula_identifiers,
+            aggregate_identifiers=aggregate_identifiers,
+            inside_aggregate=isinstance(column.source, AggregateExpr),
+        )
         for reference in references:
             _validate_python_reference(
                 reference,
-                identifiers=identifiers,
-                formula_identifiers=formula_identifiers,
+                reference_scope,
                 path=f"{column_path}.source",
                 notification=notification,
             )
@@ -91,20 +107,27 @@ def _column_references(column: Column) -> Iterator[str]:
 
 def _validate_python_reference(
     reference: str,
+    scope: _ReferenceScope,
     *,
-    identifiers: set[str],
-    formula_identifiers: set[str],
     path: str,
     notification: Notification,
 ) -> None:
-    if reference not in identifiers:
+    if reference not in scope.identifiers:
         notification.add(ColumnNotFoundError(column=reference, path=path))
         return
-    if reference in formula_identifiers:
+    if reference in scope.formula_identifiers:
         notification.add(
             "Python expressions cannot read formula-backed columns",
             path=path,
             code="formula_in_python_expression",
+            context={"column": reference},
+        )
+        return
+    if scope.inside_aggregate and reference in scope.aggregate_identifiers:
+        notification.add(
+            "Aggregate expressions cannot read aggregate-backed columns",
+            path=path,
+            code="aggregate_in_aggregate_expression",
             context={"column": reference},
         )
 

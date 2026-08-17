@@ -60,6 +60,15 @@ from .spreadsheet import (
     iter_tables,
     when,
 )
+from .templates import (
+    Extension,
+    ResolvedTemplateTarget,
+    TemplateCompilationResult,
+    TemplateContext,
+    TemplateReference,
+    TemplateRepeat,
+    TemplateSpecification,
+)
 
 __all__ = (
     "DEFAULT_OBJECT_HEIGHT",
@@ -82,6 +91,7 @@ __all__ = (
     "DocumentKind",
     "DocumentMetadata",
     "Expression",
+    "Extension",
     "FieldRef",
     "Formula",
     "FormulaBinary",
@@ -97,6 +107,7 @@ __all__ = (
     "Matrix",
     "PathRef",
     "RangeReference",
+    "ResolvedTemplateTarget",
     "RowCallable",
     "SheetReference",
     "Spacer",
@@ -106,6 +117,11 @@ __all__ = (
     "Stack",
     "TableData",
     "TableReference",
+    "TemplateCompilationResult",
+    "TemplateContext",
+    "TemplateReference",
+    "TemplateRepeat",
+    "TemplateSpecification",
     "Title",
     "Total",
     "Totals",
