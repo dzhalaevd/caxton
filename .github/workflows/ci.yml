@@ -1,0 +1,306 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  merge_group:
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      version:
+        description: Version read from the validated wheel metadata
+        value: ${{ jobs.build.outputs.version }}
+      prerelease:
+        description: Whether the validated package version is a prerelease
+        value: ${{ jobs.build.outputs.prerelease }}
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  PYTHON_LATEST: "3.14"
+  UV_VERSION: "0.12.2"
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_LATEST }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9  # v9.0.0
+        with:
+          enable-cache: true
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install locked tooling
+        run: uv sync --locked --only-group tox
+
+      - name: Build and validate distributions
+        shell: bash
+        run: |
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          uv run --no-sync tox run -e build
+
+      - name: Read and validate wheel metadata
+        id: metadata
+        shell: bash
+        run: |
+          .tox/build/bin/python - <<'PY'
+          import email
+          import os
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          distributions = Path("dist")
+          wheels = list(distributions.glob("*.whl"))
+          sdists = list(distributions.glob("*.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              raise SystemExit(
+                  f"expected one wheel and one sdist; found {wheels=} and {sdists=}",
+              )
+
+          with ZipFile(wheels[0]) as archive:
+              metadata_files = [
+                  name for name in archive.namelist()
+                  if name.endswith(".dist-info/METADATA")
+              ]
+              if len(metadata_files) != 1:
+                  raise SystemExit(f"invalid wheel metadata: {metadata_files}")
+              metadata = email.message_from_bytes(archive.read(metadata_files[0]))
+
+          if metadata["Name"] != "caxton" or not metadata["Version"]:
+              raise SystemExit(f"unexpected package metadata: {metadata.items()}")
+
+          from packaging.version import Version
+
+          version = Version(metadata["Version"])
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={version}\n")
+              output.write(f"prerelease={str(version.is_prerelease).lower()}\n")
+          PY
+          sha256sum dist/*.whl dist/*.tar.gz > dist/SHA256SUMS
+
+      - name: Upload validated distributions
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  lint:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_LATEST }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9  # v9.0.0
+        with:
+          enable-cache: true
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install locked tooling
+        run: uv sync --locked --only-group tox
+
+      - name: Run all pre-commit checks
+        run: uv run --no-sync tox run -e pre-commit
+
+      - name: Validate Conventional Commits
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        shell: bash
+        run: |
+          uv run --no-sync python scripts/validate_commits.py \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --title "$PR_TITLE"
+
+      - name: Require a valid changelog fragment
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          git diff --name-only --diff-filter=ACMRT "$BASE_SHA"...HEAD > changed-files.txt
+          uv run --no-sync python scripts/validate_files.py changed-files.txt
+
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }} / ${{ matrix.package }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.11"
+            tox-env: py311
+            coverage: true
+            package: wheel
+          - os: ubuntu-latest
+            python-version: "3.12"
+            tox-env: py312
+            coverage: true
+            package: wheel
+          - os: ubuntu-latest
+            python-version: "3.13"
+            tox-env: py313
+            coverage: true
+            package: wheel
+          - os: ubuntu-latest
+            python-version: "3.14"
+            tox-env: py314
+            coverage: true
+            package: wheel
+          - os: ubuntu-latest
+            python-version: "3.14"
+            tox-env: py314
+            coverage: false
+            package: sdist
+          - os: windows-latest
+            python-version: "3.11"
+            tox-env: py311
+            coverage: false
+            package: wheel
+          - os: windows-latest
+            python-version: "3.14"
+            tox-env: py314
+            coverage: false
+            package: wheel
+          - os: macos-15-intel
+            python-version: "3.11"
+            tox-env: py311
+            coverage: false
+            package: wheel
+          - os: macos-latest
+            python-version: "3.14"
+            tox-env: py314
+            coverage: false
+            package: wheel
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9  # v9.0.0
+        with:
+          enable-cache: true
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install locked tooling
+        run: uv sync --locked --only-group tox
+
+      - name: Download validated distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: distributions
+          path: dist
+
+      - name: Test the validated distribution
+        env:
+          COVERAGE_ARGS: ${{ matrix.coverage && '--cov=caxton --cov-branch --cov-report=term-missing --cov-fail-under=0' || '' }}
+          PACKAGE_KIND: ${{ matrix.package }}
+          TOX_ENV: ${{ matrix.tox-env }}
+        shell: bash
+        run: |
+          sha256sum --check dist/SHA256SUMS
+          if [ "$PACKAGE_KIND" = wheel ]; then
+            pattern='*.whl'
+          else
+            pattern='*.tar.gz'
+          fi
+          distribution_count="$(find dist -maxdepth 1 -name "$pattern" -type f | wc -l | tr -d ' ')"
+          if [ "$distribution_count" != 1 ]; then
+            echo "::error::Expected one $PACKAGE_KIND distribution, found $distribution_count"
+            find dist -maxdepth 1 -type f -print
+            exit 1
+          fi
+          distribution="$(find dist -maxdepth 1 -name "$pattern" -type f -print -quit)"
+          uv run --no-sync tox run -e "$TOX_ENV" --installpkg "$distribution"
+
+      - name: Upload coverage data
+        if: matrix.coverage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: coverage-${{ matrix.os }}-${{ matrix.tox-env }}
+          path: coverage/.coverage.*
+          if-no-files-found: error
+          include-hidden-files: true
+
+  coverage:
+    name: Coverage
+    needs: test
+    permissions:
+      contents: read
+      id-token: write  # Allow the reusable workflow to authenticate to Codecov.
+    uses: ./.github/workflows/codecov.yml
+    with:
+      python-version: "3.14"
+      uv-version: "0.12.2"
+  check:
+    name: check
+    if: always()
+    needs: [build, lint, test, coverage]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Verify required jobs succeeded
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          COVERAGE_RESULT: ${{ needs.coverage.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+        shell: bash
+        run: |
+          test "$BUILD_RESULT" = success
+          test "$LINT_RESULT" = success
+          test "$TEST_RESULT" = success
+          test "$COVERAGE_RESULT" = success

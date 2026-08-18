@@ -82,7 +82,7 @@ class XlsxTemplateContext(TemplateContext):
     pivots: Sequence[PivotDescriptor] = ()
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        TemplateContext.__post_init__(self)
         object.__setattr__(self, "payload", bytes(self.payload))
         object.__setattr__(self, "worksheets", tuple(self.worksheets))
         object.__setattr__(self, "defined_names", tuple(self.defined_names))
