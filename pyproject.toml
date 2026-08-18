@@ -82,6 +82,14 @@ testpaths = ["tests"]
 branch = true
 source = ["caxton"]
 
+[tool.coverage.paths]
+source = [
+    "src/caxton",
+    "*/.tox/*/lib/python*/site-packages/caxton",
+    "*/.tox/*/Lib/site-packages/caxton",
+    "*\\.tox\\*\\Lib\\site-packages\\caxton",
+]
+
 [tool.coverage.report]
 fail_under = 85
 show_missing = true
@@ -129,23 +137,57 @@ modules = [
 ]
 
 [dependency-groups]
-dev = [
+build = [
+    "twine>=7.0,<8.0",
+]
+coverage = [
     "coverage>=7.15,<8.0",
+]
+dependencies = [
     "deptry>=0.25.1,<0.26",
+]
+imports = [
+    "import-linter>=2.13,<3.0",
+]
+lint = [
     "flake8>=7.3,<8.0",
+    "ruff>=0.16,<0.17",
+    "wemake-python-styleguide>=1.7,<2.0",
+]
+maintenance = [
     "griffe>=2.1,<3.0",
     "hatch>=1.17,<2.0",
-    "hypothesis>=6.165,<7.0",
-    "import-linter>=2.13,<3.0",
-    "mypy>=2.3,<3.0",
-    "types-openpyxl>=3.1.5.20260518,<3.2",
     "pip>=25,<27",
+    "towncrier>=25.8,<26.0",
+]
+pre-commit = [
+    "pre-commit>=4.6.1,<5.0",
+]
+test = [
+    "hypothesis>=6.165,<7.0",
     "pytest>=9.1,<10.0",
     "pytest-benchmark>=5.2,<6.0",
-    "ruff>=0.16,<0.17",
-    "towncrier>=25.8,<26.0",
-    "twine>=7.0,<8.0",
-    "wemake-python-styleguide>=1.7,<2.0",
+    "pytest-cov>=7.1,<8.0",
+]
+tox = [
+    "tox>=4.52.1,<5.0",
+    "tox-uv>=1.29,<2.0",
+]
+typecheck = [
+    "mypy>=2.3,<3.0",
+    "types-openpyxl>=3.1.5.20260518,<3.2",
+]
+dev = [
+    { include-group = "build" },
+    { include-group = "coverage" },
+    { include-group = "dependencies" },
+    { include-group = "imports" },
+    { include-group = "lint" },
+    { include-group = "maintenance" },
+    { include-group = "pre-commit" },
+    { include-group = "test" },
+    { include-group = "tox" },
+    { include-group = "typecheck" },
 ]
 
 [tool.towncrier]

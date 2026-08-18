@@ -4,6 +4,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.tox/
 
 # Environments
 .venv/
@@ -37,6 +38,8 @@ MANIFEST
 
 # Coverage
 .coverage
+coverage/
+coverage.xml
 htmlcov/
 
 # IDE and operating system files
