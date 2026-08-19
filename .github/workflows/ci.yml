@@ -5,9 +5,16 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   merge_group:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      force-full:
+        description: Run package build, tests, and coverage regardless of changed files
+        required: false
+        type: boolean
+        default: true
     outputs:
       version:
         description: Version read from the validated wheel metadata
@@ -27,8 +34,55 @@ env:
   UV_VERSION: "0.12.2"
 
 jobs:
+  changes:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      run-tests: ${{ steps.scope.outputs.run-tests }}
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Decide whether package tests are required
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE_FULL: ${{ inputs.force-full || false }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          run_tests=true
+          if [ "$FORCE_FULL" != true ] && \
+             { [ "$EVENT_NAME" = pull_request ] || [ "$EVENT_NAME" = push ]; } && \
+             [ -n "$BASE_SHA" ] && \
+             [ "$BASE_SHA" != "0000000000000000000000000000000000000000" ] && \
+             git cat-file -e "$BASE_SHA^{commit}"; then
+            run_tests=false
+            while IFS= read -r -d '' changed_file; do
+              case "$changed_file" in
+                *.md|docs/*|mkdocs.yml|.github/workflows/docs.yml)
+                  ;;
+                *)
+                  run_tests=true
+                  break
+                  ;;
+              esac
+            done < <(git diff --name-only -z "$BASE_SHA" "$HEAD_SHA")
+          fi
+          echo "run-tests=$run_tests" >> "$GITHUB_OUTPUT"
+          echo "Package build and test matrix required: $run_tests"
+
   build:
     name: Build distributions
+    if: needs.changes.outputs.run-tests == 'true'
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -137,6 +191,8 @@ jobs:
         run: uv sync --locked --only-group tox
 
       - name: Run all pre-commit checks
+        env:
+          SKIP: no-commit-to-branch
         run: uv run --no-sync tox run -e pre-commit
 
       - name: Validate Conventional Commits
@@ -156,7 +212,8 @@ jobs:
         if: >-
           github.event_name == 'pull_request' &&
           github.base_ref == 'develop' &&
-          github.event.pull_request.user.login != 'dependabot[bot]'
+          github.event.pull_request.user.login != 'dependabot[bot]' &&
+          !contains(github.event.pull_request.labels.*.name, 'skip-changelog')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         shell: bash
@@ -166,7 +223,8 @@ jobs:
 
   test:
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }} / ${{ matrix.package }}
-    needs: build
+    if: needs.changes.outputs.run-tests == 'true'
+    needs: [changes, build]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     permissions:
@@ -279,7 +337,8 @@ jobs:
 
   coverage:
     name: Coverage
-    needs: test
+    if: needs.changes.outputs.run-tests == 'true'
+    needs: [changes, test]
     permissions:
       contents: read
       id-token: write  # Allow the reusable workflow to authenticate to Codecov.
@@ -290,7 +349,7 @@ jobs:
   check:
     name: check
     if: always()
-    needs: [build, lint, test, coverage]
+    needs: [changes, build, lint, test, coverage]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
@@ -298,12 +357,21 @@ jobs:
       - name: Verify required jobs succeeded
         env:
           BUILD_RESULT: ${{ needs.build.result }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           LINT_RESULT: ${{ needs.lint.result }}
+          RUN_TESTS: ${{ needs.changes.outputs.run-tests }}
           TEST_RESULT: ${{ needs.test.result }}
         shell: bash
         run: |
-          test "$BUILD_RESULT" = success
+          test "$CHANGES_RESULT" = success
           test "$LINT_RESULT" = success
-          test "$TEST_RESULT" = success
-          test "$COVERAGE_RESULT" = success
+          if [ "$RUN_TESTS" = true ]; then
+            test "$BUILD_RESULT" = success
+            test "$TEST_RESULT" = success
+            test "$COVERAGE_RESULT" = success
+          else
+            test "$BUILD_RESULT" = skipped
+            test "$TEST_RESULT" = skipped
+            test "$COVERAGE_RESULT" = skipped
+          fi
