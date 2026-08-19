@@ -1,0 +1,16 @@
+[project]
+name = "caxton-backend-example"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.116,<1.0",
+    "caxton",
+    "pydantic>=2.11,<3.0",
+    "uvicorn[standard]>=0.35,<1.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+caxton = { path = "../..", editable = true }

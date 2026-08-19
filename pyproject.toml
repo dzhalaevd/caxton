@@ -3,7 +3,7 @@ requires = ["hatchling>=1.31,<2.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "formata"
+name = "caxton"
 dynamic = ["version"]
 description = "A declarative way to describe files in Python"
 readme = "README.md"
@@ -20,37 +20,27 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
 dependencies = [
+    "xlsxwriter>=3.2.9,<4.0",
     "openpyxl>=3.1.5,<4.0",
-    "pillow>=11.0,<13.0",
 ]
 
 [project.optional-dependencies]
-xlsxwriter = [
-    "xlsxwriter>=3.2,<4.0",
-]
-docx = [
-    "python-docx>=1.1,<2.0",
-]
-pdf = [
-    "reportlab>=4.2,<5.0",
-]
-model-pydantic = [
-    "pydantic>=2.10,<3.0",
-]
+hypothesis = ["hypothesis>=6.165,<7.0"]
 
 [project.urls]
-Homepage = "https://github.com/dzhalaevd/formata"
-Repository = "https://github.com/dzhalaevd/formata"
-Issues = "https://github.com/dzhalaevd/formata/issues"
+Homepage = "https://github.com/dzhalaevd/caxton"
+Repository = "https://github.com/dzhalaevd/caxton"
+Issues = "https://github.com/dzhalaevd/caxton/issues"
 
 [tool.hatch.version]
-path = "src/formata/__version__.py"
+path = "src/caxton/__version__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/formata"]
+packages = ["src/caxton"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -72,6 +62,9 @@ dependency-groups = ["dev"]
 lint = "flake8 ."
 typecheck = "mypy"
 test = "pytest {args:tests}"
+docs = "mkdocs build --strict"
+docs-serve = "mkdocs serve {args}"
+api-compatibility = "griffe check --search src caxton {args}"
 check = [
     "flake8 .",
     "mypy",
@@ -87,29 +80,129 @@ bump-version = "python scripts/bump_version.py {args}"
 addopts = "-ra"
 testpaths = ["tests"]
 
-[tool.mypy]
-python_version = "3.11"
-strict = true
-packages = ["formata"]
-mypy_path = "src"
+[tool.coverage.run]
+branch = true
+source = ["caxton"]
+
+[tool.coverage.paths]
+source = [
+    "src/caxton",
+    "*/.tox/*/lib/python*/site-packages/caxton",
+    "*/.tox/*/Lib/site-packages/caxton",
+    "*\\.tox\\*\\Lib\\site-packages\\caxton",
+]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+
+[tool.deptry]
+known_first_party = ["caxton"]
+
+[tool.importlinter]
+root_packages = ["caxton"]
+
+[[tool.importlinter.contracts]]
+name = "Core does not depend on orchestration"
+type = "forbidden"
+source_modules = ["caxton.core"]
+forbidden_modules = [
+    "caxton.api",
+    "caxton._internal",
+    "caxton.testing",
+]
+
+[[tool.importlinter.contracts]]
+name = "Internal implementation does not depend on public API"
+type = "forbidden"
+source_modules = ["caxton._internal"]
+forbidden_modules = ["caxton.api"]
+
+[[tool.importlinter.contracts]]
+name = "Internal spreadsheet pipeline is layered"
+type = "layers"
+layers = [
+    "caxton._internal.compiler",
+    "caxton._internal.validation",
+    "caxton._internal.layout",
+    "caxton._internal.aggregation",
+    "caxton._internal.semantic",
+    "caxton._internal.data",
+]
+
+[[tool.importlinter.contracts]]
+name = "Bundled XLSX backends are independent"
+type = "independence"
+modules = [
+    "caxton._internal.backends.openpyxl",
+    "caxton._internal.backends.xlsxwriter",
+]
 
 [dependency-groups]
-dev = [
-    "flake8>=7.3,<8.0",
-    "hatch>=1.17,<2.0",
-    "mypy>=2.3,<3.0",
-    "pip>=25,<27",
-    "pytest>=9.1,<10.0",
-    "ruff>=0.16,<0.17",
-    "towncrier>=25.8,<26.0",
+build = [
     "twine>=7.0,<8.0",
+]
+coverage = [
+    "coverage>=7.15,<8.0",
+]
+dependencies = [
+    "deptry>=0.25.1,<0.26",
+]
+docs = [
+    "hypothesis>=6.165,<7.0",
+    "mkdocs>=1.6,<2.0",
+    "mkdocs-material>=9.7,<10.0",
+    "mkdocstrings[python]>=1.0,<2.0",
+]
+imports = [
+    "import-linter>=2.13,<3.0",
+]
+lint = [
+    "flake8>=7.3,<8.0",
+    "ruff>=0.16,<0.17",
     "wemake-python-styleguide>=1.7,<2.0",
+]
+maintenance = [
+    "griffe>=2.1,<3.0",
+    "hatch>=1.17,<2.0",
+    "pip>=25,<27",
+    "towncrier>=25.8,<26.0",
+]
+pre-commit = [
+    "pre-commit>=4.6.1,<5.0",
+]
+test = [
+    "hypothesis>=6.165,<7.0",
+    "pytest>=9.1,<10.0",
+    "pytest-benchmark>=5.2,<6.0",
+    "pytest-cov>=7.1,<8.0",
+]
+tox = [
+    "tox>=4.52.1,<5.0",
+    "tox-uv>=1.29,<2.0",
+]
+typecheck = [
+    "mypy>=2.3,<3.0",
+    "types-openpyxl>=3.1.5.20260518,<3.2",
+]
+dev = [
+    { include-group = "build" },
+    { include-group = "coverage" },
+    { include-group = "dependencies" },
+    { include-group = "docs" },
+    { include-group = "imports" },
+    { include-group = "lint" },
+    { include-group = "maintenance" },
+    { include-group = "pre-commit" },
+    { include-group = "test" },
+    { include-group = "tox" },
+    { include-group = "typecheck" },
 ]
 
 [tool.towncrier]
 directory = "changelog.d"
 filename = "CHANGELOG.md"
-issue_format = "[#{issue}](https://github.com/dzhalaevd/formata/issues/{issue})"
+issue_format = "[#{issue}](https://github.com/dzhalaevd/caxton/issues/{issue})"
 orphan_prefix = "+"
 start_string = "<!-- towncrier release notes start -->\n"
 title_format = "## [{version}] - {project_date}"

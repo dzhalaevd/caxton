@@ -1,6 +1,11 @@
-.PHONY: validate
+.PHONY: benchmark coverage
 
-export PATH := $(CURDIR)/.venv/bin:$(PATH)
+BENCHMARK_ARGS ?=
 
-validate:
-	pytest . && ruff check && ruff format && flake8 . --select=WPS && mypy
+benchmark:
+	pytest tests/test_benchmark_*.py --benchmark-only $(BENCHMARK_ARGS)
+
+coverage:
+	coverage erase
+	coverage run -m pytest
+	coverage report

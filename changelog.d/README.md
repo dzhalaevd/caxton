@@ -28,7 +28,7 @@ hatch run changelog-draft
 ```
 
 Build the changelog during a release, using the version from
-`src/formata/__version__.py`:
+`src/caxton/__version__.py`:
 
 ```bash
 hatch run changelog-build "$(hatch version)"

@@ -4,6 +4,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.tox/
 
 # Environments
 .venv/
@@ -35,11 +36,20 @@ MANIFEST
 *.manifest
 *.spec
 
+# Documentation
+site/
+.cache/
+
 # Coverage
 .coverage
+coverage/
+coverage.xml
 htmlcov/
 
 # IDE and operating system files
 .idea/
 .vscode/
 .DS_Store
+
+backend/stations.sqlite3
+**/output/**

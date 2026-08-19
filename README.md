@@ -1,8 +1,8 @@
 <div align="center">
 
-# Formata
+# Caxton
 
-**Declarative way to work with files in python**
+**Declarative document generation for Python**
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
@@ -18,8 +18,9 @@
 
 ## :mag: About
 
-Formata is declarative Python library for describing and generating documents from application data. Users define
-structure and semantics renderers handle format and backend-specific details
+Declarative Python library for describing and generating documents
+from application data. Users define the document structure and semantics, while
+renderers handle output formats and backend-specific details.
 
 ## :alembic: Built With
 
@@ -27,6 +28,34 @@ structure and semantics renderers handle format and backend-specific details
 ![Excel][excel-shield]
 ![uv][uv-shield]
 ![wps][wemake-shield]
+
+## Quick start
+
+```python
+from caxton import render, sheet, spreadsheet, table, text, write
+
+rows = [{"name": "Ada Lovelace"}, {"name": "Grace Hopper"}]
+
+report = spreadsheet(
+    sheet(
+        "People",
+        table(
+            rows,
+            text("name").titled("Name"),
+        ),
+    ),
+)
+
+result = render(report)
+
+write(report, "people.xlsx")
+```
+
+More examples are available in the [example projects](example).
+
+## :books: Documentation
+
+Full documentation is at [dzhalaevd.github.io/caxton](https://dzhalaevd.github.io/caxton/).
 
 ## :scroll: Licensing
 
@@ -41,21 +70,21 @@ If you find this project interesting, consider giving it a ⭐
 </div>
 
 
-[contributors-shield]: https://img.shields.io/github/contributors/dzhalaevd/formata.svg?style=for-the-badge
+[contributors-shield]: https://img.shields.io/github/contributors/dzhalaevd/caxton.svg?style=for-the-badge
 
-[contributors-url]: https://github.com/dzhalaevd/formata/graphs/contributors
+[contributors-url]: https://github.com/dzhalaevd/caxton/graphs/contributors
 
-[forks-shield]: https://img.shields.io/github/forks/dzhalaevd/formata.svg?style=for-the-badge
+[forks-shield]: https://img.shields.io/github/forks/dzhalaevd/caxton.svg?style=for-the-badge
 
-[forks-url]: https://github.com/dzhalaevd/formata/network/members
+[forks-url]: https://github.com/dzhalaevd/caxton/network/members
 
-[stars-shield]: https://img.shields.io/github/stars/dzhalaevd/formata.svg?style=for-the-badge
+[stars-shield]: https://img.shields.io/github/stars/dzhalaevd/caxton.svg?style=for-the-badge
 
-[stars-url]: https://github.com/dzhalaevd/formata/stargazers
+[stars-url]: https://github.com/dzhalaevd/caxton/stargazers
 
-[issues-shield]: https://img.shields.io/github/issues/dzhalaevd/formata.svg?style=for-the-badge
+[issues-shield]: https://img.shields.io/github/issues/dzhalaevd/caxton.svg?style=for-the-badge
 
-[issues-url]: https://github.com/dzhalaevd/formata/issues
+[issues-url]: https://github.com/dzhalaevd/caxton/issues
 
 [python-shield]: https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54
 

@@ -1,5 +1,3 @@
-"""Validate Towncrier fragments listed in a changed-files manifest."""
-
 import re
 import sys
 from pathlib import Path

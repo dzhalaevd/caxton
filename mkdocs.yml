@@ -1,0 +1,157 @@
+site_name: Caxton
+site_description: Declarative document generation for Python
+site_author: David Dzhalaev
+site_url: https://dzhalaevd.github.io/caxton/
+
+repo_name: dzhalaevd/caxton
+repo_url: https://github.com/dzhalaevd/caxton
+edit_uri: edit/main/docs/
+
+copyright: Released under the MIT license
+
+docs_dir: docs
+site_dir: site
+
+# Internal engineering notes stay in the repository but out of the public site:
+# they are written for contributors and link to files outside docs/.
+exclude_docs: |
+  README.md
+  adr/
+  use_case/
+
+watch:
+  - src/caxton
+  - ARCHITECTURE.md
+  - CHANGELOG.md
+
+theme:
+  name: material
+  language: en
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - content.action.edit
+    - content.code.annotate
+    - content.code.copy
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Follow the system theme
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          inventories:
+            - https://docs.python.org/3/objects.inv
+            - https://hypothesis.readthedocs.io/en/latest/objects.inv
+          options:
+            docstring_style: google
+            docstring_section_style: list
+            filters: ["!^_"]
+            heading_level: 3
+            line_length: 88
+            members_order: source
+            merge_init_into_class: true
+            separate_signature: true
+            show_bases: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            show_source: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+            summary: true
+            unwrap_annotated: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: [., docs]
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+      - Core concepts: getting-started/concepts.md
+  - Guides:
+      - Tables and columns: guides/tables-and-columns.md
+      - Values and display formats: guides/values-and-formats.md
+      - Styles and themes: guides/styles-and-themes.md
+      - Formulas and references: guides/formulas-and-references.md
+      - Grouping and aggregation: guides/grouping-and-aggregation.md
+      - Worksheet layout: guides/layout-and-blocks.md
+      - Rendering and output: guides/rendering-and-output.md
+      - XLSX templates: guides/templates.md
+      - Testing documents: guides/testing.md
+      - Errors and validation: guides/errors.md
+  - Examples: examples.md
+  - API reference:
+      - Overview: reference/index.md
+      - caxton: reference/caxton.md
+      - caxton.api: reference/api.md
+      - caxton.core.models: reference/models.md
+      - caxton.core.types: reference/types.md
+      - caxton.core.formatting: reference/formatting.md
+      - caxton.core.protocols: reference/protocols.md
+      - caxton.core.ir: reference/ir.md
+      - caxton.core.errors: reference/errors.md
+      - caxton.testing: reference/testing.md
+  - Architecture: architecture.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/dzhalaevd/caxton
+      name: Caxton on GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/caxton/
+      name: Caxton on PyPI
