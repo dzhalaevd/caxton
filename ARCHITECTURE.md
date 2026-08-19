@@ -5,6 +5,19 @@ content and meaning of a document, and the compiler and the selected renderer
 transform this specification into the target artifact. XLSX is the first primary
 format, but its engines and constraints do not define the Core.
 
+## Authority and delivered scope
+
+This file is the normative source for the current architecture and supported
+boundaries. `AGENTS.md` translates those boundaries into repository workflow;
+the README and examples demonstrate selected public flows. Design notes and use
+case documents can explain motivation or proposed APIs, but they do not expand
+the compatibility contract described here.
+
+The delivered document family is `SpreadsheetDocument` and the delivered
+artifact profile is XLSX. Flow, tabular, and fixed-layout families below define
+extension boundaries only: their names in examples do not imply public
+constructors, compilers, IRs, or renderers.
+
 ## Core invariants
 
 - The public generative API creates immutable semantic nodes directly; it does
@@ -49,6 +62,17 @@ backends ──→ public core contracts
 `_internal` does not import `api`. The public API does not return OpenPyXL,
 XlsxWriter, XML, or PDF canvas objects. Mutable compiler passes, the resolver,
 caches, and execution plans are not compatibility contracts.
+
+Public stability is divided deliberately:
+
+- `caxton` is the recommended short facade and `caxton.api` is the extended
+  generative API;
+- `caxton.core` contains semantic models, value types, errors, protocols,
+  renderer signature types, and versioned read-only IR contracts used by custom
+  renderers;
+- `caxton.testing` is the stable inspection and comparison surface;
+- `caxton._internal`, including bundled renderer implementations, mutable IR
+  builders, parsers, planners, and package post-processors, is not public API.
 
 ## Semantic Model and families
 
@@ -99,6 +123,13 @@ agreed IR version and owns the backend-specific execution plan.
 path, buffer, or another target into an `OutputSink`. The system rejects an
 incompatible or ambiguous renderer before writing starts.
 
+Built-in resolution considers, in order, an explicitly supplied renderer, an
+explicit backend, an explicit format, target extension or MIME hints, document
+kind, required capabilities, workbook operation, and compatible IR versions.
+The default is selected only when exactly one bundled route remains. Requirement
+analysis is renderer-independent and never reads rows merely to make this
+selection.
+
 For a path target, the built-in `FileSink` owns a sibling staging file: the
 renderer writes to the destination provided by the sink, and the sink atomically
 replaces the target only after the backend completes successfully. For a binary
@@ -113,6 +144,13 @@ ingestion supports mappings, `NamedTuple`, dataclass and attribute objects, lazy
 iterables, and direct custom `DataSource`/`RowAccessor` implementations without
 importing Pydantic, ORM, or other frameworks into the Core. DataFrame/Arrow-like
 inputs require a separate batch contract.
+
+Coercion recognizes an existing structural `DataSource` first, rejects
+DataFrame/Arrow-like and scalar/text/callable inputs with a focused error, wraps
+single supported row objects, and otherwise adapts a lazy iterable. It does not
+use `asdict`, `model_dump`, `vars`, `dir`, schema inference, or a global adapter
+registry. ORM/session lifecycle, eager loading, projection, and prefetch remain
+the caller's responsibility.
 
 Mapping access uses `row[field]`; object access uses the exact attribute.
 Explicit `path(...)` defines nested traversal; a single semantic row evaluator
@@ -249,6 +287,26 @@ base runtime dependencies, but they do not form a shared rendering pipeline:
 the built-in XLSX artifact inspector also uses OpenPyXL. Official backends ship
 with `caxton`; they do not use separate packages.
 
+## Delivered spreadsheet/XLSX profile
+
+The following behavior is implemented and forms the current feature boundary:
+
+| Area                          | Delivered behavior                                                                                                                                         |
+|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Tables and values             | typed columns, mappings and Python row objects, Python expressions, semantic value normalization, explicit and automatic widths                            |
+| Spreadsheet expressions       | semantic cell/range and cross-sheet formulas, conditional formatting, totals, and named table references                                                   |
+| Data shaping                  | hierarchical grouping, arbitrary Python aggregates with filters/defaults, and dynamic matrix axes with duplicate-cell conflict detection                   |
+| Presentation                  | reusable styles/themes, multiple worksheets, filters, freeze panes, titles, spacers, stacks, images, and charts bound to named tables                      |
+| Layout                        | flow placement, explicit A1 anchors, overlap detection, merge ranges, sheet-bound checks, and post-preparation placement checks for shape-dependent blocks |
+| Execution                     | standard and constant-memory create-new plans, one-shot protection, atomic file output, binary targets, and stable capability diagnostics                  |
+| Templates and XLSX extensions | named-range targets, repeated template blocks, pivot cache refresh, namespaced OpenPyXL hooks, and ordered backend-local package post-processing           |
+| Testing                       | semantic inspection/diff, canonical snapshots, explicit-scope layout inspection, XLSX artifact inspection, and optional Hypothesis strategies              |
+
+Charts currently bind to an existing named table; an independent inline chart
+`data=` source is not part of the public API. A reusable Python factory can
+construct a fresh immutable specification, but bind-time `source_ref()` and
+`bind()` placeholders are not implemented.
+
 ## Validation, diagnostics, and testing
 
 Validation has three levels: construction-time local invariants, structural
@@ -282,3 +340,22 @@ parsers, or diff algorithms.
   loss report; changing the backend within a family remains a render operation.
 - Registries, discovery, pass managers, and universal hook systems appear only
   with a validated use case.
+
+## Deliberate deferrals
+
+The following are architectural extension points or proposals, not current
+public promises:
+
+- Flow, tabular, and fixed-layout models, their IRs and renderers, including CSV,
+  DOCX, HTML, PDF, SVG, and image outputs;
+- cross-family `DocumentConverter` and loss reports;
+- schema inference, `BatchDataSource`, async sources, framework-specific source
+  adapters, and public source/type-adapter registries;
+- bind-time data placeholders, inline chart data, and a universal testing
+  contract spanning semantic, layout, and artifact views;
+- entry-point discovery, provider priority/conflict resolution, compiler pass
+  managers, global hook/event registries, and universal extension managers.
+
+A deferred item becomes part of the contract only when a concrete public use
+case, implementation, focused tests, examples, and this file agrees. Names or
+sketches in design documentation do not reserve a public API.

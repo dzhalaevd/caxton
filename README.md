@@ -51,7 +51,11 @@ result = render(report)
 write(report, "people.xlsx")
 ```
 
-More examples are available in the [example projects](example/README.md).
+More examples are available in the [example projects](example).
+
+## :books: Documentation
+
+Full documentation is at [dzhalaevd.github.io/caxton](https://dzhalaevd.github.io/caxton/).
 
 ## :scroll: Licensing
 
