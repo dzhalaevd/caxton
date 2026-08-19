@@ -3,17 +3,23 @@ name: Publish to PyPI
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: Published GitHub Release tag containing the distributions
+        required: true
+        type: string
 
 permissions: {}
 
 concurrency:
-  group: pypi-${{ github.event.release.tag_name }}
+  group: pypi-${{ inputs.release-tag || github.event.release.tag_name }}
   cancel-in-progress: false
 
 jobs:
   prepare:
     name: Retrieve release distributions
-    if: github.event.release.draft == false
+    if: github.event_name == 'workflow_dispatch' || github.event.release.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -23,7 +29,7 @@ jobs:
       - name: Download release assets
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ inputs.release-tag || github.event.release.tag_name }}
         shell: bash
         run: |
           mkdir dist
@@ -37,7 +43,7 @@ jobs:
       - name: Verify release distributions
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ inputs.release-tag || github.event.release.tag_name }}
         shell: bash
         run: |
           test "$(find dist -maxdepth 1 -name '*.whl' -type f | wc -l | tr -d ' ')" = "1"
