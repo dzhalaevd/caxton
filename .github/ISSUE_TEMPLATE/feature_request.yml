@@ -1,0 +1,72 @@
+name: ✨ Feature request
+description: Suggest a new capability or an improvement to an existing one.
+title: "feature: <short description>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! Please check `ARCHITECTURE.md`'s delivered-profile and
+        deliberate-deferrals sections first — some ideas may already be scoped as intentionally
+        out of scope for the current production path (spreadsheet → XLSX).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case or limitation you're running into.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: >
+        What would you like to happen? If you have an idea of the API shape
+        (e.g. a new factory, node, or renderer option), sketch it here.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions, workarounds, or existing features you've considered.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Which part of Caxton does this relate to?
+      options:
+        - Public API / models (caxton.api, caxton.core.models)
+        - Types & formatting (caxton.core.types, caxton.core.formatting)
+        - Data ingestion / evaluation
+        - Compilation / layout
+        - XLSX rendering (OpenPyXL/XlsxWriter backends)
+        - Template handling
+        - Testing utilities (caxton.testing)
+        - Documentation
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links, references, or examples from other libraries that motivate this request.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this hasn't been requested yet.
+          required: true
