@@ -1,0 +1,36 @@
+name: 💬 Something else
+description: Questions, documentation gaps, or anything that doesn't fit a bug report or feature request.
+title: "<short description>"
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for questions, documentation issues, or anything else that doesn't fit the other
+        templates.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - Question
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Tell us what's on your mind. Include links, code samples, or screenshots if relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+    validations:
+      required: false
