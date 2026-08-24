@@ -30,6 +30,14 @@ constructors, compilers, IRs, or renderers.
 - A document family owns its model, validation, compiler, IR, and testing view;
   no universal super-model or super-IR exists.
 - I/O belongs to operations and sinks, not to the document model.
+- Formula intent (`col()`/`table_ref()`/`sheet_ref()`) is limited to
+  references, arithmetic, and comparison. Conditional and lookup business
+  logic (`IF`, `VLOOKUP`/`XLOOKUP`, `INDEX`/`MATCH`, and similar) is computed
+  in the Python row/aggregate layer before rendering; it is never reintroduced
+  as new formula node types or as an unvalidated raw-formula-text escape
+  hatch. A report generated from Python computes its business rules in
+  Python, where they stay typed, tested, and reviewable, not inside a
+  generated artifact.
 
 Structural immutability does not imply universal hashability or repeatable
 execution: a semantic node can reference a stateful or one-shot `DataSource`.
@@ -168,7 +176,12 @@ IR; the XLSX renderer materializes A1 or structured references. A Python
 expression cannot depend on a formula-backed column because its value appears
 only in the artifact. A range reference requires a known `row_count`: the
 compiler does not perform a hidden pass over a one-shot or `UNKNOWN` source to
-calculate the end of the range.
+calculate the end of the range. Formula intent stays deliberately narrow:
+references plus arithmetic and comparison, so it can express a value that must
+stay live and recalculate for the person who opens the artifact. Conditional
+branching and lookups belong to the Python row/aggregate layer instead, so
+business logic stays where it is typed and tested, not encoded as spreadsheet
+formula text the compiler does not otherwise inspect.
 
 Aggregation is expression intent represented by backend-independent
 `AggregateExpr(function, expressions, where, default)`. The initial execution adapter

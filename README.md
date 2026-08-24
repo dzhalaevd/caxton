@@ -12,6 +12,9 @@ Declarative Python library for describing and generating documents
 from application data. Users define the document structure and semantics, while
 renderers handle output formats and backend-specific details
 
+| Stable `v1.0.0` will be released when we decide, that no longer want to freely change the public DSL |
+|------------------------------------------------------------------------------------------------------|
+
 [📚 Documentation](https://dzhalaevd.github.io/caxton/)\
 [📑 Changelog](CHANGELOG.md)
 
