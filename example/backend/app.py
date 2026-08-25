@@ -28,46 +28,46 @@ from caxton import (
 from caxton.core.models import SpreadsheetDocument
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-DATABASE_PATH = Path(__file__).with_name("stations.sqlite3")
+DATABASE_PATH = Path(__file__).with_name("products.sqlite3")
 
 
 @dataclass(frozen=True, slots=True)
-class Owner:
+class Supplier:
     """Nested domain value used to demonstrate explicit path access."""
 
     name: str
 
 
 @dataclass(frozen=True, slots=True)
-class Station:
+class Product:
     """Repository DTO consumed by Caxton without a framework adapter."""
 
     id: int
-    emis_code: str
-    comment: str
-    incident_number: str
-    days_on_base_price: int
-    owner: Owner
+    sku: str
+    description: str
+    reference: str
+    days_in_stock: int
+    supplier: Supplier
     price: Decimal
-    base_price: Decimal
-    active: bool
-    created_on: dt.date
+    list_price: Decimal
+    in_stock: bool
+    added_on: dt.date
 
 
-class StationCreate(BaseModel):
+class ProductCreate(BaseModel):
     """HTTP input validated independently from the report model."""
 
-    emis_code: str = Field(min_length=1)
-    comment: str = Field(min_length=1)
-    incident_number: str = Field(min_length=1)
-    days_on_base_price: int = Field(ge=0)
-    owner: str = Field(min_length=1)
+    sku: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    reference: str = Field(min_length=1)
+    days_in_stock: int = Field(ge=0)
+    supplier: str = Field(min_length=1)
     price: Decimal
-    base_price: Decimal
-    active: bool = True
+    list_price: Decimal
+    in_stock: bool = True
 
 
-class StationRepository:
+class ProductRepository:
     """Small SQLite boundary yielding lazy dataclass rows."""
 
     def __init__(self, database_path: Path) -> None:
@@ -78,67 +78,67 @@ class StationRepository:
         with sqlite3.connect(self._database_path) as connection:
             connection.execute(
                 """
-                CREATE TABLE IF NOT EXISTS stations (
+                CREATE TABLE IF NOT EXISTS products (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    emis_code TEXT NOT NULL,
-                    comment TEXT NOT NULL,
-                    incident_number TEXT NOT NULL,
-                    days_on_base_price INTEGER NOT NULL,
-                    owner TEXT NOT NULL,
+                    sku TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    reference TEXT NOT NULL,
+                    days_in_stock INTEGER NOT NULL,
+                    supplier TEXT NOT NULL,
                     price TEXT NOT NULL,
-                    base_price TEXT NOT NULL,
-                    active INTEGER NOT NULL,
-                    created_on TEXT NOT NULL
+                    list_price TEXT NOT NULL,
+                    in_stock INTEGER NOT NULL,
+                    added_on TEXT NOT NULL
                 )
                 """,
             )
 
-    def add(self, payload: StationCreate) -> int:
+    def add(self, payload: ProductCreate) -> int:
         """Persist a validated request and return its identifier.
 
         Returns:
             The generated database identifier.
         """
         values = (
-            payload.emis_code,
-            payload.comment,
-            payload.incident_number,
-            payload.days_on_base_price,
-            payload.owner,
+            payload.sku,
+            payload.description,
+            payload.reference,
+            payload.days_in_stock,
+            payload.supplier,
             str(payload.price),
-            str(payload.base_price),
-            int(payload.active),
+            str(payload.list_price),
+            int(payload.in_stock),
             dt.datetime.now(tz=dt.UTC).date().isoformat(),
         )
         with sqlite3.connect(self._database_path) as connection:
             cursor = connection.execute(
                 """
-                INSERT INTO stations (
-                    emis_code, comment, incident_number, days_on_base_price,
-                    owner, price, base_price, active, created_on
+                INSERT INTO products (
+                    sku, description, reference, days_in_stock,
+                    supplier, price, list_price, in_stock, added_on
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 values,
             )
             return int(cursor.lastrowid)
 
-    def iter_stations(self) -> Iterator[Station]:
+    def iter_products(self) -> Iterator[Product]:
         """Yield one-shot rows so the renderer can select a streaming plan."""
         with sqlite3.connect(self._database_path) as connection:
             connection.row_factory = sqlite3.Row
-            records = connection.execute("SELECT * FROM stations ORDER BY id")
+            records = connection.execute("SELECT * FROM products ORDER BY id")
             for record in records:
-                yield Station(
+                yield Product(
                     id=record["id"],
-                    emis_code=record["emis_code"],
-                    comment=record["comment"],
-                    incident_number=record["incident_number"],
-                    days_on_base_price=record["days_on_base_price"],
-                    owner=Owner(record["owner"]),
+                    sku=record["sku"],
+                    description=record["description"],
+                    reference=record["reference"],
+                    days_in_stock=record["days_in_stock"],
+                    supplier=Supplier(record["supplier"]),
                     price=Decimal(record["price"]),
-                    base_price=Decimal(record["base_price"]),
-                    active=bool(record["active"]),
-                    created_on=dt.date.fromisoformat(record["created_on"]),
+                    list_price=Decimal(record["list_price"]),
+                    in_stock=bool(record["in_stock"]),
+                    added_on=dt.date.fromisoformat(record["added_on"]),
                 )
 
 
@@ -150,28 +150,28 @@ def build_report(rows: object) -> SpreadsheetDocument:
     """
     return spreadsheet(
         sheet(
-            "Stations",
+            "Products",
             table(
                 rows,
                 integer("id").titled("ID"),
-                text("emis", source="emis_code").titled("EMIS"),
-                text("comment").titled("Comment"),
-                text("incident", source="incident_number").titled("Incident"),
-                integer("days", source="days_on_base_price").titled("Days"),
-                text("owner", source=path("owner", "name")).titled("Owner"),
+                text("sku").titled("SKU"),
+                text("description").titled("Description"),
+                text("reference").titled("Reference"),
+                integer("days", source="days_in_stock").titled("Days in stock"),
+                text("supplier", source=path("supplier", "name")).titled("Supplier"),
                 decimal("price").titled("Price"),
-                decimal("base_price").titled("Base price"),
-                decimal("delta", source=ref("price") - ref("base_price")).titled(
+                decimal("list_price").titled("List price"),
+                decimal("delta", source=ref("price") - ref("list_price")).titled(
                     "Delta"
                 ),
-                boolean("active").titled("Active"),
-                date("created_on").titled("Created"),
+                boolean("in_stock").titled("In stock"),
+                date("added_on").titled("Added"),
             ),
         ),
     )
 
 
-repository = StationRepository(DATABASE_PATH)
+repository = ProductRepository(DATABASE_PATH)
 
 
 @contextlib.asynccontextmanager
@@ -184,18 +184,18 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="Caxton backend example", lifespan=lifespan)
 
 
-@app.post("/stations", status_code=status.HTTP_201_CREATED)
-def create_station(payload: StationCreate) -> dict[str, int]:
-    """Store one station accepted through a Pydantic model.
+@app.post("/products", status_code=status.HTTP_201_CREATED)
+def create_product(payload: ProductCreate) -> dict[str, int]:
+    """Store one product accepted through a Pydantic model.
 
     Returns:
-        The generated station identifier.
+        The generated product identifier.
     """
     return {"id": repository.add(payload)}
 
 
-@app.get("/reports/stations.xlsx")
-def station_report() -> Response:
+@app.get("/reports/products.xlsx")
+def product_report() -> Response:
     """Stream database rows into XLSX and return the completed artifact.
 
     Returns:
@@ -204,7 +204,7 @@ def station_report() -> Response:
     Raises:
         RuntimeError: If memory rendering unexpectedly returns no payload.
     """
-    document = build_report(repository.iter_stations())
+    document = build_report(repository.iter_products())
     result = render(document, mode="stream")
     if result.data is None:
         message = "Memory rendering did not return XLSX bytes"
@@ -212,5 +212,5 @@ def station_report() -> Response:
     return Response(
         content=result.data,
         media_type=XLSX_MEDIA_TYPE,
-        headers={"Content-Disposition": 'attachment; filename="stations.xlsx"'},
+        headers={"Content-Disposition": 'attachment; filename="products.xlsx"'},
     )

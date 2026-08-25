@@ -51,5 +51,5 @@ htmlcov/
 .vscode/
 .DS_Store
 
-backend/stations.sqlite3
+backend/products.sqlite3
 **/output/**
