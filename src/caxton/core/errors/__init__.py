@@ -32,6 +32,7 @@ from .rendering import (
 )
 from .validation import (
     ColumnNotFoundError,
+    CyclicReferenceError,
     DuplicateColumnError,
     Issue,
     Notification,
@@ -56,6 +57,7 @@ __all__ = (
     "CaxtonWarning",
     "ColumnNotFoundError",
     "CyclicColumnError",
+    "CyclicReferenceError",
     "DataEvaluationError",
     "DataSourceConsumedError",
     "DataSourceError",
