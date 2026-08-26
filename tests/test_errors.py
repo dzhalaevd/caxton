@@ -7,6 +7,7 @@ from caxton.errors import (
     CaxtonTypeError,
     CaxtonValueError,
     ColumnNotFoundError,
+    CyclicReferenceError,
     DuplicateColumnError,
     InvalidOperationError,
     Issue,
@@ -23,6 +24,26 @@ def test_error_hierarchy() -> None:
     assert issubclass(ValidationError, CaxtonError)
     assert issubclass(RenderError, CaxtonError)
     assert issubclass(InvalidOperationError, CaxtonError)
+
+
+def test_cyclic_reference_error_context() -> None:
+    cycle = (
+        'worksheet["Report"].table[0].column["left"].source',
+        'worksheet["Report"].table[0].column["right"].source',
+        'worksheet["Report"].table[0].column["left"].source',
+    )
+
+    error = CyclicReferenceError(
+        column="left",
+        cycle=cycle,
+        path=cycle[0],
+    )
+
+    assert issubclass(CyclicReferenceError, SchemaError)
+    assert (
+        error.message == f"Cyclic reference through 2 columns, starting at {cycle[0]}"
+    )
+    assert error.context == {"column": "left", "cycle": cycle}
 
 
 def test_argument_error_hierarchy() -> None:
