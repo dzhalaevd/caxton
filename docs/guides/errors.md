@@ -41,6 +41,7 @@ CaxtonError
 ├── ValidationError
 │   └── SchemaError
 │       ├── ColumnNotFoundError
+│       ├── CyclicReferenceError
 │       └── DuplicateColumnError
 ├── DataSourceError
 │   ├── UnsupportedDataSourceError
@@ -77,7 +78,8 @@ working, and you can still catch everything with `except CaxtonError`.
 | `DataSourceIterationError` | Fetching the next row failed; keeps the next row index and the cause.                                           |
 | `MissingFieldError`        | The declared field is absent from the row.                                                                      |
 | `FieldAccessError`         | An existing property or descriptor raised while being read.                                                     |
-| `CyclicColumnError`        | `ref()` chains form a cycle.                                                                                    |
+| `CyclicReferenceError`     | Structural validation found a cycle through `ref()`, `col()`, `table_ref()`, or `sheet_ref()`.                 |
+| `CyclicColumnError`        | The row evaluator encountered a `ref()` cycle after structural validation was bypassed.                        |
 | `MatrixConflictError`      | Several source values land in one matrix cell without an aggregate.                                             |
 | `UnsupportedFeatureError`  | The selected target cannot represent the request — including an implicit block after a table of unknown height. |
 | `TemplateRefError`         | A named template target is missing, ambiguous or of the wrong shape.                                            |
@@ -86,6 +88,12 @@ An error while retrieving the next row is a `DataSourceIterationError`, not a
 backend failure — an important distinction when a database cursor dies mid-write.
 Likewise, an error raised by an existing property never appears as a
 "missing field" error.
+
+Reference cycles are reported as aggregated `CyclicReferenceError` issues during
+`validate()`. Their context retains the first semantic `column` and adds the
+complete closed `cycle` path, allowing callers to diagnose the dependency without
+parsing the human-readable message. `CyclicColumnError` remains a defensive
+runtime error for direct evaluator use outside the normal validated pipeline.
 
 ## Warnings
 

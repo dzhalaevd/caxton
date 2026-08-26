@@ -324,6 +324,14 @@ construct a fresh immutable specification, but bind-time `source_ref()` and
 
 Validation has three levels: construction-time local invariants, structural
 cross-node rules without data reads, and explicitly requested data validation.
+Structural validation rejects direct and indirect dependency cycles formed by
+Python `ref()` expressions or formula `col()`/`table_ref()`/`sheet_ref()`
+references, including cycles that cross worksheets. The diagnostic includes the
+complete closed semantic path of the cycle. Cycle detection, like overlap
+validation, never consumes row data and completes before requirement analysis
+or compilation. These structural issues originate from
+`CyclicReferenceError`; `CyclicColumnError` remains the row evaluator's
+defensive failure if that internal boundary is invoked without validation.
 All library errors inherit from `CaxtonError`; the public categories distinguish
 validation, data source/evaluation, invalid operation, unsupported feature, and
 render/backend failures. Errors contain a semantic path and structured context,
