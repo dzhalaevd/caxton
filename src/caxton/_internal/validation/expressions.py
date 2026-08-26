@@ -19,6 +19,8 @@ from caxton.core.models import (
     Expression,
 )
 
+from .cycles import report_reference_cycles
+
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _ReferenceScope:
@@ -49,6 +51,7 @@ def validate_columns(
     }
     seen: set[str] = set()
     dependencies: dict[str, tuple[str, ...]] = {}
+    paths: dict[str, str] = {}
     for column in columns:
         column_path = f'{table_path}.column["{column.id}"]'
         if column.id in seen:
@@ -60,6 +63,7 @@ def validate_columns(
         dependencies[column.id] = tuple(
             reference for reference in references if reference in identifiers
         )
+        paths[column.id] = f"{column_path}.source"
         reference_scope = _ReferenceScope(
             identifiers=identifiers,
             formula_identifiers=formula_identifiers,
@@ -73,7 +77,12 @@ def validate_columns(
                 path=f"{column_path}.source",
                 notification=notification,
             )
-    _validate_cycles(dependencies, table_path, notification)
+    report_reference_cycles(
+        dependencies,
+        paths,
+        {column_id: column_id for column_id in dependencies},
+        notification,
+    )
 
 
 @singledispatch
@@ -130,50 +139,6 @@ def _validate_python_reference(
             code="aggregate_in_aggregate_expression",
             context={"column": reference},
         )
-
-
-def _validate_cycles(
-    dependencies: dict[str, tuple[str, ...]],
-    table_path: str,
-    notification: Notification,
-) -> None:
-    state = _CycleState(
-        dependencies=dependencies,
-        table_path=table_path,
-        notification=notification,
-    )
-    for column_id in dependencies:
-        _visit_column(column_id, state)
-
-
-@dataclasses.dataclass(slots=True)
-class _CycleState:
-    dependencies: dict[str, tuple[str, ...]]
-    table_path: str
-    notification: Notification
-    completed: set[str] = dataclasses.field(default_factory=set)
-    active: set[str] = dataclasses.field(default_factory=set)
-
-
-def _visit_column(
-    column_id: str,
-    state: _CycleState,
-) -> None:
-    if column_id in state.completed:
-        return
-    if column_id in state.active:
-        state.notification.add(
-            f"Cyclic column reference involving {column_id!r}",
-            path=f'{state.table_path}.column["{column_id}"].source',
-            code="cyclic_column_reference",
-            context={"column": column_id},
-        )
-        return
-    state.active.add(column_id)
-    for dependency in state.dependencies[column_id]:
-        _visit_column(dependency, state)
-    state.active.discard(column_id)
-    state.completed.add(column_id)
 
 
 __all__ = ("expression_references", "validate_columns")
