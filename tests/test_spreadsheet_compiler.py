@@ -99,7 +99,60 @@ def test_validation_is_lazy_and_detects_cycles() -> None:
         validate(document)
 
     assert not visited
-    assert captured.value.issues[0].code == "cyclic_column_reference"
+    assert "CyclicReferenceError" in {issue.code for issue in captured.value.issues}
+
+
+def test_direct_reference_cycle_reports_path() -> None:
+    document = spreadsheet(
+        sheet(
+            "Cycles",
+            table(
+                [{"value": 1}],
+                decimal("value", source=ref("value")),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        validate(document)
+
+    issue = next(
+        issue for issue in captured.value.issues if issue.code == "CyclicReferenceError"
+    )
+    reference_path = 'worksheet["Cycles"].table[0].column["value"].source'
+    assert issue.context == {
+        "column": "value",
+        "cycle": (reference_path, reference_path),
+    }
+
+
+def test_indirect_reference_cycle_reports_path() -> None:
+    document = spreadsheet(
+        sheet(
+            "Cycles",
+            table(
+                [{"value": 1}],
+                decimal("first", source=ref("second")),
+                decimal("second", source=ref("third")),
+                decimal("third", source=ref("first")),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        validate(document)
+
+    issue = next(
+        issue for issue in captured.value.issues if issue.code == "CyclicReferenceError"
+    )
+    prefix = 'worksheet["Cycles"].table[0].column'
+    expected_cycle = (
+        f'{prefix}["first"].source',
+        f'{prefix}["second"].source',
+        f'{prefix}["third"].source',
+        f'{prefix}["first"].source',
+    )
+    assert issue.context == {"column": "first", "cycle": expected_cycle}
 
 
 def test_later_tables_flow_below_predecessor() -> None:
@@ -194,7 +247,7 @@ def test_compiler_preserves_lazy_one_shot_rows() -> None:
     structure = inspect_layout(document)
 
     assert not visited
-    assert structure.worksheet("People").tables[0].rows == ()
+    assert not structure.worksheet("People").tables[0].rows
 
     inspected = inspect_layout(document, rows=Rows.all())
     assert inspected.worksheet("People").tables[0].row(0).values == {"name": "Ada"}

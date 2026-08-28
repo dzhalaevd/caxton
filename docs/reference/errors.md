@@ -30,6 +30,7 @@ See [Errors and validation](../guides/errors.md) for the hierarchy at a glance.
         - SchemaError
         - ShapeError
         - ColumnNotFoundError
+        - CyclicReferenceError
         - DuplicateColumnError
         - Issue
         - Notification

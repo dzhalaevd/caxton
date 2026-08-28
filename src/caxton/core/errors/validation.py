@@ -75,6 +75,29 @@ class SchemaError(ValidationError):
 
 
 @dataclasses.dataclass(eq=False)
+class CyclicReferenceError(SchemaError):
+    """Raised when semantic references form a dependency cycle."""
+
+    message: str = dataclasses.field(init=False)
+    column: str = dataclasses.field(kw_only=True)
+    cycle: tuple[str, ...] = dataclasses.field(kw_only=True)
+
+    def __post_init__(self) -> None:
+        column_count = len(self.cycle) - 1
+        noun = "column" if column_count == 1 else "columns"
+        self.message = (
+            f"Cyclic reference through {column_count} {noun}, "
+            f"starting at {self.cycle[0]}"
+        )
+        self.context = {
+            **self.context,
+            "column": self.column,
+            "cycle": self.cycle,
+        }
+        super().__post_init__()
+
+
+@dataclasses.dataclass(eq=False)
 class ColumnNotFoundError(SchemaError):
     """Raised when a referenced column does not exist."""
 

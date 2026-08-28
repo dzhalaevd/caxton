@@ -8,7 +8,6 @@ from functools import singledispatch
 from caxton.core.errors import ColumnNotFoundError, Notification
 from caxton.core.models import (
     CellReference,
-    Column,
     Formula,
     FormulaBinary,
     RangeReference,
@@ -18,6 +17,8 @@ from caxton.core.models import (
     iter_tables,
 )
 from caxton.core.protocols import DataSourceInfo
+
+from .cycles import report_reference_cycles
 
 FormulaNode = tuple[int, int, str]
 
@@ -38,7 +39,7 @@ def validate_formula_references(
         for worksheet_index, worksheet in enumerate(document.worksheets)
         for table_index, table in enumerate(iter_tables(worksheet.blocks))
     }
-    dependencies: dict[FormulaNode, set[FormulaNode]] = {}
+    dependencies: dict[FormulaNode, dict[FormulaNode, None]] = {}
     paths: dict[FormulaNode, str] = {}
     for worksheet_index, worksheet in enumerate(document.worksheets):
         for table_index, table in enumerate(iter_tables(worksheet.blocks)):
@@ -48,10 +49,10 @@ def validate_formula_references(
                     continue
                 formula_path = f'{table_path}.column["{column.id}"].formula'
                 node = (worksheet_index, table_index, column.id)
-                dependencies[node] = set()
+                dependencies[node] = {}
                 paths[node] = formula_path
-                _validate_column_formula(
-                    column,
+                _validate_formula(
+                    column.excel_formula,
                     node=node,
                     path=formula_path,
                     worksheet=worksheet,
@@ -75,35 +76,11 @@ def validate_formula_references(
                     dependencies=dependencies,
                     notification=notification,
                 )
-    _validate_formula_cycles(dependencies, paths, notification)
-
-
-def _validate_column_formula(  # noqa: WPS211
-    column: Column,
-    *,
-    node: FormulaNode,
-    path: str,
-    worksheet: Worksheet,
-    table: SpreadsheetTable,
-    worksheets: dict[str, Worksheet],
-    tables: dict[str, tuple[Worksheet, SpreadsheetTable]],
-    table_keys: dict[SpreadsheetTable, tuple[int, int]],
-    dependencies: dict[FormulaNode, set[FormulaNode]],
-    notification: Notification,
-) -> None:
-    if column.excel_formula is None:
-        return
-    _validate_formula(
-        column.excel_formula,
-        node=node,
-        path=path,
-        worksheet=worksheet,
-        table=table,
-        worksheets=worksheets,
-        tables=tables,
-        table_keys=table_keys,
-        dependencies=dependencies,
-        notification=notification,
+    report_reference_cycles(
+        dependencies,
+        paths,
+        {node: node[2] for node in dependencies},
+        notification,
     )
 
 
@@ -117,7 +94,7 @@ def _validate_formula(  # noqa: WPS211
     worksheets: dict[str, Worksheet],
     tables: dict[str, tuple[Worksheet, SpreadsheetTable]],
     table_keys: dict[SpreadsheetTable, tuple[int, int]],
-    dependencies: dict[FormulaNode, set[FormulaNode]],
+    dependencies: dict[FormulaNode, dict[FormulaNode, None]],
     notification: Notification,
 ) -> None:
     for reference in _formula_references(formula):
@@ -150,7 +127,8 @@ def _validate_formula(  # noqa: WPS211
         )
         if node is not None and target_column.excel_formula is not None:
             target_key = table_keys[target_table]
-            dependencies[node].add((*target_key, target_column.id))
+            target_node = (*target_key, target_column.id)
+            dependencies[node][target_node] = None
 
 
 def _validate_reference_row(
@@ -177,35 +155,6 @@ def _validate_reference_row(
             "row_count": row_count,
         },
     )
-
-
-def _validate_formula_cycles(
-    dependencies: dict[FormulaNode, set[FormulaNode]],
-    paths: dict[FormulaNode, str],
-    notification: Notification,
-) -> None:
-    completed: set[FormulaNode] = set()
-    active: set[FormulaNode] = set()
-
-    def visit(node: FormulaNode) -> None:
-        if node in completed:
-            return
-        if node in active:
-            notification.add(
-                f"Cyclic formula reference involving column {node[2]!r}",
-                path=paths[node],
-                code="cyclic_formula_reference",
-                context={"column": node[2]},
-            )
-            return
-        active.add(node)
-        for dependency in dependencies.get(node, set()):
-            visit(dependency)
-        active.discard(node)
-        completed.add(node)
-
-    for node in dependencies:
-        visit(node)
 
 
 def _resolve_formula_table(  # noqa: WPS211

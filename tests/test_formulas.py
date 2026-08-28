@@ -211,9 +211,83 @@ def test_validation_detects_formula_cycles() -> None:
     with pytest.raises(ValidationError) as captured:
         validate(document)
 
-    assert {issue.code for issue in captured.value.issues} == {
-        "cyclic_formula_reference",
-    }
+    issue = next(
+        issue for issue in captured.value.issues if issue.code == "CyclicReferenceError"
+    )
+    expected_cycle = (
+        'worksheet["Left"].table[0].column["value"].formula',
+        'worksheet["Right"].table[0].column["value"].formula',
+        'worksheet["Left"].table[0].column["value"].formula',
+    )
+    assert issue.context == {"column": "value", "cycle": expected_cycle}
+
+
+def test_direct_formula_cycle_is_reported_once() -> None:
+    document = spreadsheet(
+        sheet(
+            "Cycles",
+            table(
+                [{}],
+                decimal("value", formula=col("value") + col("value")),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        validate(document)
+
+    cycle_issues = tuple(
+        issue for issue in captured.value.issues if issue.code == "CyclicReferenceError"
+    )
+    assert len(cycle_issues) == 1
+    assert cycle_issues[0].context["column"] == "value"
+
+
+def test_table_reference_cycle_reports_path() -> None:
+    document = spreadsheet(
+        sheet(
+            "Cycles",
+            table(
+                [{}],
+                decimal(
+                    "value",
+                    formula=table_ref("second").column("value"),
+                ),
+                name="first",
+            ),
+            table(
+                [{}],
+                decimal(
+                    "value",
+                    formula=table_ref("third").column("value"),
+                ),
+                name="second",
+            ),
+            table(
+                [{}],
+                decimal(
+                    "value",
+                    formula=table_ref("first").column("value"),
+                ),
+                name="third",
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        validate(document)
+
+    issue = next(
+        issue for issue in captured.value.issues if issue.code == "CyclicReferenceError"
+    )
+    prefix = 'worksheet["Cycles"].table'
+    expected_cycle = (
+        f'{prefix}[0].column["value"].formula',
+        f'{prefix}[1].column["value"].formula',
+        f'{prefix}[2].column["value"].formula',
+        f'{prefix}[0].column["value"].formula',
+    )
+    assert issue.context == {"column": "value", "cycle": expected_cycle}
 
 
 def test_python_expr_rejects_formula_column() -> None:
