@@ -36,6 +36,33 @@ def test_self_loop_reports_closed_path() -> None:
     }
 
 
+def test_repeated_self_reference_reports_once() -> None:
+    issues = _report({"value": ("value", "value")})
+
+    assert len(issues) == 1
+    assert issues[0].code == "CyclicReferenceError"
+    assert issues[0].context == {
+        "column": "value",
+        "cycle": ('column["value"]', 'column["value"]'),
+    }
+
+
+def test_repeated_dependency_keeps_cycles() -> None:
+    issues = _report(
+        {
+            "first": ("second", "second", "third"),
+            "second": ("first",),
+            "third": ("first",),
+        },
+    )
+
+    assert len(issues) == 2
+    assert {issue.context["cycle"] for issue in issues} == {
+        ('column["first"]', 'column["second"]', 'column["first"]'),
+        ('column["first"]', 'column["third"]', 'column["first"]'),
+    }
+
+
 def test_independent_cycles_report_two_issues() -> None:
     issues = _report(
         {

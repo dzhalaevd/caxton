@@ -49,7 +49,7 @@ def _cycles_from(
 ) -> Iterator[tuple[_Node, ...]]:
     path = [root]
     active = {root: 0}
-    pending = [(root, iter(dependencies.get(root, ())))]
+    pending = [(root, _unique(dependencies.get(root, ())))]
     while pending:
         node, children = pending[-1]
         try:
@@ -68,7 +68,17 @@ def _cycles_from(
             continue
         active[dependency] = len(path)
         path.append(dependency)
-        pending.append((dependency, iter(dependencies.get(dependency, ()))))
+        pending.append((dependency, _unique(dependencies.get(dependency, ()))))
+
+
+def _unique(dependencies: Iterable[_Node]) -> Iterator[_Node]:
+    """Yield each dependency once so a repeated reference reports one cycle."""
+    seen: set[_Node] = set()
+    for dependency in dependencies:
+        if dependency in seen:
+            continue
+        seen.add(dependency)
+        yield dependency
 
 
 __all__ = ("report_reference_cycles",)
