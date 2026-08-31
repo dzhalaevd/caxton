@@ -2,6 +2,15 @@
 
 <!-- towncrier release notes start -->
 
+## [0.1.2] - 2026-08-31
+
+### Bug fixes
+
+- Detect direct, indirect, and cross-sheet reference cycles during structural
+  validation and report their complete semantic path through
+  `CyclicReferenceError`. ([#20](https://github.com/dzhalaevd/caxton/issues/20))
+
+
 ## [0.1.0] - 2026-08-19
 
 ### Features
