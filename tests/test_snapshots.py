@@ -45,11 +45,17 @@ def test_snapshot_normalizes_unordered_values() -> None:
 
 def test_semantic_snapshot_is_repeatable() -> None:
     first = spreadsheet(
-        sheet("Data", table([], text("value"), name="data")),
+        sheet(
+            "Data",
+            table(source=[], columns=(text(id="value", source="value"),), name="data"),
+        ),
         metadata={"stage": "test"},
     )
     second = spreadsheet(
-        sheet("Data", table([], text("value"), name="data")),
+        sheet(
+            "Data",
+            table(source=[], columns=(text(id="value", source="value"),), name="data"),
+        ),
         metadata={"stage": "test"},
     )
 

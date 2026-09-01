@@ -34,7 +34,7 @@ from caxton import (  # noqa: WPS347
     text,
     time,
     write,
-)
+)  # noqa: WPS347
 from caxton._internal import operations as operations_module  # noqa: PLC2701
 from caxton._internal.compiler import spreadsheet as compiler_module  # noqa: PLC2701
 from caxton._internal.resolver import BuiltinRendererResolver  # noqa: PLC2701
@@ -134,14 +134,16 @@ def _sales_document() -> SpreadsheetDocument:
         sheet(
             "Sales",
             table(
-                [{"gross_value": 90, "cost_value": 30}],
-                money("gross", source="gross_value", currency="USD")
-                .titled("Gross")
-                .align("right")
-                .width(18)
-                .format(money_format(currency="USD")),
-                money("cost", source="cost_value"),
-                decimal("margin", source=ref("gross") - ref("cost")),
+                source=[{"gross_value": 90, "cost_value": 30}],
+                columns=(
+                    money(id="gross", source="gross_value", currency="USD")
+                    .titled("Gross")
+                    .align("right")
+                    .width(18)
+                    .format(money_format(currency="USD")),
+                    money(id="cost", source="cost_value"),
+                    decimal(id="margin", source=ref("gross") - ref("cost")),
+                ),
                 name="sales",
                 anchor="D10",
             ),
@@ -204,7 +206,7 @@ def test_xlsxwriter_lowers_supported_scalar_types() -> None:
         sheet(
             "Values",
             table(
-                [
+                source=[
                     {
                         "boolean": True,
                         "date": dt.date(2026, 8, 11),
@@ -217,15 +219,17 @@ def test_xlsxwriter_lowers_supported_scalar_types() -> None:
                         "time": dt.time(12, 30),
                     },
                 ],
-                boolean("boolean"),
-                date("date"),
-                datetime("datetime"),
-                decimal("decimal"),
-                duration("duration"),
-                integer("integer"),
-                link("link"),
-                percentage("percentage"),
-                time("time"),
+                columns=(
+                    boolean(id="boolean", source="boolean"),
+                    date(id="date", source="date"),
+                    datetime(id="datetime", source="datetime"),
+                    decimal(id="decimal", source="decimal"),
+                    duration(id="duration", source="duration"),
+                    integer(id="integer", source="integer"),
+                    link(id="link", source="link"),
+                    percentage(id="percentage", source="percentage"),
+                    time(id="time", source="time"),
+                ),
             ),
         ),
     )
@@ -290,7 +294,12 @@ def test_renderer_preflight_does_not_consume_rows() -> None:
         visited = True
         yield {"name": "Ada"}
 
-    document = spreadsheet(sheet("People", table(rows(), text("name"))))
+    document = spreadsheet(
+        sheet(
+            "People",
+            table(source=rows(), columns=(text(id="name", source="name"),)),
+        )
+    )
 
     with pytest.raises(RenderError):
         render(document, format="pdf")
@@ -455,8 +464,22 @@ def test_write_rejects_name_collision_early(
     tmp_path: Path,
 ) -> None:
     document = spreadsheet(
-        sheet("First", table([{"value": 1}], text("value"), name="Sales")),
-        sheet("Second", table([{"value": 2}], text("value"), name="sales")),
+        sheet(
+            "First",
+            table(
+                source=[{"value": 1}],
+                columns=(text(id="value", source="value"),),
+                name="Sales",
+            ),
+        ),
+        sheet(
+            "Second",
+            table(
+                source=[{"value": 2}],
+                columns=(text(id="value", source="value"),),
+                name="sales",
+            ),
+        ),
     )
     target = tmp_path / "existing.xlsx"
     original = b"existing artifact"
@@ -494,8 +517,8 @@ def test_render_validates_structure_once(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_construction_uses_caxton_errors() -> None:
     with pytest.raises(CaxtonError):
-        text("name").width(0)
+        text(id="name", source="name").width(0)
     with pytest.raises(CaxtonError):
-        text("name").align("diagonal")
+        text(id="name", source="name").align("diagonal")
     with pytest.raises(CaxtonError):
         spreadsheet(metadata={"unsupported": object()})

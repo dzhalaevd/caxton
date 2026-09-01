@@ -16,10 +16,12 @@ def test_validation_preserves_model_and_rows() -> None:
         sheet(
             "Sales",
             table(
-                rows(),
-                decimal("gross"),
-                decimal("cost"),
-                decimal("margin", source=ref("gross") - ref("cost")),
+                source=rows(),
+                columns=(
+                    decimal(id="gross", source="gross"),
+                    decimal(id="cost", source="cost"),
+                    decimal(id="margin", source=ref("gross") - ref("cost")),
+                ),
                 name="sales",
             ),
         ),

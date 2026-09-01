@@ -31,11 +31,13 @@ def test_three_level_grouping_merges_middle_level() -> None:
         sheet(
             "Summary",
             table(
-                rows,
-                text("region").grouped(merge=True),
-                text("shop").grouped(merge=True),
-                text("line").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                source=rows,
+                columns=(
+                    text(id="region", source="region").grouped(merge=True),
+                    text(id="shop", source="shop").grouped(merge=True),
+                    text(id="line", source="line").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -56,10 +58,12 @@ def test_merged_groups_coexist_with_a_footer() -> None:
         sheet(
             "Summary",
             table(
-                rows,
-                text("shop").grouped(merge=True),
-                text("line").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                source=rows,
+                columns=(
+                    text(id="shop", source="shop").grouped(merge=True),
+                    text(id="line", source="line").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
                 footer=[Total("total")],
             ),
         ),

@@ -72,10 +72,12 @@ def test_spreadsheet_features_are_immutable_lazy_semantic_intent() -> None:
         sheet(
             "Sales",
             table(
-                rows(),
-                text("name"),
-                decimal("amount", style="money").width("auto"),
-                decimal("delta"),
+                source=rows(),
+                columns=(
+                    text(id="name", source="name"),
+                    decimal(id="amount", source="amount", style="money").width("auto"),
+                    decimal(id="delta", source="delta"),
+                ),
                 name="sales",
                 header_style=Style(
                     font=FontStyle(bold=True, size=12),
@@ -133,10 +135,12 @@ def test_spreadsheet_features_compile_to_resolved_layout() -> None:
         sheet(
             "Sales",
             table(
-                [{"name": "A", "amount": 10, "delta": 2}],
-                text("name"),
-                decimal("amount", style="money").width("auto"),
-                decimal("delta"),
+                source=[{"name": "A", "amount": 10, "delta": 2}],
+                columns=(
+                    text(id="name", source="name"),
+                    decimal(id="amount", source="amount", style="money").width("auto"),
+                    decimal(id="delta", source="delta"),
+                ),
                 name="sales",
                 anchor="C4",
                 header_style=Style(fill="#D9EAF7", align="center"),
@@ -202,10 +206,12 @@ def test_spreadsheet_features_render_backend_neutral_xlsx(backend: str) -> None:
         sheet(
             "Sales",
             table(
-                rows(),
-                text("name"),
-                decimal("amount", style="money").width("auto"),
-                decimal("delta"),
+                source=rows(),
+                columns=(
+                    text(id="name", source="name"),
+                    decimal(id="amount", source="amount", style="money").width("auto"),
+                    decimal(id="delta", source="delta"),
+                ),
                 header_style=Style(
                     font=FontStyle(bold=True, size=12),
                     fill="#D9EAF7",
@@ -264,8 +270,8 @@ def test_spreadsheet_feature_validation_is_structural_and_lazy() -> None:
         sheet(
             "Data",
             table(
-                rows(),
-                decimal("amount", style="missing"),
+                source=rows(),
+                columns=(decimal(id="amount", source="amount", style="missing"),),
                 footer=Totals(items=(Total("unknown"), Total("unknown"))),
                 rules=(when(col("unknown") > 0, style="missing"),),
             ),
@@ -288,8 +294,10 @@ def test_capability_analysis_declares_each_stage_three_feature() -> None:
         sheet(
             "Data",
             table(
-                [{"amount": 1}],
-                decimal("amount", style="number").width("auto"),
+                source=[{"amount": 1}],
+                columns=(
+                    decimal(id="amount", source="amount", style="number").width("auto"),
+                ),
                 header_style=Style(fill="#D9EAF7"),
                 footer=Totals(items=(Total("amount"),)),
                 rules=(when(col("amount") > 0, style=Style(fill="#C6EFCE")),),
@@ -324,8 +332,8 @@ def test_testing_diff_and_snapshot_include_stage_three_properties() -> None:
         sheet(
             "Data",
             table(
-                [],
-                decimal("amount").width("auto"),
+                source=[],
+                columns=(decimal(id="amount", source="amount").width("auto"),),
                 header_style=Style(fill="#FF0000"),
                 autofilter=True,
             ),
@@ -335,8 +343,8 @@ def test_testing_diff_and_snapshot_include_stage_three_properties() -> None:
         sheet(
             "Data",
             table(
-                [],
-                decimal("amount").width("auto"),
+                source=[],
+                columns=(decimal(id="amount", source="amount").width("auto"),),
                 header_style=Style(fill="#0000FF"),
                 autofilter=True,
             ),
@@ -356,8 +364,8 @@ def test_testing_diff_and_snapshot_include_stage_three_properties() -> None:
         sheet(
             "Data",
             table(
-                [],
-                decimal("amount"),
+                source=[],
+                columns=(decimal(id="amount", source="amount"),),
                 rules=(when(col("amount") > 0, style=shared_style),),
             ),
         ),
@@ -366,8 +374,8 @@ def test_testing_diff_and_snapshot_include_stage_three_properties() -> None:
         sheet(
             "Data",
             table(
-                [],
-                decimal("amount"),
+                source=[],
+                columns=(decimal(id="amount", source="amount"),),
                 rules=(when(col("amount") > 0, style=shared_style),),
             ),
         ),
@@ -376,8 +384,8 @@ def test_testing_diff_and_snapshot_include_stage_three_properties() -> None:
         sheet(
             "Data",
             table(
-                [],
-                decimal("amount"),
+                source=[],
+                columns=(decimal(id="amount", source="amount"),),
                 rules=(when(col("amount") < 0, style=shared_style),),
             ),
         ),
@@ -394,7 +402,7 @@ def test_expanded_display_formats_render_semantically(backend: str) -> None:
         sheet(
             "Formats",
             table(
-                [
+                source=[
                     {
                         "date": dt.date(2026, 8, 11),
                         "time": dt.time(13, 5),
@@ -402,10 +410,18 @@ def test_expanded_display_formats_render_semantically(backend: str) -> None:
                         "weight": 12.5,
                     },
                 ],
-                date("date").format(date_format(variant="short")),
-                time("time").format(time_format(seconds=False, clock=12)),
-                percentage("ratio").format(percentage_format(places=1)),
-                decimal("weight").format(custom_format("weight", '0.000 "kg"')),
+                columns=(
+                    date(id="date", source="date").format(date_format(variant="short")),
+                    time(id="time", source="time").format(
+                        time_format(seconds=False, clock=12)
+                    ),
+                    percentage(id="ratio", source="ratio").format(
+                        percentage_format(places=1)
+                    ),
+                    decimal(id="weight", source="weight").format(
+                        custom_format("weight", '0.000 "kg"')
+                    ),
+                ),
             ),
         ),
     )
@@ -425,13 +441,15 @@ def test_all_standard_totals_render_as_formulas(backend: str) -> None:
         sheet(
             "Totals",
             table(
-                [{"label": "A", "a": 1, "b": 2, "c": 3, "d": 4, "e": 5}],
-                text("label"),
-                decimal("a"),
-                decimal("b"),
-                decimal("c"),
-                decimal("d"),
-                decimal("e"),
+                source=[{"label": "A", "a": 1, "b": 2, "c": 3, "d": 4, "e": 5}],
+                columns=(
+                    text(id="label", source="label"),
+                    decimal(id="a", source="a"),
+                    decimal(id="b", source="b"),
+                    decimal(id="c", source="c"),
+                    decimal(id="d", source="d"),
+                    decimal(id="e", source="e"),
+                ),
                 footer=Totals(
                     items=tuple(
                         starmap(
@@ -465,8 +483,8 @@ def test_named_table_autofilter_is_explicit(backend: str) -> None:
         sheet(
             "Enabled",
             table(
-                [{"value": 1}],
-                decimal("value"),
+                source=[{"value": 1}],
+                columns=(decimal(id="value", source="value"),),
                 name="enabled",
                 autofilter=True,
             ),
@@ -475,7 +493,11 @@ def test_named_table_autofilter_is_explicit(backend: str) -> None:
     disabled = spreadsheet(
         sheet(
             "Disabled",
-            table([{"value": 1}], decimal("value"), name="disabled"),
+            table(
+                source=[{"value": 1}],
+                columns=(decimal(id="value", source="value"),),
+                name="disabled",
+            ),
         ),
     )
 

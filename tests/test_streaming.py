@@ -18,7 +18,7 @@ from caxton import (  # noqa: WPS347
     table,
     text,
     write,
-)
+)  # noqa: WPS347
 from caxton._internal import requirements as requirements_module  # noqa: PLC2701
 from caxton._internal.backends.xlsxwriter import (  # noqa: PLC2701
     destination,
@@ -39,7 +39,12 @@ class _UnknownSource:
 
 
 def _document(rows: object, *, name: str | None = None):  # type: ignore[no-untyped-def]
-    return spreadsheet(sheet("Rows", table(rows, text("value"), name=name)))
+    return spreadsheet(
+        sheet(
+            "Rows",
+            table(source=rows, columns=(text(id="value", source="value"),), name=name),
+        )
+    )
 
 
 def test_requirements_are_lazy() -> None:  # noqa: WPS218

@@ -52,7 +52,7 @@ def _wide_rows(column_count: int) -> Iterator[dict[str, object]]:
 
 
 def _summed_value() -> Column:
-    return decimal("value", source=field("value").agg(sum))
+    return decimal(id="value", source=field("value").agg(sum))
 
 
 def _pivot(
@@ -62,7 +62,7 @@ def _pivot(
     value: Column | None = None,
 ) -> Matrix:
     return matrix(
-        rows,
+        source=rows,
         row=field("row") if row is None else row,
         column=field("column"),
         value=_summed_value() if value is None else value,
@@ -103,10 +103,12 @@ def test_aggregate_cannot_read_an_aggregate() -> None:
         sheet(
             "Summary",
             table(
-                [{"shop": "A", "value": 1}],
-                text("shop").grouped(),
-                decimal("total", source=field("value").agg(sum)),
-                decimal("doubled", source=ref("total").agg(sum)),
+                source=[{"shop": "A", "value": 1}],
+                columns=(
+                    text(id="shop", source="shop").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                    decimal(id="doubled", source=ref("total").agg(sum)),
+                ),
             ),
         ),
     )
@@ -121,9 +123,11 @@ def test_compile_validated_guards_aggregate_scope() -> None:
         sheet(
             "Summary",
             table(
-                [{"shop": "A", "value": 1}],
-                text("shop"),
-                decimal("total", source=field("value").agg(sum)),
+                source=[{"shop": "A", "value": 1}],
+                columns=(
+                    text(id="shop", source="shop"),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -140,13 +144,15 @@ def test_filtered_input_is_not_evaluated() -> None:
         sheet(
             "Summary",
             table(
-                [{"active": False}],
-                decimal(
-                    "total",
-                    source=field("missing").agg(
-                        sum,
-                        where=field("active"),
-                        default=0,
+                source=[{"active": False}],
+                columns=(
+                    decimal(
+                        id="total",
+                        source=field("missing").agg(
+                            sum,
+                            where=field("active"),
+                            default=0,
+                        ),
                     ),
                 ),
             ),
@@ -165,7 +171,7 @@ def test_matrix_rejects_nested_aggregate() -> None:
             "Matrix",
             _pivot(
                 [{"row": "A", "column": "X", "value": 1}],
-                value=decimal("value", source=field("value").agg(sum) * 2),
+                value=decimal(id="value", source=field("value").agg(sum) * 2),
             ),
         ),
     )
@@ -181,7 +187,10 @@ def test_matrix_dimension_grouping_is_kept() -> None:
         {"row": "A", "column": "X", "value": 2},
     ]
     document = spreadsheet(
-        sheet("Matrix", _pivot(rows, row=text("row").grouped(order="ascending"))),
+        sheet(
+            "Matrix",
+            _pivot(rows, row=text(id="row", source="row").grouped(order="ascending")),
+        ),
     )
 
     try:
@@ -204,8 +213,11 @@ def test_matrix_row_dimension_merge_is_kept() -> None:
         sheet(
             "Matrix",
             matrix(
-                rows,
-                row=(text("region").grouped(merge=True), field("row")),
+                source=rows,
+                row=(
+                    text(id="region", source="region").grouped(merge=True),
+                    field("row"),
+                ),
                 column=field("column"),
                 value=_summed_value(),
             ),
@@ -223,9 +235,9 @@ def test_matrix_column_merge_is_rejected() -> None:
         sheet(
             "Matrix",
             matrix(
-                [{"row": "A", "column": "X", "value": 1}],
+                source=[{"row": "A", "column": "X", "value": 1}],
                 row=field("row"),
-                column=text("column").grouped(merge=True),
+                column=text(id="column", source="column").grouped(merge=True),
                 value=_summed_value(),
             ),
         ),
@@ -287,7 +299,7 @@ def test_matrix_requirement_indices_skip_blocks() -> None:
     document = spreadsheet(
         sheet(
             "Summary",
-            table([{"shop": "A"}], text("shop")),
+            table(source=[{"shop": "A"}], columns=(text(id="shop", source="shop"),)),
             title("Gap"),
             _pivot([{"row": "A", "column": "X", "value": 1}]),
         ),
@@ -305,8 +317,8 @@ def test_grouped_link_merge_keeps_hyperlink() -> None:
         sheet(
             "Links",
             table(
-                [{"url": url}, {"url": url}],
-                link("url").grouped(merge=True),
+                source=[{"url": url}, {"url": url}],
+                columns=(link(id="url", source="url").grouped(merge=True),),
             ),
         ),
     )

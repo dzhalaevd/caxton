@@ -86,6 +86,10 @@ banned-from = ["datetime"]
 datetime = "dt"
 
 
+[lint.flake8-builtins]
+builtins-ignorelist = ["id"]
+
+
 [lint.flake8-quotes]
 inline-quotes = "double"
 

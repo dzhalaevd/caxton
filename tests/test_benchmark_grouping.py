@@ -20,9 +20,11 @@ def _prepare_distinct_groups(group_count: int) -> int | None:
         sheet(
             "Grouped",
             table(
-                rows,
-                text("key").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                source=rows,
+                columns=(
+                    text(id="key", source="key").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -35,7 +37,7 @@ def _prepare_dense_matrix(side: int) -> int | None:
         sheet(
             "Matrix",
             matrix(
-                _matrix_rows(side, _MATRIX_REPEATS),
+                source=_matrix_rows(side, _MATRIX_REPEATS),
                 row=field("row"),
                 column=field("column"),
                 value=field("value").agg(sum),
@@ -49,10 +51,10 @@ def _prepare_dense_matrix(side: int) -> int | None:
 def _matrix_rows(side: int, repeats: int) -> Iterator[dict[str, int]]:
     for repeat in range(repeats):
         for row in range(side):
-            for column in range(side):
+            for column_index in range(side):
                 yield {
                     "row": row,
-                    "column": column,
+                    "column": column_index,
                     "repeat": repeat,
                     "value": 1,
                 }
@@ -110,10 +112,10 @@ def _counted_matrix_rows(
 ) -> Iterator[dict[str, object]]:
     for repeat in range(repeats):
         for row in range(side):
-            for column in range(side):
+            for column_index in range(side):
                 yield {
                     "row": _CountedInt(row),
-                    "column": _CountedInt(column),
+                    "column": _CountedInt(column_index),
                     "repeat": repeat,
                     "value": 1,
                 }
@@ -127,9 +129,11 @@ def test_group_key_comparisons_are_linear() -> None:
         sheet(
             "Grouped",
             table(
-                _counted_group_rows(row_count),
-                text("key").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                source=_counted_group_rows(row_count),
+                columns=(
+                    text(id="key", source="key").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -148,7 +152,7 @@ def test_matrix_key_comparisons_are_linear() -> None:
         sheet(
             "Matrix",
             matrix(
-                _counted_matrix_rows(side, repeats),
+                source=_counted_matrix_rows(side, repeats),
                 row=field("row"),
                 column=field("column"),
                 value=field("value").agg(sum),

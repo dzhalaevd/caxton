@@ -7,6 +7,7 @@ from caxton import (
     Totals,
     col,
     decimal,
+    field,
     sheet,
     spreadsheet,
     table,
@@ -18,8 +19,14 @@ document = spreadsheet(
     sheet(
         "Data",
         table(
-            [{"amount": 1}],
-            decimal("amount", style="number").width("auto"),
+            source=[{"amount": 1}],
+            columns=(
+                decimal(
+                    id="amount",
+                    source=field("amount"),
+                    style="number",
+                ).width("auto"),
+            ),
             footer=Totals(items=(Total("amount"),)),
             rules=(when(col("amount") > 0, style="number"),),
             autofilter=True,

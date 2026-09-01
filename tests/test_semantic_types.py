@@ -49,10 +49,10 @@ def test_money_currency_is_value_semantics() -> None:
 
 def test_new_type_factories_build_columns() -> None:
     columns = (
-        time("starts_at"),
-        duration("elapsed"),
-        link("website"),
-        money("revenue", currency="USD"),
+        time(id="starts_at", source="starts_at"),
+        duration(id="elapsed", source="elapsed"),
+        link(id="website", source="website"),
+        money(id="revenue", source="revenue", currency="USD"),
     )
 
     assert columns[0].semantic_type == Time()
@@ -62,7 +62,7 @@ def test_new_type_factories_build_columns() -> None:
 
 
 def test_money_factory_builds_default_type() -> None:
-    assert money("amount").semantic_type == Money()
+    assert money(id="amount", source="amount").semantic_type == Money()
 
 
 @pytest.mark.parametrize("places", [True, 2.5, float("nan")])

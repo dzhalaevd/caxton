@@ -5,6 +5,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from caxton._internal.data import coerce_data_source
+from caxton.core.errors import CaxtonTypeError
 from caxton.core.formatting import DocumentTheme, Style, StyleInput, StyleSheet
 from caxton.core.models import (
     DEFAULT_OBJECT_HEIGHT,
@@ -37,13 +38,19 @@ from caxton.core.models import (
 from caxton.core.models.columns import make_column
 from caxton.core.types import Text
 
-MatrixAxisInput = Column | Expression | Sequence[Column | Expression]
+_MatrixAxisItem = str | Column | Expression
+MatrixAxisInput = str | Column | Expression | Sequence[str | Column | Expression]
 MatrixValueInput = Column | Expression
+_MATRIX_DIMENSIONS_TYPE_ERROR = (
+    "Matrix dimensions must be columns, expressions, or field names"
+)
+_TABLE_COLUMNS_TYPE_ERROR = "Table columns must be a sequence of Column values"
 
 
 def table(  # noqa: WPS211
-    rows: object,
-    *columns: Column,
+    *,
+    source: object,
+    columns: Sequence[Column],
     name: str | None = None,
     anchor: str | None = None,
     style: StyleInput | None = None,
@@ -60,12 +67,26 @@ def table(  # noqa: WPS211
     ``footer`` accepts either a ready ``Totals`` row or a bare sequence of
     ``Total`` aggregates.
 
+    Args:
+        source: Row source adapted lazily without reading it during construction.
+        columns: Ordered semantic columns describing row access and presentation.
+        name: Optional semantic name for references and testing views.
+        anchor: Optional explicit A1 placement.
+        style: Style applied to data cells.
+        header_style: Style applied to header cells.
+        footer: Totals row or aggregate sequence.
+        rules: Conditional formatting rules.
+        autofilter: Whether to add an XLSX autofilter.
+        freeze_header: Whether to keep the header visible while scrolling.
+        auto_width: Whether to size columns without explicit widths.
+        into: Optional template target.
+
     Returns:
         An immutable spreadsheet table specification.
     """
-    source = coerce_data_source(rows)
+    data_source = coerce_data_source(source)
     return SpreadsheetTable(
-        data=TableData(source=source, columns=tuple(columns)),
+        data=TableData(source=data_source, columns=_table_columns(columns)),
         name=name,
         anchor=anchor,
         into=into,
@@ -80,8 +101,8 @@ def table(  # noqa: WPS211
 
 
 def matrix(  # noqa: WPS211
-    rows: object,
     *,
+    source: object,
     row: MatrixAxisInput,
     column: MatrixAxisInput,
     value: MatrixValueInput,
@@ -90,6 +111,9 @@ def matrix(  # noqa: WPS211
     header_style: StyleInput | None = None,
 ) -> Matrix:
     """Create a pivot-like matrix without pre-transforming its row source.
+
+    String row and column dimensions name exact top-level fields. Explicit
+    columns and expressions retain their declared semantic ids and sources.
 
     Returns:
         An immutable matrix specification.
@@ -102,7 +126,7 @@ def matrix(  # noqa: WPS211
         used_ids=used_ids,
     )
     return Matrix(
-        source=coerce_data_source(rows),
+        source=coerce_data_source(source),
         row_dimensions=row_dimensions,
         column_dimensions=column_dimensions,
         value=_matrix_value(value, used_ids),
@@ -112,26 +136,53 @@ def matrix(  # noqa: WPS211
     )
 
 
+def _table_columns(value: Sequence[Column]) -> tuple[Column, ...]:
+    if not isinstance(value, Sequence):
+        raise CaxtonTypeError(_TABLE_COLUMNS_TYPE_ERROR)
+    output: list[Column] = []
+    for item in value:
+        if not isinstance(item, Column):
+            raise CaxtonTypeError(_TABLE_COLUMNS_TYPE_ERROR)
+        output.append(item)
+    return tuple(output)
+
+
 def _matrix_dimensions(
     value: MatrixAxisInput,
     *,
     prefix: str,
     used_ids: set[str],
 ) -> tuple[Column, ...]:
-    items = (value,) if isinstance(value, (Column, Expression)) else tuple(value)
+    items = _matrix_axis_items(value)
     output: list[Column] = []
     for index, item in enumerate(items):
         if isinstance(item, Column):
             column = item
-        else:
+        elif isinstance(item, str):
+            column = make_column(
+                _unique_id(item, used_ids),
+                Text(),
+                item,
+            )
+        elif isinstance(item, Expression):
             column = make_column(
                 _unique_id(_expression_id(item, prefix, index), used_ids),
                 Text(),
                 item,
             )
+        else:
+            raise CaxtonTypeError(_MATRIX_DIMENSIONS_TYPE_ERROR)
         output.append(column)
         used_ids.add(column.id)
     return tuple(output)
+
+
+def _matrix_axis_items(value: MatrixAxisInput) -> tuple[_MatrixAxisItem, ...]:
+    if isinstance(value, (str, Column, Expression)):
+        return (value,)
+    if isinstance(value, Sequence):
+        return tuple(value)
+    raise CaxtonTypeError(_MATRIX_DIMENSIONS_TYPE_ERROR)
 
 
 def _matrix_value(value: MatrixValueInput, used_ids: set[str]) -> Column:
