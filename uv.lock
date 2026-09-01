@@ -272,6 +272,7 @@ dev = [
     { name = "tox-uv" },
     { name = "twine" },
     { name = "types-openpyxl" },
+    { name = "typing-extensions" },
     { name = "wemake-python-styleguide" },
 ]
 docs = [
@@ -301,6 +302,7 @@ test = [
     { name = "pytest" },
     { name = "pytest-benchmark" },
     { name = "pytest-cov" },
+    { name = "typing-extensions" },
 ]
 tox = [
     { name = "tox" },
@@ -346,6 +348,7 @@ dev = [
     { name = "tox-uv", specifier = ">=1.29,<2.0" },
     { name = "twine", specifier = ">=7.0,<8.0" },
     { name = "types-openpyxl", specifier = ">=3.1.5.20260518,<3.2" },
+    { name = "typing-extensions", specifier = ">=4.15,<5" },
     { name = "wemake-python-styleguide", specifier = ">=1.7,<2.0" },
 ]
 docs = [
@@ -371,6 +374,7 @@ test = [
     { name = "pytest", specifier = ">=9.1,<10.0" },
     { name = "pytest-benchmark", specifier = ">=5.2,<6.0" },
     { name = "pytest-cov", specifier = ">=7.1,<8.0" },
+    { name = "typing-extensions", specifier = ">=4.15,<5" },
 ]
 tox = [
     { name = "tox", specifier = ">=4.52.1,<5.0" },
