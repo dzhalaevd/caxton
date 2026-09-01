@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import enum
+from caxton.core._compat import StrEnum
 
 
-class Alignment(enum.StrEnum):
+class Alignment(StrEnum):
     """Horizontal alignment expressed without backend terminology."""
 
     LEFT = "left"

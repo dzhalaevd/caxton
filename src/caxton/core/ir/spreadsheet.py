@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import dataclasses
-import enum
 from collections.abc import Iterable, Sequence
 
+from caxton.core._compat import StrEnum
 from caxton.core._values import normalize_cell_value
 from caxton.core.formatting import Alignment, DisplayFormat, Style
 from caxton.core.models.common import (
@@ -189,7 +189,7 @@ class SpreadsheetTableIR:
         object.__setattr__(self, "merges", tuple(self.merges))
 
 
-class SpreadsheetBlockKind(enum.StrEnum):
+class SpreadsheetBlockKind(StrEnum):
     """Stable identity of one resolved spreadsheet layout block."""
 
     TABLE = "table"

@@ -97,9 +97,9 @@ uv run --no-sync tox run -e pre-commit
 uv run --no-sync tox run -e build
 ```
 
-The full Python matrix is `py311`, `py312`, `py313`, and `py314`; CI also tests
-the built wheel and sdist across Linux, macOS, and Windows. `make coverage` and
-`make benchmark` are the only convenience Make targets.
+The full Python matrix is `py310`, `py311`, `py312`, `py313`, and `py314`; CI
+also tests the built wheel and sdist across Linux, macOS, and Windows.
+`make coverage` and `make benchmark` are the only convenience Make targets.
 
 Use `uv sync` only when the environment must be created or refreshed. The
 backend example has an independent environment under `example/backend`.

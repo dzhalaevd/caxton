@@ -5,6 +5,7 @@ import enum
 from collections.abc import Callable, Sequence
 from typing import Any, TypeAlias
 
+from caxton.core._compat import StrEnum
 from caxton.core._values import normalize_cell_value
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 
@@ -19,7 +20,7 @@ class _MissingAggregateDefault(enum.Enum):
 _MISSING_AGGREGATE_DEFAULT = _MissingAggregateDefault.VALUE
 
 
-class BinaryOperator(enum.StrEnum):
+class BinaryOperator(StrEnum):
     ADD = "add"
     SUBTRACT = "subtract"
     MULTIPLY = "multiply"

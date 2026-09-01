@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Iterable, Sequence
-from typing import Self
 
+from caxton.core._compat import Self
 from caxton.core.formatting import Alignment, DisplayFormat, StyleInput
 from caxton.core.models import Column
 from caxton.core.types import SemanticType

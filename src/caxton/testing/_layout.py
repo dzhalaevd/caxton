@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import dataclasses
-import enum
 import itertools
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Self
 
 from caxton._internal.aggregation.keys import dimension_token
 from caxton._internal.compiler import SpreadsheetCompiler
 from caxton._internal.formulas import lower_excel_formula
 from caxton._internal.normalization import format_cell_address, parse_cell_address
+from caxton.core._compat import Self, StrEnum
 from caxton.core._values import freeze_mapping
 from caxton.core.formatting import Alignment, DisplayFormat, Style
 from caxton.core.ir import (
@@ -38,7 +37,7 @@ from caxton.core.models.common import freeze_metadata
 from ._spec import SemanticTypeSpec, _inspect_semantic_type
 
 
-class RowsMode(enum.StrEnum):
+class RowsMode(StrEnum):
     """Amount of table data explicitly requested for layout inspection."""
 
     NONE = "none"
@@ -95,7 +94,7 @@ class Rows:
         return cls(RowsMode.ALL)
 
 
-class CellKind(enum.StrEnum):
+class CellKind(StrEnum):
     """Semantic role of an observed layout cell."""
 
     HEADER = "header"

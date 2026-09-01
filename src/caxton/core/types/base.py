@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import ClassVar, Self
+from typing import ClassVar
 
+from caxton.core._compat import Self
 from caxton.core.errors import CaxtonTypeError
 
 

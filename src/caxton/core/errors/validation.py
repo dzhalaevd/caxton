@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Iterable, Mapping
-from typing import Any, Self
+from typing import Any
 
+from caxton.core._compat import Self
 from caxton.core._values import freeze_mapping
 
 from .base import CaxtonError

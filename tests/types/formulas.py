@@ -1,4 +1,4 @@
-from typing import assert_type
+from typing_extensions import assert_type
 
 from caxton import absolute, col, decimal, sheet_ref, table_ref
 from caxton.core.models import (

@@ -36,8 +36,8 @@ uv run --no-sync tox run -e build        # wheel and sdist validation
 uv run --no-sync tox run -e docs         # strict documentation build
 ```
 
-The full matrix is `py311`, `py312`, `py313`, `py314`; CI additionally tests the
-built wheel and sdist on Linux, macOS and Windows.
+The full matrix is `py310`, `py311`, `py312`, `py313`, `py314`; CI additionally
+tests the built wheel and sdist on Linux, macOS and Windows.
 
 Two convenience targets exist:
 

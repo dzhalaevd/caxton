@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import dataclasses
 import decimal
-import enum
 import math
-from typing import Self, TypeAlias, overload
+from typing import TypeAlias, overload
 
+from caxton.core._compat import Self, StrEnum
 from caxton.core._values import normalize_cell_value
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 
@@ -14,7 +14,7 @@ from ._validation import require_name, require_optional_name
 from .expressions import Expression
 
 
-class FormulaOperator(enum.StrEnum):
+class FormulaOperator(StrEnum):
     ADD = "add"
     SUBTRACT = "subtract"
     MULTIPLY = "multiply"

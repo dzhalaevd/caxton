@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import dataclasses
-import enum
 
+from caxton.core._compat import StrEnum
 from caxton.core._values import freeze_value
 
 
-class DifferenceKind(enum.StrEnum):
+class DifferenceKind(StrEnum):
     """Kind of observable mismatch between two inspected values."""
 
     VALUE = "value"
