@@ -33,12 +33,14 @@ worksheet-scoped defined name:
 from caxton import date, decimal, integer, ref, table, text
 
 data_table = table(
-    ROWS,
-    date("date"),
-    text("product"),
-    text("region"),
-    integer("quantity"),
-    decimal("unit_price"),
+    source=ROWS,
+    columns=(
+        date(source="date"),
+        text(source="product"),
+        text(source="region"),
+        integer(source="quantity"),
+        decimal(source="unit_price"),
+    ),
     into=ref("report_data"),
 )
 ```
@@ -57,7 +59,7 @@ styles, contained merges and relative formulas (translated for each copy):
 ```python
 from caxton import ref, repeat, table
 
-table(ROWS, *columns, into=repeat(ref("line_item")))
+table(source=ROWS, columns=columns, into=repeat(ref("line_item")))
 ```
 
 ## What the renderer guarantees

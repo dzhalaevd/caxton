@@ -19,17 +19,23 @@ SALES = (
 
 ## 2. Declare columns
 
-A column has an `id`, a semantic type and a value source. By default the source
-is the row field named after the column id.
+A column has a semantic `id`, a semantic type and a value source. A string
+`source` names an exact top-level row field and also supplies the `id` when it
+is omitted. Expressions and formulas require an explicit `id`.
 
 ```python
 from caxton import money, ref, text
 
 columns = (
-    text("product").titled("Product").width(18),
-    money("revenue", currency="RUB").titled("Revenue"),
-    money("cost", currency="RUB").titled("Cost"),
-    money("profit", source=ref("revenue") - ref("cost"), currency="RUB").titled("Profit"),
+    text(source="product", title="Product").width(18),
+    money(source="revenue", title="Revenue", currency="RUB"),
+    money(source="cost", title="Cost", currency="RUB"),
+    money(
+        id="profit",
+        source=ref("revenue") - ref("cost"),
+        title="Profit",
+        currency="RUB",
+    ),
 )
 ```
 
@@ -45,7 +51,13 @@ from caxton import sheet, spreadsheet, table
 report = spreadsheet(
     sheet(
         "Sales",
-        table(SALES, *columns, name="sales", anchor="A3", freeze_header=True),
+        table(
+            source=SALES,
+            columns=columns,
+            name="sales",
+            anchor="A3",
+            freeze_header=True,
+        ),
     ),
     metadata={"example": "quickstart"},
 )

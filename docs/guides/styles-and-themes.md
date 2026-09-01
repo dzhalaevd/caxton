@@ -46,7 +46,10 @@ style is accepted:
 from caxton import Style, StyleSheet, decimal, decimal_format, sheet, spreadsheet, table
 
 report = spreadsheet(
-    sheet("Sales", table(rows, decimal("price", style="number"))),
+    sheet(
+        "Sales",
+        table(source=rows, columns=(decimal(source="price", style="number"),)),
+    ),
     styles=StyleSheet(
         {
             "number": Style(display_format=decimal_format(grouping=True)),
@@ -101,7 +104,11 @@ live in the finished file:
 ```python
 from caxton import col, when
 
-table(rows, decimal("delta"), rules=(when(col("delta") > 0, style="positive"),))
+table(
+    source=rows,
+    columns=(decimal(source="delta"),),
+    rules=(when(col("delta") > 0, style="positive"),),
+)
 ```
 
 The rule's `style` may be an inline `Style` or a name from the document

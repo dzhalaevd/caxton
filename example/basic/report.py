@@ -10,6 +10,7 @@ from io import BytesIO
 from pathlib import Path
 
 from caxton import (  # noqa: WPS347
+    field,
     money,
     ref,
     render,
@@ -37,21 +38,36 @@ def sales_columns(*, include_profit: bool = True) -> tuple[Column, ...]:
         The columns selected for the report.
     """
     columns = (
-        text("product").titled("Product").width(18),
-        money("revenue", currency="RUB")
-        .titled("Revenue")
-        .format(money_format(currency="RUB")),
-        money("cost", currency="RUB")
-        .titled("Cost")
-        .format(money_format(currency="RUB")),
+        text(
+            id="product",
+            source=field("product"),
+            title="Product",
+        ).width(18),
+        money(
+            id="revenue",
+            source=field("revenue"),
+            title="Revenue",
+            currency="RUB",
+        ).format(
+            money_format(currency="RUB"),
+        ),
+        money(
+            id="cost",
+            source=field("cost"),
+            title="Cost",
+            currency="RUB",
+        ).format(
+            money_format(currency="RUB"),
+        ),
     )
     if not include_profit:
         return columns
     profit = money(
-        "profit",
+        id="profit",
         source=ref("revenue") - ref("cost"),
+        title="Profit",
         currency="RUB",
-    ).titled("Profit")
+    )
     return *columns, profit.format(money_format(currency="RUB"))
 
 
@@ -65,8 +81,8 @@ def build_report(rows: Iterable[Mapping[str, object]]) -> SpreadsheetDocument:
         sheet(
             "Sales",
             table(
-                rows,
-                *sales_columns(),
+                source=rows,
+                columns=sales_columns(),
                 name="sales",
                 anchor="A3",
             ),
@@ -74,9 +90,19 @@ def build_report(rows: Iterable[Mapping[str, object]]) -> SpreadsheetDocument:
         sheet(
             "Owners",
             table(
-                ({"team": "Retail", "owner": "Ada"},),
-                text("team").titled("Team"),
-                text("owner").titled("Owner"),
+                source=({"team": "Retail", "owner": "Ada"},),
+                columns=(
+                    text(
+                        id="team",
+                        source=field("team"),
+                        title="Team",
+                    ),
+                    text(
+                        id="owner",
+                        source=field("owner"),
+                        title="Owner",
+                    ),
+                ),
                 name="owners",
             ),
         ),

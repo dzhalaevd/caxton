@@ -21,9 +21,9 @@ of another semantic column of the same table.
 ```python
 from caxton import field, money, path, ref, text
 
-text("city", source=path("address", "city"))
-money("profit", source=ref("revenue") - ref("cost"))
-money("net", source=field("net_amount"))
+text(id="city", source=path("address", "city"))
+money(id="profit", source=ref("revenue") - ref("cost"))
+money(id="net", source=field("net_amount"))
 ```
 
 Expressions support the usual binary operators — `+ - * /`, comparisons, `&`
@@ -47,13 +47,13 @@ writes A1 or structured notation.
 ```python
 from caxton import col, decimal
 
-decimal("delta").formula(col("price") - col("base_price"))
+decimal(source="delta").formula(col("price") - col("base_price"))
 ```
 
 Formulas can also be passed at construction time:
 
 ```python
-decimal("delta", formula=col("price") - col("base_price"))
+decimal(id="delta", formula=col("price") - col("base_price"))
 ```
 
 ### Absolute and relative axes
@@ -75,11 +75,11 @@ cell or a range.
 from caxton import decimal, sheet_ref, table_ref
 
 # The whole "price" column of the table named "sales".
-decimal("all_prices", formula=table_ref("sales").column("price"))
+decimal(id="all_prices", formula=table_ref("sales").column("price"))
 
 # One cell of that column, on another worksheet.
 decimal(
-    "first_price",
+    id="first_price",
     formula=sheet_ref("Sales").table("sales").column("price").cell(0).absolute(),
 )
 ```

@@ -25,7 +25,11 @@ spreadsheet(
         "Dashboard",
         title("Daily revenue", span=2),
         spacer(rows=1),
-        table(rows, text("day"), decimal("revenue"), name="sales"),
+        table(
+            source=rows,
+            columns=(text(source="day"), decimal(source="revenue")),
+            name="sales",
+        ),
     ),
 )
 ```
@@ -56,7 +60,7 @@ stack(
 inside it.
 
 ```python
-table(rows, *columns, name="sales", anchor="A3")
+table(source=rows, columns=columns, name="sales", anchor="A3")
 ```
 
 ## Overlaps and unknown heights
@@ -84,7 +88,7 @@ sheet("Sales", sales_table, freeze=Freeze(rows=1, columns=1))
 ```
 
 ```python
-table(rows, *columns, freeze_header=True)
+table(source=rows, columns=columns, freeze_header=True)
 ```
 
 `Freeze` must include at least one row or column.

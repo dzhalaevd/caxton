@@ -8,6 +8,7 @@ from pathlib import Path
 
 from caxton import (  # noqa: WPS347
     date,
+    field,
     money,
     sheet,
     spreadsheet,
@@ -32,10 +33,25 @@ def sales_report(
         sheet(
             "Sales",
             table(
-                rows,
-                date("date").titled("Date"),
-                text("product").titled("Product"),
-                money("revenue", currency="USD").titled("Revenue"),
+                source=rows,
+                columns=(
+                    date(
+                        id="date",
+                        source=field("date"),
+                        title="Date",
+                    ),
+                    text(
+                        id="product",
+                        source=field("product"),
+                        title="Product",
+                    ),
+                    money(
+                        id="revenue",
+                        source=field("revenue"),
+                        title="Revenue",
+                        currency="USD",
+                    ),
+                ),
                 name="sales",
             ),
         ),

@@ -8,7 +8,7 @@ Every public factory returns a frozen node, and every fluent method returns a
 ```python
 from caxton import text
 
-base = text("product")
+base = text(source="product")
 titled = base.titled("Product")
 
 assert base is not titled
@@ -53,7 +53,7 @@ charts and the testing views. It is independent of:
 ```python
 from caxton import field, money
 
-money("net", source=field("net_amount")).titled("Net revenue")
+money(id="net", source=field("net_amount"), title="Net revenue")
 ```
 
 ## Data is lazy and its repeatability matters
