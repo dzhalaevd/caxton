@@ -334,12 +334,13 @@ or compilation. These structural issues originate from
 defensive failure if that internal boundary is invoked without validation.
 All library errors inherit from `CaxtonError`; the public categories distinguish
 validation, data source/evaluation, invalid operation, unsupported feature, and
-render/backend failures. Errors contain a semantic path and structured context,
-and exception chaining preserves the original cause. Multiple validation issues
-are aggregated; non-fatal issues use `warnings` categories. Type and value
-errors in the public construction API use the Python-compatible `TypeError` and
-`ValueError` subclasses `CaxtonTypeError` and `CaxtonValueError`, so callers
-can also catch them through `CaxtonError`.
+render/backend failures. Output delivery failures use `OutputError` rather than
+being reported as backend failures. Errors contain a semantic path and an
+immutable structured-context snapshot, and exception chaining preserves the
+original cause. Multiple validation issues are aggregated; non-fatal issues use
+`warnings` categories. Type and value errors in the public construction API use
+the Python-compatible `TypeError` and `ValueError` subclasses `CaxtonTypeError`
+and `CaxtonValueError`, so callers can also catch them through `CaxtonError`.
 
 `caxton.testing` is a stable, pytest-independent API with three levels:
 

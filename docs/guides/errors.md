@@ -29,8 +29,9 @@ inspected programmatically rather than string-matched.
 
 ## The exception hierarchy
 
-Everything inherits from `CaxtonError`, which carries `message`, `path` and
-`context`, and preserves the original cause through exception chaining.
+Everything inherits from `CaxtonError`, which carries `message`, `path` and an
+immutable `context` snapshot, and preserves the original cause through
+exception chaining.
 
 ```text
 CaxtonError
@@ -56,6 +57,7 @@ CaxtonError
 │   ├── GroupingError
 │   └── MatrixConflictError
 └── RenderError
+    ├── OutputError
     ├── BackendError
     └── TemplateError
         ├── TemplateFormatError
@@ -82,6 +84,7 @@ working, and you can still catch everything with `except CaxtonError`.
 | `CyclicColumnError`        | The row evaluator encountered a `ref()` cycle after structural validation was bypassed.                        |
 | `MatrixConflictError`      | Several source values land in one matrix cell without an aggregate.                                             |
 | `UnsupportedFeatureError`  | The selected target cannot represent the request — including an implicit block after a table of unknown height. |
+| `OutputError`              | The artifact could not be delivered to its path or binary target; the original I/O failure remains the cause.   |
 | `TemplateRefError`         | A named template target is missing, ambiguous or of the wrong shape.                                            |
 
 An error while retrieving the next row is a `DataSourceIterationError`, not a
@@ -124,3 +127,7 @@ Caxton resolves requirements, workbook operation, capabilities and renderer
 compatibility **before** opening or writing the target. A capability or template
 failure therefore happens while the destination is still untouched, and a failed
 path write leaves the previous file intact.
+
+Once delivery starts, path and buffer failures are reported as `OutputError`
+with an `operation`, target information and the original I/O exception as
+`__cause__`. They are not rewritten as backend failures.
