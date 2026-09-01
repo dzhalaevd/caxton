@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import os
 import tempfile
@@ -48,7 +49,8 @@ class FileSink:
                 _write_all(stream, data)
             return self.commit_staged(staged)
         except OSError as error:
-            self.discard_staged(staged)
+            with contextlib.suppress(OSError):
+                self.discard_staged(staged)
             _raise_output_error(
                 "Could not write the output artifact",
                 error=error,
