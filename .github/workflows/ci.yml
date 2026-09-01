@@ -234,6 +234,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            python-version: "3.10"
+            tox-env: py310
+            coverage: true
+            package: wheel
+          - os: ubuntu-latest
             python-version: "3.11"
             tox-env: py311
             coverage: true
@@ -259,8 +264,8 @@ jobs:
             coverage: false
             package: sdist
           - os: windows-latest
-            python-version: "3.11"
-            tox-env: py311
+            python-version: "3.10"
+            tox-env: py310
             coverage: false
             package: wheel
           - os: windows-latest
@@ -269,8 +274,8 @@ jobs:
             coverage: false
             package: wheel
           - os: macos-15-intel
-            python-version: "3.11"
-            tox-env: py311
+            python-version: "3.10"
+            tox-env: py310
             coverage: false
             package: wheel
           - os: macos-latest

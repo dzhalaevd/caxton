@@ -7,7 +7,7 @@ name = "caxton"
 dynamic = ["version"]
 description = "A declarative way to describe files in Python"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [
     { name = "David Dzhalaev" },
@@ -17,6 +17,7 @@ classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -26,6 +27,7 @@ classifiers = [
 dependencies = [
     "xlsxwriter>=3.2.9,<4.0",
     "openpyxl>=3.1.5,<4.0",
+    "typing-extensions>=4.15,<5; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
@@ -174,6 +176,7 @@ test = [
     "pytest>=9.1,<10.0",
     "pytest-benchmark>=5.2,<6.0",
     "pytest-cov>=7.1,<8.0",
+    "typing-extensions>=4.15,<5",
 ]
 tox = [
     "tox>=4.52.1,<5.0",

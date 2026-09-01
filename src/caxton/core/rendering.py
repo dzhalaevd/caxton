@@ -1,24 +1,24 @@
 from __future__ import annotations
 
 import dataclasses
-import enum
 from collections.abc import Mapping
 from types import MappingProxyType
 
+from caxton.core._compat import StrEnum
 from caxton.core.models.common import DocumentKind
 from caxton.core.protocols.data import Repeatability
 
 RENDERER_CONTRACT_VERSION = 1
 
 
-class WorkbookOperation(enum.StrEnum):
+class WorkbookOperation(StrEnum):
     """How rendering obtains the workbook that will receive compiled content."""
 
     CREATE_NEW_WORKBOOK = "create_new_workbook"
     USE_EXISTING_TEMPLATE = "use_existing_template"
 
 
-class ExecutionMode(enum.StrEnum):
+class ExecutionMode(StrEnum):
     """Backend-neutral preference for how a renderer executes a render."""
 
     AUTO = "auto"

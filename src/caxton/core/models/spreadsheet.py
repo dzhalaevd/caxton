@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import dataclasses
-import enum
 from collections.abc import Iterator, Sequence
 from typing import Any, TypeAlias
 
+from caxton.core._compat import StrEnum
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 from caxton.core.formatting import (
     DocumentTheme,
@@ -48,7 +48,7 @@ class Freeze:
             raise CaxtonValueError(message)
 
 
-class AggregateFunction(enum.StrEnum):
+class AggregateFunction(StrEnum):
     SUM = "sum"
     AVG = "avg"
     MIN = "min"
@@ -309,7 +309,7 @@ class Image:
         require_optional_name(self.anchor, "Image anchor")
 
 
-class ChartKind(enum.StrEnum):
+class ChartKind(StrEnum):
     """Closed set of chart shapes supported by the spreadsheet family."""
 
     AREA = "area"
@@ -376,7 +376,7 @@ class Chart:
         require_optional_name(self.anchor, "Chart anchor")
 
 
-class BlockDirection(enum.StrEnum):
+class BlockDirection(StrEnum):
     """Direction in which a flow container advances its layout cursor."""
 
     VERTICAL = "vertical"

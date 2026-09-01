@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import enum
 from collections.abc import Mapping
 
+from caxton.core._compat import StrEnum
 from caxton.core._values import freeze_mapping
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 
 
-class DocumentKind(enum.StrEnum):
+class DocumentKind(StrEnum):
     SPREADSHEET = "spreadsheet"
     FLOW = "flow"
     TABULAR = "tabular"

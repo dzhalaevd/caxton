@@ -7,6 +7,7 @@ import json
 import types
 from collections.abc import Mapping, Sequence, Set as AbstractSet
 
+from caxton.core._compat import StrEnum
 from caxton.core._values import freeze_mapping, freeze_value
 from caxton.core.formatting import (
     Alignment,
@@ -48,7 +49,7 @@ from caxton.core.models.common import freeze_metadata
 from caxton.core.types import SemanticType
 
 
-class SourceKind(enum.StrEnum):
+class SourceKind(StrEnum):
     """Stable kinds of semantic column source."""
 
     FIELD = "field"
@@ -60,7 +61,7 @@ class SourceKind(enum.StrEnum):
     AGGREGATE = "aggregate"
 
 
-class FormulaKind(enum.StrEnum):
+class FormulaKind(StrEnum):
     """Stable kinds of artifact formula nodes."""
 
     LITERAL = "literal"

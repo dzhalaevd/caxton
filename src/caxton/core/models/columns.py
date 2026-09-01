@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import dataclasses
-import enum
 import math
-from typing import Literal, Self, get_args
+from typing import Literal, get_args
 
+from caxton.core._compat import Self, StrEnum
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 from caxton.core.formatting import Alignment, DisplayFormat, Style, StyleInput
 from caxton.core.types import SemanticType
@@ -16,7 +16,7 @@ from .formulas import Formula, FormulaInput, as_formula
 _DISPLAY_FORMATS = get_args(DisplayFormat)
 
 
-class GroupOrder(enum.StrEnum):
+class GroupOrder(StrEnum):
     """Stable ordering policy for values at one grouping level."""
 
     FIRST_SEEN = "first_seen"

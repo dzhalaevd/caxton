@@ -81,7 +81,7 @@ def test_public_annotations_resolve_at_runtime() -> None:
     for qualified_name, target in _public_annotation_targets():
         try:
             typing.get_type_hints(inspect.unwrap(target))
-        except NameError as error:
+        except NameError as error:  # noqa: PERF203
             failures[qualified_name] = str(error)
 
     assert failures == {}

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import dataclasses
-import enum
 import math
 import re
 from collections.abc import Iterator, Mapping
 from types import MappingProxyType
 from typing import TypeAlias
 
+from caxton.core._compat import StrEnum
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 
 from .alignment import Alignment
@@ -67,7 +67,7 @@ class FillStyle:
         object.__setattr__(self, "color", _color(self.color, "Fill color"))
 
 
-class BorderLineStyle(enum.StrEnum):
+class BorderLineStyle(StrEnum):
     THIN = "thin"
     MEDIUM = "medium"
     THICK = "thick"
@@ -116,7 +116,7 @@ class Borders:
             object.__setattr__(self, name, _line(getattr(self, name)))
 
 
-class VerticalAlignment(enum.StrEnum):
+class VerticalAlignment(StrEnum):
     TOP = "top"
     CENTER = "center"
     BOTTOM = "bottom"

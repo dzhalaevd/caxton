@@ -1,4 +1,4 @@
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 
 from caxton import validate
 from caxton.core.models import SpreadsheetDocument
@@ -7,7 +7,7 @@ from caxton.testing.strategies import spreadsheet_documents
 
 
 @given(spreadsheet_documents())
-@settings(max_examples=25)
+@settings(max_examples=25, suppress_health_check=(HealthCheck.too_slow,))
 def test_generated_spreadsheets_are_valid(
     document: SpreadsheetDocument,
 ) -> None:

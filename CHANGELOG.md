@@ -2,6 +2,14 @@
 
 <!-- towncrier release notes start -->
 
+## [0.2.1] - 2026-09-01
+
+### Features
+
+- Support installing and running Caxton on Python 3.10, including the public
+  spreadsheet API, bundled XLSX backends, and testing helpers.
+
+
 ## [0.2.0] - 2026-09-01
 
 ### Breaking changes
