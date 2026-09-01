@@ -262,6 +262,42 @@ def test_column_source_difference(
     assert captured.value.differences[0].path.endswith(".source")
 
 
+def test_column_diff_collects_all_differences() -> None:
+    actual = spreadsheet(
+        sheet(
+            "Data",
+            table(
+                [],
+                text("value", source="actual").titled("Actual").grouped(merge=True),
+                name="data",
+            ),
+        ),
+    )
+    expected = spreadsheet(
+        sheet(
+            "Data",
+            table(
+                [],
+                text("value", source="expected")
+                .titled("Expected")
+                .grouped(order="descending"),
+                name="data",
+            ),
+        ),
+    )
+
+    with pytest.raises(SpreadsheetAssertionError) as captured:
+        assert_spreadsheet_equal(actual, expected)
+
+    assert [
+        difference.path.rsplit(".", 1)[-1] for difference in captured.value.differences
+    ] == [
+        "title",
+        "source",
+        "grouping",
+    ]
+
+
 def test_semantic_type_parameter_difference() -> None:
     actual = spreadsheet(
         sheet("Data", table([], money("amount", currency="USD"), name="data")),

@@ -1,5 +1,6 @@
 import dataclasses
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from typing import Any
 
 import pytest
 
@@ -23,6 +24,10 @@ from caxton.core.models import (
     LiteralExpression,
     PathRef,
     SpreadsheetDocument,
+    SpreadsheetTable,
+    Stack,
+    TableData,
+    Worksheet,
 )
 from caxton.core.protocols import DataSourceInfo, Repeatability
 from caxton.core.types import Decimal
@@ -31,6 +36,17 @@ from caxton.testing import inspect_spec
 
 class _MutableLeaf:
     pass
+
+
+class _EmptySource:
+    def iter_rows(self) -> Iterator[object]:
+        return iter(())
+
+    def get_value(self, _row: object, _field: str) -> object:
+        return object()
+
+
+_FOREIGN_NODE: Any = object()
 
 
 def test_readme_example_builds_semantic_graph() -> None:
@@ -89,6 +105,59 @@ def test_nested_collections_are_copied() -> None:
     assert document.metadata["owner"] == "team"
     with pytest.raises(TypeError):
         document.metadata["new"] = "value"  # type: ignore[index]
+
+
+def test_direct_model_freezes_nested_collections() -> None:
+    name_column = text("name")
+    columns = [name_column]
+    semantic_table = SpreadsheetTable(
+        data=TableData(source=_EmptySource(), columns=columns),
+    )
+    blocks = [semantic_table]
+    worksheet = Worksheet(name="People", blocks=blocks)
+    worksheets = [worksheet]
+
+    document = SpreadsheetDocument(worksheets=worksheets)
+    columns.append(integer("age"))
+    blocks.clear()
+    worksheets.clear()
+
+    assert document.worksheets == (worksheet,)
+    assert worksheet.blocks == (semantic_table,)
+    assert semantic_table.columns == (name_column,)
+
+
+@pytest.mark.parametrize(
+    ("construct", "message"),
+    [
+        (
+            lambda: TableData(source=_EmptySource(), columns=(_FOREIGN_NODE,)),
+            "Table columns must be Column values",
+        ),
+        (
+            lambda: SpreadsheetTable(data=_FOREIGN_NODE),
+            "Spreadsheet table data must be a TableData value",
+        ),
+        (
+            lambda: Stack(items=(_FOREIGN_NODE,)),
+            "Stack items must be spreadsheet blocks",
+        ),
+        (
+            lambda: Worksheet(name="Data", blocks=(_FOREIGN_NODE,)),
+            "Worksheet blocks must be spreadsheet blocks",
+        ),
+        (
+            lambda: SpreadsheetDocument(worksheets=(_FOREIGN_NODE,)),
+            "Spreadsheet worksheets must be Worksheet values",
+        ),
+    ],
+)
+def test_direct_model_rejects_foreign_nodes(
+    construct: Callable[[], object],
+    message: str,
+) -> None:
+    with pytest.raises(TypeError, match=message):
+        construct()
 
 
 def test_metadata_is_deeply_frozen() -> None:

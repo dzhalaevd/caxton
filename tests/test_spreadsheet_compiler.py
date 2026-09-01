@@ -19,7 +19,7 @@ from caxton.core.ir import (
     SPREADSHEET_IR_VERSION,
     SpreadsheetRowIR,
 )
-from caxton.testing import Rows, inspect_layout
+from caxton.testing import Rows, assert_spreadsheet_equal, inspect_layout, inspect_spec
 
 
 def test_validation_collects_schema_issues() -> None:
@@ -232,6 +232,26 @@ def test_compiler_builds_resolved_layout() -> None:  # noqa: WPS218
     assert worksheet.cell("F11").value == 60
     with pytest.raises(TypeError):
         layout.metadata["locale"] = "ru"  # type: ignore[index]
+
+
+def test_compilation_preserves_the_semantic_model() -> None:
+    document = spreadsheet(
+        sheet(
+            "Sales",
+            table(
+                [{"gross": 100, "cost": 40}],
+                decimal("gross"),
+                decimal("cost"),
+                decimal("margin", source=ref("gross") - ref("cost")),
+                name="sales",
+            ),
+        ),
+    )
+    before_compilation = inspect_spec(document)
+
+    inspect_layout(document, rows=Rows.all())
+
+    assert_spreadsheet_equal(document, before_compilation)
 
 
 def test_compiler_preserves_lazy_one_shot_rows() -> None:

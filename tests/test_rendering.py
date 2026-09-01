@@ -10,7 +10,10 @@ from typing import ClassVar
 import pytest
 
 from caxton import (  # noqa: WPS347
+    BackendError,
     CaxtonError,
+    CaxtonTypeError,
+    OutputError,
     RenderError,
     UnsupportedFeatureError,
     ValidationError,
@@ -118,6 +121,12 @@ class ShortWriter:
         accepted = max(1, len(data) // 2)
         self.data.extend(data[:accepted])
         return accepted
+
+
+class FailingWriter:
+    def write(self, _data: bytes) -> int:
+        message = "output device failed"
+        raise OSError(message)
 
 
 def _sales_document() -> SpreadsheetDocument:
@@ -359,8 +368,45 @@ def test_artifact_preserves_buffer_position() -> None:
 
 
 def test_write_rejects_unsupported_target() -> None:
-    with pytest.raises(TypeError, match="Unsupported output target"):
+    with pytest.raises(CaxtonTypeError, match="Unsupported output target") as captured:
         write(_sales_document(), object())  # type: ignore[arg-type]
+
+    assert captured.value.context == {"target_type": "object"}
+
+
+@pytest.mark.parametrize("backend", ["xlsxwriter", "openpyxl"])
+def test_path_io_error_bypasses_backend_wrapper(
+    tmp_path: Path,
+    backend: str,
+) -> None:
+    target = tmp_path / "missing" / "report.xlsx"
+
+    with pytest.raises(OutputError) as captured:
+        write(_sales_document(), target, backend=backend)
+
+    error = captured.value
+    assert not isinstance(error, BackendError)
+    assert error.context == {
+        "exception_type": "FileNotFoundError",
+        "operation": "create_staging_file",
+        "target": str(target),
+    }
+    assert isinstance(error.__cause__, FileNotFoundError)
+
+
+def test_buffer_io_error_keeps_context_and_cause() -> None:
+    target = FailingWriter()
+
+    with pytest.raises(OutputError) as captured:
+        write(_sales_document(), target)
+
+    error = captured.value
+    assert error.context == {
+        "exception_type": "OSError",
+        "operation": "write",
+        "target_type": "FailingWriter",
+    }
+    assert isinstance(error.__cause__, OSError)
 
 
 def test_ambiguous_renderer_selection_is_rejected() -> None:
