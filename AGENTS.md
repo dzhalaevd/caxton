@@ -101,13 +101,6 @@ The full Python matrix is `py311`, `py312`, `py313`, and `py314`; CI also tests
 the built wheel and sdist across Linux, macOS, and Windows. `make coverage` and
 `make benchmark` are the only convenience Make targets.
 
-For a public API change, run the compatibility check against the intended
-baseline (the newest `v*` tag is used when `API_BASELINE` is omitted):
-
-```bash
-API_BASELINE=<tag-or-branch> .venv/bin/python scripts/check_api_compatibility.py
-```
-
 Use `uv sync` only when the environment must be created or refreshed. The
 backend example has an independent environment under `example/backend`.
 
