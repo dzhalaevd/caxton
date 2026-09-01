@@ -44,9 +44,11 @@ def _caxton_grouped_report(rows: Rows) -> bytes:
         sheet(
             "Grouped",
             table(
-                rows,
-                text("group").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                source=rows,
+                columns=(
+                    text(id="group", source="group").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -85,7 +87,7 @@ def _caxton_matrix_report(rows: Rows) -> bytes:
         sheet(
             "Matrix",
             matrix(
-                rows,
+                source=rows,
                 row=field("row"),
                 column=field("column"),
                 value=field("value").agg(sum),

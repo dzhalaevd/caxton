@@ -11,6 +11,7 @@ from pathlib import Path
 from caxton import (  # noqa: WPS347
     date,
     decimal,
+    field,
     integer,
     ref,
     sheet,
@@ -58,12 +59,14 @@ def build_report() -> SpreadsheetDocument:
         sheet(
             "Monthly Report",
             table(
-                ROWS,
-                date("date"),
-                text("product"),
-                text("region"),
-                integer("quantity"),
-                decimal("unit_price"),
+                source=ROWS,
+                columns=(
+                    date(id="date", source=field("date")),
+                    text(id="product", source=field("product")),
+                    text(id="region", source=field("region")),
+                    integer(id="quantity", source=field("quantity")),
+                    decimal(id="unit_price", source=field("unit_price")),
+                ),
                 into=ref("report_data"),
             ),
         ),

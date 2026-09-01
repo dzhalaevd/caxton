@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from caxton.core.errors import CaxtonValueError
 from caxton.core.formatting import StyleInput
 from caxton.core.models.columns import Column, make_column
 from caxton.core.models.expressions import ColumnSourceInput
@@ -14,120 +15,238 @@ from caxton.core.types import (
     Link,
     Money,
     Percentage,
+    SemanticType,
     Text,
     Time,
 )
 
 
-def text(
-    column_id: str,
+def _make(
     *,
+    id: str | None,
+    semantic_type: SemanticType,
+    source: ColumnSourceInput,
+    title: str | None,
+    formula: FormulaInput | None,
+    style: StyleInput | None,
+) -> Column:
+    column_id = _resolve_id(id, source)
+    return make_column(
+        column_id,
+        semantic_type,
+        source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
+
+
+def _resolve_id(id: str | None, source: ColumnSourceInput) -> str:
+    if id is not None:
+        return id
+    if isinstance(source, str):
+        return source
+    message = "Column id is required unless source is a field name"
+    raise CaxtonValueError(message)
+
+
+def text(
+    *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, Text(), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=Text(),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 def money(
-    column_id: str,
     *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     currency: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, Money(currency=currency), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=Money(currency=currency),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 def date(
-    column_id: str,
     *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, Date(), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=Date(),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 def time(
-    column_id: str,
     *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, Time(), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=Time(),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 def datetime(
-    column_id: str,
     *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, DateTime(), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=DateTime(),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 def duration(
-    column_id: str,
     *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, Duration(), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=Duration(),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 def percentage(
-    column_id: str,
     *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, Percentage(), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=Percentage(),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 def decimal(
-    column_id: str,
     *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, Decimal(), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=Decimal(),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 def integer(
-    column_id: str,
     *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, Integer(), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=Integer(),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 def boolean(
-    column_id: str,
     *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, Boolean(), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=Boolean(),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 def link(
-    column_id: str,
     *,
+    id: str | None = None,
     source: ColumnSourceInput = None,
+    title: str | None = None,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
 ) -> Column:
-    return make_column(column_id, Link(), source, formula, style)
+    return _make(
+        id=id,
+        semantic_type=Link(),
+        source=source,
+        title=title,
+        formula=formula,
+        style=style,
+    )
 
 
 __all__ = (

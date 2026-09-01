@@ -58,7 +58,7 @@ Attach a format to a column or fold it into a reusable style:
 ```python
 from caxton import Style, decimal
 
-decimal("amount").format(decimal_format(grouping=True))
+decimal(source="amount").format(decimal_format(grouping=True))
 
 Style(display_format=decimal_format(grouping=True))
 ```

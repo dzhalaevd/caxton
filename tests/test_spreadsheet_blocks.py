@@ -41,9 +41,11 @@ def _dashboard() -> SpreadsheetDocument:
             title("Sales report"),
             spacer(rows=1),
             table(
-                _rows(),
-                text("day").titled("Day"),
-                money("revenue").titled("Revenue"),
+                source=_rows(),
+                columns=(
+                    text(id="day", source="day").titled("Day"),
+                    money(id="revenue", source="revenue").titled("Revenue"),
+                ),
                 name="sales",
             ),
             spacer(rows=2),
@@ -112,7 +114,7 @@ def test_image_occupies_measured_cells() -> None:
         sheet(
             "Charts",
             image(_PNG, width=128, height=40, name="logo"),
-            table(_rows(1), text("day")),
+            table(source=_rows(1), columns=(text(id="day", source="day"),)),
         ),
     )
 
@@ -166,7 +168,12 @@ def test_explicit_anchor_overrides_flow() -> None:
         sheet(
             "Report",
             title("Heading"),
-            table(_rows(2), text("day"), anchor="D10", name="sales"),
+            table(
+                source=_rows(2),
+                columns=(text(id="day", source="day"),),
+                anchor="D10",
+                name="sales",
+            ),
         ),
     )
 
@@ -181,7 +188,11 @@ def test_overlapping_blocks_are_reported() -> None:
         sheet(
             "Report",
             title("Heading", anchor="A1"),
-            table(_rows(2), text("day"), anchor="A1"),
+            table(
+                source=_rows(2),
+                columns=(text(id="day", source="day"),),
+                anchor="A1",
+            ),
         ),
     )
 
@@ -217,7 +228,7 @@ def test_unknown_table_height_stops_the_flow() -> None:
     document = spreadsheet(
         sheet(
             "Report",
-            table(lazy(), text("day")),
+            table(source=lazy(), columns=(text(id="day", source="day"),)),
             title("Below"),
         ),
     )
@@ -232,7 +243,11 @@ def test_chart_column_must_exist() -> None:
     document = spreadsheet(
         sheet(
             "Report",
-            table(_rows(), text("day"), name="sales"),
+            table(
+                source=_rows(),
+                columns=(text(id="day", source="day"),),
+                name="sales",
+            ),
             stack(chart(table_ref("sales"), x="day", y="missing")),
         ),
     )
@@ -251,9 +266,11 @@ def test_rendered_artifact_contains_blocks() -> None:
             title("Sales report", span=2),
             spacer(rows=1),
             table(
-                _rows(),
-                text("day").titled("Day"),
-                decimal("revenue").titled("Revenue"),
+                source=_rows(),
+                columns=(
+                    text(id="day", source="day").titled("Day"),
+                    decimal(id="revenue", source="revenue").titled("Revenue"),
+                ),
                 name="sales",
             ),
         ),
@@ -272,9 +289,11 @@ def test_artifact_accepts_image_and_chart() -> None:
         sheet(
             "Dashboard",
             table(
-                _rows(),
-                text("day"),
-                decimal("revenue"),
+                source=_rows(),
+                columns=(
+                    text(id="day", source="day"),
+                    decimal(id="revenue", source="revenue"),
+                ),
                 name="sales",
             ),
             spacer(rows=1),

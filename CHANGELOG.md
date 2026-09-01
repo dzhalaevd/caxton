@@ -2,6 +2,27 @@
 
 <!-- towncrier release notes start -->
 
+## [0.2.0] - 2026-09-01
+
+### Breaking changes
+
+- Spreadsheet tables now use the single keyword-only
+  `table(source=..., columns=(...))` form. Typed columns use flat keyword-only
+  factories such as `text(source="name", title="Name")`; the positional table
+  form, source inference from `id`, and the `column.<type>` namespace have been
+  removed. A string source supplies the semantic id when it is omitted, while
+  expressions and formulas require an explicit id.
+
+  Matrix dimensions also accept raw field names, and all declarations continue to
+  produce immutable semantic nodes before compilation. ([#24](https://github.com/dzhalaevd/caxton/issues/24))
+
+### Bug fixes
+
+- Reject foreign objects in spreadsheet semantic graphs at construction time, and include column grouping intent in semantic comparison diagnostics.
+- Report output-target failures as structured `OutputError` exceptions, preserve
+  their I/O causes, and keep all error context as immutable snapshots.
+
+
 ## [0.1.2] - 2026-08-31
 
 ### Bug fixes

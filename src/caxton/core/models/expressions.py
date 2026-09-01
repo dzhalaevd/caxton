@@ -240,17 +240,17 @@ def as_expression(value: object) -> Expression:
     return LiteralExpression(value)
 
 
-def normalize_source(column_id: str, source: ColumnSourceInput) -> ColumnSource:
+def normalize_source(source: ColumnSourceInput) -> ColumnSource | None:
     """Normalize a declared column source into a model node.
 
     Returns:
-        The column source node, defaulting to a field named after the column.
+        The normalized source node, or ``None`` when none was declared.
 
     Raises:
         CaxtonTypeError: If the source cannot be interpreted.
     """
     if source is None:
-        return field(column_id)
+        return None
     if isinstance(source, str):
         return field(source)
     if isinstance(source, (Expression, CallableSource)):

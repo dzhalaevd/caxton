@@ -16,6 +16,7 @@ from caxton import (
     boolean,
     date,
     decimal,
+    field,
     integer,
     path,
     ref,
@@ -152,20 +153,56 @@ def build_report(rows: object) -> SpreadsheetDocument:
         sheet(
             "Products",
             table(
-                rows,
-                integer("id").titled("ID"),
-                text("sku").titled("SKU"),
-                text("description").titled("Description"),
-                text("reference").titled("Reference"),
-                integer("days", source="days_in_stock").titled("Days in stock"),
-                text("supplier", source=path("supplier", "name")).titled("Supplier"),
-                decimal("price").titled("Price"),
-                decimal("list_price").titled("List price"),
-                decimal("delta", source=ref("price") - ref("list_price")).titled(
-                    "Delta"
+                source=rows,
+                columns=(
+                    integer(id="id", source=field("id"), title="ID"),
+                    text(id="sku", source=field("sku"), title="SKU"),
+                    text(
+                        id="description",
+                        source=field("description"),
+                        title="Description",
+                    ),
+                    text(
+                        id="reference",
+                        source=field("reference"),
+                        title="Reference",
+                    ),
+                    integer(
+                        id="days",
+                        source=field("days_in_stock"),
+                        title="Days in stock",
+                    ),
+                    text(
+                        id="supplier",
+                        source=path("supplier", "name"),
+                        title="Supplier",
+                    ),
+                    decimal(
+                        id="price",
+                        source=field("price"),
+                        title="Price",
+                    ),
+                    decimal(
+                        id="list_price",
+                        source=field("list_price"),
+                        title="List price",
+                    ),
+                    decimal(
+                        id="delta",
+                        source=ref("price") - ref("list_price"),
+                        title="Delta",
+                    ),
+                    boolean(
+                        id="in_stock",
+                        source=field("in_stock"),
+                        title="In stock",
+                    ),
+                    date(
+                        id="added_on",
+                        source=field("added_on"),
+                        title="Added",
+                    ),
                 ),
-                boolean("in_stock").titled("In stock"),
-                date("added_on").titled("Added"),
             ),
         ),
     )

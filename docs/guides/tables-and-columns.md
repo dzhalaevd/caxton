@@ -6,14 +6,14 @@
 from caxton import table, text
 
 people = table(
-    [{"name": "Ada Lovelace"}, {"name": "Grace Hopper"}],
-    text("name").titled("Name"),
+    source=[{"name": "Ada Lovelace"}, {"name": "Grace Hopper"}],
+    columns=(text(source="name", title="Name"),),
     name="people",
 )
 ```
 
-`table()` accepts the row source first, then the columns, then keyword-only
-options:
+`table()` accepts two required keyword-only arguments: `source` for the rows and
+`columns` for the ordered semantic schema. The remaining options are:
 
 | Option          | Meaning                                                              |
 |-----------------|----------------------------------------------------------------------|
@@ -49,7 +49,10 @@ class Sale:
     revenue: int
 
 
-table([Sale("Coffee", 1250)], text("product"), integer("revenue"))
+table(
+    source=[Sale("Coffee", 1250)],
+    columns=(text(source="product"), integer(source="revenue")),
+)
 ```
 
 Caxton never calls `asdict`, `model_dump`, `vars` or `dir`, and never infers a
@@ -62,19 +65,19 @@ Nested structures need an explicit path:
 ```python
 from caxton import path, text
 
-text("city", source=path("address", "city"))
+text(id="city", source=path("address", "city"))
 ```
 
 A callable source receives the original row object:
 
 ```python
-text("label", source=lambda row: f"{row['product']} ({row['region']})")
+text(id="label", source=lambda row: f"{row['product']} ({row['region']})")
 ```
 
 ## Column factories
 
-One factory per semantic type, all with the same shape
-`factory(column_id, *, source=None, formula=None, style=None)`:
+One factory per semantic type, all with the same keyword-only shape:
+`factory(*, source=None, id=None, title=None, formula=None, style=None)`.
 
 | Factory      | Semantic type | Typical Python value           |
 |--------------|---------------|--------------------------------|
@@ -91,7 +94,9 @@ One factory per semantic type, all with the same shape
 | `link`       | `Link`        | `str`                          |
 
 A column defines **either** a Python `source` **or** an Excel `formula` — never
-both and never neither. Passing both raises `CaxtonValueError`.
+both and never neither. A string source also becomes the id when `id` is omitted;
+callables, expressions, paths and formulas require an explicit semantic id.
+Passing both source and formula raises `CaxtonValueError`.
 
 ## Fluent refinement
 
@@ -101,8 +106,7 @@ Every method returns a new column.
 from caxton import money
 from caxton.core.formatting import money_format
 
-money("revenue", currency="RUB")
-.titled("Revenue")
+money(source="revenue", title="Revenue", currency="RUB")
 .align("right")
 .width(14)
 .format(money_format(currency="RUB"))
@@ -125,9 +129,8 @@ money("revenue", currency="RUB")
 from caxton import Total, Totals, decimal, table
 
 table(
-    rows,
-    decimal("price"),
-    decimal("delta"),
+    source=rows,
+    columns=(decimal(source="price"), decimal(source="delta")),
     footer=Totals(
         label="Total",
         items=(Total("price"), Total("delta", "avg")),
@@ -149,8 +152,8 @@ column that carries no aggregate is used.
 from caxton import col, when
 
 table(
-    rows,
-    decimal("delta"),
+    source=rows,
+    columns=(decimal(source="delta"),),
     rules=(when(col("delta") > 0, style="positive"),),
 )
 ```
@@ -165,7 +168,7 @@ Because nodes are immutable, reuse means calling the factory again:
 ```python
 def sales_report(rows, *, customer: str):
     return spreadsheet(
-        sheet("Sales", table(rows, *columns, name="sales")),
+        sheet("Sales", table(source=rows, columns=columns, name="sales")),
         metadata={"customer": customer},
     )
 

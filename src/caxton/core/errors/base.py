@@ -2,6 +2,8 @@ import dataclasses
 from collections.abc import Mapping
 from typing import Any
 
+from caxton.core._values import freeze_mapping
+
 
 @dataclasses.dataclass(eq=False)
 class CaxtonError(Exception):
@@ -12,7 +14,7 @@ class CaxtonError(Exception):
     context: Mapping[str, Any] = dataclasses.field(default_factory=dict, kw_only=True)
 
     def __post_init__(self) -> None:
-        self.context = dict(self.context)
+        self.context = freeze_mapping(self.context, label="Error context")
         Exception.__init__(self, self.message)
 
     def __str__(self) -> str:

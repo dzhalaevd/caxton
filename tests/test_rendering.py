@@ -10,7 +10,10 @@ from typing import ClassVar
 import pytest
 
 from caxton import (  # noqa: WPS347
+    BackendError,
     CaxtonError,
+    CaxtonTypeError,
+    OutputError,
     RenderError,
     UnsupportedFeatureError,
     ValidationError,
@@ -31,7 +34,7 @@ from caxton import (  # noqa: WPS347
     text,
     time,
     write,
-)
+)  # noqa: WPS347
 from caxton._internal import operations as operations_module  # noqa: PLC2701
 from caxton._internal.compiler import spreadsheet as compiler_module  # noqa: PLC2701
 from caxton._internal.resolver import BuiltinRendererResolver  # noqa: PLC2701
@@ -120,19 +123,27 @@ class ShortWriter:
         return accepted
 
 
+class FailingWriter:
+    def write(self, _data: bytes) -> int:
+        message = "output device failed"
+        raise OSError(message)
+
+
 def _sales_document() -> SpreadsheetDocument:
     return spreadsheet(
         sheet(
             "Sales",
             table(
-                [{"gross_value": 90, "cost_value": 30}],
-                money("gross", source="gross_value", currency="USD")
-                .titled("Gross")
-                .align("right")
-                .width(18)
-                .format(money_format(currency="USD")),
-                money("cost", source="cost_value"),
-                decimal("margin", source=ref("gross") - ref("cost")),
+                source=[{"gross_value": 90, "cost_value": 30}],
+                columns=(
+                    money(id="gross", source="gross_value", currency="USD")
+                    .titled("Gross")
+                    .align("right")
+                    .width(18)
+                    .format(money_format(currency="USD")),
+                    money(id="cost", source="cost_value"),
+                    decimal(id="margin", source=ref("gross") - ref("cost")),
+                ),
                 name="sales",
                 anchor="D10",
             ),
@@ -195,7 +206,7 @@ def test_xlsxwriter_lowers_supported_scalar_types() -> None:
         sheet(
             "Values",
             table(
-                [
+                source=[
                     {
                         "boolean": True,
                         "date": dt.date(2026, 8, 11),
@@ -208,15 +219,17 @@ def test_xlsxwriter_lowers_supported_scalar_types() -> None:
                         "time": dt.time(12, 30),
                     },
                 ],
-                boolean("boolean"),
-                date("date"),
-                datetime("datetime"),
-                decimal("decimal"),
-                duration("duration"),
-                integer("integer"),
-                link("link"),
-                percentage("percentage"),
-                time("time"),
+                columns=(
+                    boolean(id="boolean", source="boolean"),
+                    date(id="date", source="date"),
+                    datetime(id="datetime", source="datetime"),
+                    decimal(id="decimal", source="decimal"),
+                    duration(id="duration", source="duration"),
+                    integer(id="integer", source="integer"),
+                    link(id="link", source="link"),
+                    percentage(id="percentage", source="percentage"),
+                    time(id="time", source="time"),
+                ),
             ),
         ),
     )
@@ -281,7 +294,12 @@ def test_renderer_preflight_does_not_consume_rows() -> None:
         visited = True
         yield {"name": "Ada"}
 
-    document = spreadsheet(sheet("People", table(rows(), text("name"))))
+    document = spreadsheet(
+        sheet(
+            "People",
+            table(source=rows(), columns=(text(id="name", source="name"),)),
+        )
+    )
 
     with pytest.raises(RenderError):
         render(document, format="pdf")
@@ -359,8 +377,45 @@ def test_artifact_preserves_buffer_position() -> None:
 
 
 def test_write_rejects_unsupported_target() -> None:
-    with pytest.raises(TypeError, match="Unsupported output target"):
+    with pytest.raises(CaxtonTypeError, match="Unsupported output target") as captured:
         write(_sales_document(), object())  # type: ignore[arg-type]
+
+    assert captured.value.context == {"target_type": "object"}
+
+
+@pytest.mark.parametrize("backend", ["xlsxwriter", "openpyxl"])
+def test_path_io_error_bypasses_backend_wrapper(
+    tmp_path: Path,
+    backend: str,
+) -> None:
+    target = tmp_path / "missing" / "report.xlsx"
+
+    with pytest.raises(OutputError) as captured:
+        write(_sales_document(), target, backend=backend)
+
+    error = captured.value
+    assert not isinstance(error, BackendError)
+    assert error.context == {
+        "exception_type": "FileNotFoundError",
+        "operation": "create_staging_file",
+        "target": str(target),
+    }
+    assert isinstance(error.__cause__, FileNotFoundError)
+
+
+def test_buffer_io_error_keeps_context_and_cause() -> None:
+    target = FailingWriter()
+
+    with pytest.raises(OutputError) as captured:
+        write(_sales_document(), target)
+
+    error = captured.value
+    assert error.context == {
+        "exception_type": "OSError",
+        "operation": "write",
+        "target_type": "FailingWriter",
+    }
+    assert isinstance(error.__cause__, OSError)
 
 
 def test_ambiguous_renderer_selection_is_rejected() -> None:
@@ -409,8 +464,22 @@ def test_write_rejects_name_collision_early(
     tmp_path: Path,
 ) -> None:
     document = spreadsheet(
-        sheet("First", table([{"value": 1}], text("value"), name="Sales")),
-        sheet("Second", table([{"value": 2}], text("value"), name="sales")),
+        sheet(
+            "First",
+            table(
+                source=[{"value": 1}],
+                columns=(text(id="value", source="value"),),
+                name="Sales",
+            ),
+        ),
+        sheet(
+            "Second",
+            table(
+                source=[{"value": 2}],
+                columns=(text(id="value", source="value"),),
+                name="sales",
+            ),
+        ),
     )
     target = tmp_path / "existing.xlsx"
     original = b"existing artifact"
@@ -448,8 +517,8 @@ def test_render_validates_structure_once(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_construction_uses_caxton_errors() -> None:
     with pytest.raises(CaxtonError):
-        text("name").width(0)
+        text(id="name", source="name").width(0)
     with pytest.raises(CaxtonError):
-        text("name").align("diagonal")
+        text(id="name", source="name").align("diagonal")
     with pytest.raises(CaxtonError):
         spreadsheet(metadata={"unsupported": object()})

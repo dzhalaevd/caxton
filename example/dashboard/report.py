@@ -6,6 +6,7 @@ from caxton import (
     StyleSheet,
     chart,
     decimal,
+    field,
     image,
     sheet,
     spacer,
@@ -33,13 +34,20 @@ def build_report() -> SpreadsheetDocument:
         A reusable immutable spreadsheet specification.
     """
     sales = table(
-        [
+        source=[
             {"day": "2026-08-10", "revenue": 1200},
             {"day": "2026-08-11", "revenue": 1580},
             {"day": "2026-08-12", "revenue": 1410},
         ],
-        text("day").titled("Day"),
-        decimal("revenue", style="number").titled("Revenue"),
+        columns=(
+            text(id="day", source=field("day"), title="Day"),
+            decimal(
+                id="revenue",
+                source=field("revenue"),
+                title="Revenue",
+                style="number",
+            ),
+        ),
         name="sales",
     )
     return spreadsheet(

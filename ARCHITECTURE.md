@@ -146,8 +146,22 @@ or raises a stable render error.
 
 ## Data, computation, and streaming
 
-`table(data, ...)` coerces the input to a public `DataSource` once and stores the
-source instead of the original framework object or a materialized list. Built-in
+The table declaration is `table(source=data, columns=(...))`. Both peer inputs
+are keyword-only: the first defines row data and the second defines its ordered
+semantic schema. This deliberate table-specific shape prevents a source from
+being confused with a column sequence; block factories with one primary value
+retain their positional leading argument. The table coerces the input to a
+public `DataSource` once and stores the source instead of the original framework
+object or a materialized list.
+
+Flat typed factories keep semantic identity, row access, and presentation as
+separate model properties. A value origin is always explicit through `source=`
+or `formula=`. For the common exact-field case,
+`text(source="name", title="Name")` deterministically uses `"name"` as both the
+top-level field name and the semantic id. An explicit `id=` overrides that
+identity; it is required for callables, paths, expressions, aggregates, and
+formulas because those sources do not define a stable semantic name. Factory
+parameters remain keyword-only. Built-in
 ingestion supports mappings, `NamedTuple`, dataclass and attribute objects, lazy
 iterables, and direct custom `DataSource`/`RowAccessor` implementations without
 importing Pydantic, ORM, or other frameworks into the Core. DataFrame/Arrow-like
@@ -202,8 +216,12 @@ place `None` last for both ascending and descending order. Float identity folds
 
 `Matrix` is a spreadsheet-family block with typed row-dimension,
 column-dimension, and value columns. Expressions accepted by the convenience
-factory are normalized into columns; explicit columns carry semantic type,
-format, style, width, and stable ids. Its compiler path discovers dynamic keys
+factory are normalized into columns, and its row input uses the same keyword
+`source=` as tables. A bare string axis names one exact top-level field, remains
+a `Text` dimension, and uses that string as its id; a dot has no path semantics,
+and duplicate names receive deterministic numeric suffixes. Callers use
+`path(...)` for traversal or an explicit column when semantic type, format,
+style, width, grouping, or a stable custom id matters. Its compiler path discovers dynamic keys
 in first-seen order unless a dimension declares grouping order, uses the same
 strict identity as grouping, and requires an `AggregateExpr` when more than one
 source value resolves to a cell. Row-dimension merge intent produces vertical
@@ -334,12 +352,13 @@ or compilation. These structural issues originate from
 defensive failure if that internal boundary is invoked without validation.
 All library errors inherit from `CaxtonError`; the public categories distinguish
 validation, data source/evaluation, invalid operation, unsupported feature, and
-render/backend failures. Errors contain a semantic path and structured context,
-and exception chaining preserves the original cause. Multiple validation issues
-are aggregated; non-fatal issues use `warnings` categories. Type and value
-errors in the public construction API use the Python-compatible `TypeError` and
-`ValueError` subclasses `CaxtonTypeError` and `CaxtonValueError`, so callers
-can also catch them through `CaxtonError`.
+render/backend failures. Output delivery failures use `OutputError` rather than
+being reported as backend failures. Errors contain a semantic path and an
+immutable structured-context snapshot, and exception chaining preserves the
+original cause. Multiple validation issues are aggregated; non-fatal issues use
+`warnings` categories. Type and value errors in the public construction API use
+the Python-compatible `TypeError` and `ValueError` subclasses `CaxtonTypeError`
+and `CaxtonValueError`, so callers can also catch them through `CaxtonError`.
 
 `caxton.testing` is a stable, pytest-independent API with three levels:
 

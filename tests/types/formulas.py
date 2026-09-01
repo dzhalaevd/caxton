@@ -12,7 +12,7 @@ current_cell = col("price")
 formula = current_cell - col("base_price").absolute(row=False)
 named_range = table_ref("sales").column("price")
 cross_sheet_cell = sheet_ref("Sales").table("sales").column("price").cell(0)
-formula_column = decimal("delta", formula=formula)
+formula_column = decimal(id="delta", formula=formula)
 
 assert_type(current_cell, CellReference)
 assert_type(formula, FormulaBinary)

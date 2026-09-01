@@ -1,5 +1,6 @@
 from collections.abc import Iterator, Sequence
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -61,10 +62,10 @@ def test_aggregate_expr_contract() -> None:
 
 
 def test_grouping_and_matrix_semantics() -> None:  # noqa: WPS218
-    shop = text("shop").grouped(merge=True, order="ascending")
+    shop = text(id="shop", source="shop").grouped(merge=True, order="ascending")
     value = field("oil_rate").agg(sum)
     report = matrix(
-        [],
+        source=[],
         row=field("shop"),
         column=field("month"),
         value=value,
@@ -79,15 +80,17 @@ def test_grouping_and_matrix_semantics() -> None:  # noqa: WPS218
     assert isinstance(report.column_dimensions[0].source, FieldRef)
     assert report.column_dimensions[0].source.name == "month"
     assert report.value.source is value
-    assert decimal("total", source=value).source is value
+    assert decimal(id="total", source=value).source is value
 
     document = spreadsheet(
         sheet(
             "Summary",
             table(
-                [],
-                shop,
-                decimal("total", source=value),
+                source=[],
+                columns=(
+                    shop,
+                    decimal(id="total", source=value),
+                ),
                 name=None,
             ),
             report,
@@ -104,6 +107,59 @@ def test_grouping_and_matrix_semantics() -> None:  # noqa: WPS218
     assert matrix_block.matrix is not None
     assert matrix_block.matrix.value.source is not None
     assert matrix_block.matrix.value.source.kind is SourceKind.AGGREGATE
+
+
+def test_matrix_strings_normalize_to_fields() -> None:
+    report = matrix(
+        source=[],
+        row=("shop", text(id="field", source="field", title="Field")),
+        column="month",
+        value=field("oil_rate"),
+    )
+
+    shop, field_dimension = report.row_dimensions
+    month = report.column_dimensions[0]
+    assert isinstance(shop.source, FieldRef)
+    assert isinstance(month.source, FieldRef)
+    assert (
+        shop.id,
+        shop.source.name,
+        field_dimension.id,
+        field_dimension.title,
+        month.source.name,
+    ) == ("shop", "shop", "field", "Field", "month")
+
+
+def test_matrix_strings_keep_rows_lazy() -> None:
+    visited = False
+
+    def rows() -> Iterator[dict[str, object]]:
+        nonlocal visited
+        visited = True
+        yield {"shop": "A", "month": "Jan", "oil_rate": 1}
+
+    matrix(
+        source=rows(),
+        row="shop",
+        column="month",
+        value=field("oil_rate"),
+    )
+
+    assert not visited
+
+
+@pytest.mark.parametrize("row", [1, ("shop", object())])
+def test_matrix_rejects_invalid_dimensions(row: Any) -> None:
+    with pytest.raises(
+        TypeError,
+        match="Matrix dimensions must be columns, expressions, or field names",
+    ):
+        matrix(
+            source=[],
+            row=row,
+            column="month",
+            value=field("oil_rate"),
+        )
 
 
 def test_grouped_aggregate_layout() -> None:
@@ -126,15 +182,19 @@ def test_grouped_aggregate_layout() -> None:
         sheet(
             "Summary",
             table(
-                rows,
-                text("shop").grouped(merge=True, order="ascending"),
-                text("field").grouped(order="descending"),
-                decimal(
-                    "weighted_price",
-                    source=field("price").agg(
-                        weighted_average,
-                        field("quantity"),
-                        where=field("active"),
+                source=rows,
+                columns=(
+                    text(id="shop", source="shop").grouped(
+                        merge=True, order="ascending"
+                    ),
+                    text(id="field", source="field").grouped(order="descending"),
+                    decimal(
+                        id="weighted_price",
+                        source=field("price").agg(
+                            weighted_average,
+                            field("quantity"),
+                            where=field("active"),
+                        ),
                     ),
                 ),
             ),
@@ -162,9 +222,11 @@ def test_grouped_one_shot_single_pass() -> None:
         yield {"shop": "A", "value": 2}
 
     semantic_table = table(
-        rows(),
-        text("shop").grouped(),
-        decimal("total", source=field("value").agg(sum)),
+        source=rows(),
+        columns=(
+            text(id="shop", source="shop").grouped(),
+            decimal(id="total", source=field("value").agg(sum)),
+        ),
     )
     document = spreadsheet(sheet("Summary", semantic_table))
 
@@ -181,9 +243,11 @@ def test_grouped_stream_diagnostic() -> None:
         sheet(
             "Summary",
             table(
-                [{"shop": "A", "value": 1}],
-                text("shop").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                source=[{"shop": "A", "value": 1}],
+                columns=(
+                    text(id="shop", source="shop").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -199,13 +263,15 @@ def test_grouped_height_places_next_block() -> None:
         sheet(
             "Summary",
             table(
-                [
+                source=[
                     {"shop": "A", "value": 1},
                     {"shop": "A", "value": 2},
                     {"shop": "B", "value": 3},
                 ],
-                text("shop").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                columns=(
+                    text(id="shop", source="shop").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
             title("After groups", anchor="A4"),
         ),
@@ -221,8 +287,8 @@ def test_empty_ungrouped_scope() -> None:
         sheet(
             "Summary",
             table(
-                [],
-                decimal("total", source=field("value").agg(sum)),
+                source=[],
+                columns=(decimal(id="total", source=field("value").agg(sum)),),
             ),
         ),
     )
@@ -237,9 +303,11 @@ def test_empty_grouped_scope_has_headers_only() -> None:
         sheet(
             "Summary",
             table(
-                [],
-                text("shop").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                source=[],
+                columns=(
+                    text(id="shop", source="shop").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -261,8 +329,8 @@ def test_aggregate_none_and_errors() -> None:  # noqa: WPS218
         sheet(
             "Summary",
             table(
-                [{"value": None}, {"value": 2}],
-                decimal("count", source=field("value").agg(preserve)),
+                source=[{"value": None}, {"value": 2}],
+                columns=(decimal(id="count", source=field("value").agg(preserve)),),
             ),
         ),
     )
@@ -274,7 +342,10 @@ def test_aggregate_none_and_errors() -> None:  # noqa: WPS218
     failing = spreadsheet(
         sheet(
             "Summary",
-            table([], decimal("minimum", source=field("value").agg(min))),
+            table(
+                source=[],
+                columns=(decimal(id="minimum", source=field("value").agg(min)),),
+            ),
         ),
     )
     with pytest.raises(AggregateEvaluationError) as captured:
@@ -292,8 +363,10 @@ def test_aggregate_none_and_errors() -> None:  # noqa: WPS218
         sheet(
             "Summary",
             table(
-                [{"value": 1}],
-                decimal("bad", source=field("value").agg(lambda _values: [])),
+                source=[{"value": 1}],
+                columns=(
+                    decimal(id="bad", source=field("value").agg(lambda _values: [])),
+                ),
             ),
         ),
     )
@@ -308,9 +381,11 @@ def test_ambiguous_aggregate_scope() -> None:
         sheet(
             "Summary",
             table(
-                [{"shop": "A", "value": 1}],
-                text("shop"),
-                decimal("total", source=field("value").agg(sum)),
+                source=[{"shop": "A", "value": 1}],
+                columns=(
+                    text(id="shop", source="shop"),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -328,7 +403,7 @@ def test_matrix_aggregates_duplicates() -> None:
         sheet(
             "Matrix",
             matrix(
-                [
+                source=[
                     {"shop": "A", "month": "Jan", "oil": 2},
                     {"shop": "A", "month": "Jan", "oil": 3},
                     {"shop": "A", "month": "Feb", "oil": 4},
@@ -359,9 +434,11 @@ def test_group_keys_preserve_type_and_scale() -> None:
         sheet(
             "Summary",
             table(
-                [{"key": key, "value": 1} for key in keys],
-                text("key").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                source=[{"key": key, "value": 1} for key in keys],
+                columns=(
+                    text(id="key", source="key").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -377,12 +454,14 @@ def test_signed_float_zero_uses_one_group() -> None:
         sheet(
             "Summary",
             table(
-                [  # noqa: WPS358
+                source=[  # noqa: WPS358
                     {"key": key, "value": 1}
                     for key in (0.0, -0.0)  # noqa: WPS358
                 ],
-                text("key").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                columns=(
+                    text(id="key", source="key").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -398,9 +477,11 @@ def test_float_nan_uses_one_canonical_group() -> None:
         sheet(
             "Summary",
             table(
-                [{"key": float("nan"), "value": 1} for _index in range(2)],
-                text("key").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                source=[{"key": float("nan"), "value": 1} for _index in range(2)],
+                columns=(
+                    text(id="key", source="key").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -416,7 +497,7 @@ def test_matrix_ids_do_not_collide() -> None:
         sheet(
             "Matrix",
             matrix(
-                [{"value_0": "A", "month": "Jan", "oil": 2}],
+                source=[{"value_0": "A", "month": "Jan", "oil": 2}],
                 row=(field("value_0"), field("value_0")),
                 column=field("month"),
                 value=field("oil").agg(sum),
@@ -434,7 +515,7 @@ def test_matrix_ids_do_not_collide() -> None:
 
 def test_matrix_value_preserves_formatting() -> None:
     value = (
-        decimal("oil", source=field("oil").agg(sum))
+        decimal(id="oil", source=field("oil").agg(sum))
         .format(decimal_format(places=2))
         .width(14)
     )
@@ -442,7 +523,7 @@ def test_matrix_value_preserves_formatting() -> None:
         sheet(
             "Matrix",
             matrix(
-                [{"shop": "A", "month": "Jan", "oil": Decimal("2.5")}],
+                source=[{"shop": "A", "month": "Jan", "oil": Decimal("2.5")}],
                 row=field("shop"),
                 column=field("month"),
                 value=value,
@@ -470,7 +551,7 @@ def test_overlap_before_matrix_consumption() -> None:
         sheet(
             "Matrix",
             matrix(
-                rows(),
+                source=rows(),
                 row=field("shop"),
                 column=field("month"),
                 value=field("oil").agg(sum),
@@ -493,8 +574,8 @@ def test_nested_aggregate_is_rejected() -> None:
         sheet(
             "Summary",
             table(
-                [{"value": 1}],
-                decimal("total", source=field("value").agg(sum) * 2),
+                source=[{"value": 1}],
+                columns=(decimal(id="total", source=field("value").agg(sum) * 2),),
             ),
         ),
     )
@@ -512,10 +593,12 @@ def test_formula_in_aggregate_table() -> None:
         sheet(
             "Summary",
             table(
-                [{"shop": "A", "value": 2}],
-                text("shop").grouped(),
-                decimal("total", source=field("value").agg(sum)),
-                decimal("double").formula(col("total") * 2),
+                source=[{"shop": "A", "value": 2}],
+                columns=(
+                    text(id="shop", source="shop").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                    decimal(id="double", source="double").formula(col("total") * 2),
+                ),
             ),
         ),
     )
@@ -531,14 +614,16 @@ def test_aggregate_default_for_empty_filter() -> None:
         sheet(
             "Summary",
             table(
-                [{"shop": "A", "value": 2, "active": False}],
-                text("shop").grouped(),
-                decimal(
-                    "minimum",
-                    source=field("value").agg(
-                        min,
-                        where=field("active"),
-                        default=None,
+                source=[{"shop": "A", "value": 2, "active": False}],
+                columns=(
+                    text(id="shop", source="shop").grouped(),
+                    decimal(
+                        id="minimum",
+                        source=field("value").agg(
+                            min,
+                            where=field("active"),
+                            default=None,
+                        ),
                     ),
                 ),
             ),
@@ -556,8 +641,8 @@ def test_null_group_is_always_last() -> None:
             sheet(
                 "Summary",
                 table(
-                    [{"key": None}, {"key": "A"}, {"key": "B"}],
-                    text("key").grouped(order=order),
+                    source=[{"key": None}, {"key": "A"}, {"key": "B"}],
+                    columns=(text(id="key", source="key").grouped(order=order),),
                 ),
             ),
         )
@@ -572,7 +657,7 @@ def test_matrix_duplicate_conflict() -> None:
         sheet(
             "Matrix",
             matrix(
-                [
+                source=[
                     {"shop": "A", "month": "Jan", "oil": 2},
                     {"shop": "A", "month": "Jan", "oil": 3},
                 ],
@@ -596,8 +681,8 @@ def test_grouping_error_has_block_context() -> None:
         sheet(
             "Summary",
             table(
-                [{"key": "A"}, {"key": 1}],
-                text("key").grouped(order="ascending"),
+                source=[{"key": "A"}, {"key": 1}],
+                columns=(text(id="key", source="key").grouped(order="ascending"),),
             ),
         ),
     )
@@ -622,7 +707,7 @@ def test_matrix_consumes_one_shot_once() -> None:
         sheet(
             "Matrix",
             matrix(
-                rows(),
+                source=rows(),
                 row=field("shop"),
                 column=field("month"),
                 value=field("oil").agg(sum),
@@ -640,7 +725,7 @@ def test_matrix_headers_are_nonempty_and_unique() -> None:
         sheet(
             "Matrix",
             matrix(
-                [
+                source=[
                     {"shop": "A", "month": None, "oil": 1},
                     {"shop": "A", "month": 1, "oil": 2},
                     {"shop": "A", "month": Decimal(1), "oil": 3},
@@ -666,8 +751,8 @@ def test_merged_groups_reject_autofilter() -> None:
         sheet(
             "Summary",
             table(
-                [{"shop": "A"}],
-                text("shop").grouped(merge=True),
+                source=[{"shop": "A"}],
+                columns=(text(id="shop", source="shop").grouped(merge=True),),
                 autofilter=True,
             ),
         ),
@@ -689,14 +774,16 @@ def test_group_merges_in_xlsx(
         sheet(
             "Summary",
             table(
-                [
+                source=[
                     {"shop": "A", "field": "X", "value": 1},
                     {"shop": "A", "field": "Y", "value": 2},
                     {"shop": None, "field": "Z", "value": 3},
                 ],
-                text("shop").grouped(merge=True),
-                text("field").grouped(),
-                decimal("total", source=field("value").agg(sum)),
+                columns=(
+                    text(id="shop", source="shop").grouped(merge=True),
+                    text(id="field", source="field").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
             ),
         ),
     )
@@ -715,7 +802,7 @@ def test_matrix_xlsx_grid() -> None:
         sheet(
             "Matrix",
             matrix(
-                [
+                source=[
                     {"shop": "A", "month": "Jan", "oil": 2},
                     {"shop": "A", "month": "Jan", "oil": 3},
                     {"shop": "B", "month": "Feb", "oil": 4},

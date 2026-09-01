@@ -19,7 +19,7 @@ from caxton.core.ir import (
     SPREADSHEET_IR_VERSION,
     SpreadsheetRowIR,
 )
-from caxton.testing import Rows, inspect_layout
+from caxton.testing import Rows, assert_spreadsheet_equal, inspect_layout, inspect_spec
 
 
 def test_validation_collects_schema_issues() -> None:
@@ -28,17 +28,19 @@ def test_validation_collects_schema_issues() -> None:
         sheet(
             "Sales",
             table(
-                rows,
-                decimal("amount"),
-                decimal("amount"),
-                decimal("delta", source=ref("missing") - ref("amount")),
+                source=rows,
+                columns=(
+                    decimal(id="amount", source="amount"),
+                    decimal(id="amount", source="amount"),
+                    decimal(id="delta", source=ref("missing") - ref("amount")),
+                ),
                 name="sales",
                 anchor="invalid",
             ),
         ),
         sheet(
             "Sales",
-            table(rows, text("name"), name="sales"),
+            table(source=rows, columns=(text(id="name", source="name"),), name="sales"),
         ),
     )
 
@@ -59,11 +61,19 @@ def test_validation_uses_xlsx_name_identity() -> None:
     document = spreadsheet(
         sheet(
             "Data",
-            table([{"value": 1}], text("value"), name="Sales"),
+            table(
+                source=[{"value": 1}],
+                columns=(text(id="value", source="value"),),
+                name="Sales",
+            ),
         ),
         sheet(
             "data",
-            table([{"value": 2}], text("value"), name="sales"),
+            table(
+                source=[{"value": 2}],
+                columns=(text(id="value", source="value"),),
+                name="sales",
+            ),
         ),
     )
 
@@ -88,9 +98,11 @@ def test_validation_is_lazy_and_detects_cycles() -> None:
         sheet(
             "Cycles",
             table(
-                rows(),
-                decimal("left", source=ref("right") + 1),
-                decimal("right", source=ref("left") + 1),
+                source=rows(),
+                columns=(
+                    decimal(id="left", source=ref("right") + 1),
+                    decimal(id="right", source=ref("left") + 1),
+                ),
             ),
         ),
     )
@@ -107,8 +119,8 @@ def test_direct_reference_cycle_reports_path() -> None:
         sheet(
             "Cycles",
             table(
-                [{"value": 1}],
-                decimal("value", source=ref("value")),
+                source=[{"value": 1}],
+                columns=(decimal(id="value", source=ref("value")),),
             ),
         ),
     )
@@ -131,10 +143,12 @@ def test_indirect_reference_cycle_reports_path() -> None:
         sheet(
             "Cycles",
             table(
-                [{"value": 1}],
-                decimal("first", source=ref("second")),
-                decimal("second", source=ref("third")),
-                decimal("third", source=ref("first")),
+                source=[{"value": 1}],
+                columns=(
+                    decimal(id="first", source=ref("second")),
+                    decimal(id="second", source=ref("third")),
+                    decimal(id="third", source=ref("first")),
+                ),
             ),
         ),
     )
@@ -159,8 +173,15 @@ def test_later_tables_flow_below_predecessor() -> None:
     document = spreadsheet(
         sheet(
             "Sales",
-            table([{"first": "a"}, {"first": "b"}], text("first")),
-            table([{"second": "c"}], text("second"), name="second"),
+            table(
+                source=[{"first": "a"}, {"first": "b"}],
+                columns=(text(id="first", source="first"),),
+            ),
+            table(
+                source=[{"second": "c"}],
+                columns=(text(id="second", source="second"),),
+                name="second",
+            ),
         ),
     )
 
@@ -174,8 +195,16 @@ def test_overlapping_explicit_blocks_are_rejected() -> None:
     document = spreadsheet(
         sheet(
             "Sales",
-            table([{"first": "a"}], text("first"), anchor="A1"),
-            table([{"second": "c"}], text("second"), anchor="A2"),
+            table(
+                source=[{"first": "a"}],
+                columns=(text(id="first", source="first"),),
+                anchor="A1",
+            ),
+            table(
+                source=[{"second": "c"}],
+                columns=(text(id="second", source="second"),),
+                anchor="A2",
+            ),
         ),
     )
 
@@ -187,7 +216,7 @@ def test_overlapping_explicit_blocks_are_rejected() -> None:
 
 def test_compiler_builds_resolved_layout() -> None:  # noqa: WPS218
     gross = (
-        money("gross", source="gross_value", currency="USD")
+        money(id="gross", source="gross_value", currency="USD")
         .titled("Gross")
         .align("right")
         .width(18)
@@ -197,10 +226,12 @@ def test_compiler_builds_resolved_layout() -> None:  # noqa: WPS218
         sheet(
             "Sales",
             table(
-                [{"gross_value": 90, "cost_value": 30}],
-                gross,
-                money("cost", source="cost_value"),
-                decimal("margin", source=ref("gross") - ref("cost")),
+                source=[{"gross_value": 90, "cost_value": 30}],
+                columns=(
+                    gross,
+                    money(id="cost", source="cost_value"),
+                    decimal(id="margin", source=ref("gross") - ref("cost")),
+                ),
                 name="sales",
                 anchor="d10",
             ),
@@ -234,6 +265,28 @@ def test_compiler_builds_resolved_layout() -> None:  # noqa: WPS218
         layout.metadata["locale"] = "ru"  # type: ignore[index]
 
 
+def test_compilation_preserves_the_semantic_model() -> None:
+    document = spreadsheet(
+        sheet(
+            "Sales",
+            table(
+                source=[{"gross": 100, "cost": 40}],
+                columns=(
+                    decimal(id="gross", source="gross"),
+                    decimal(id="cost", source="cost"),
+                    decimal(id="margin", source=ref("gross") - ref("cost")),
+                ),
+                name="sales",
+            ),
+        ),
+    )
+    before_compilation = inspect_spec(document)
+
+    inspect_layout(document, rows=Rows.all())
+
+    assert_spreadsheet_equal(document, before_compilation)
+
+
 def test_compiler_preserves_lazy_one_shot_rows() -> None:
     visited = False
 
@@ -242,7 +295,12 @@ def test_compiler_preserves_lazy_one_shot_rows() -> None:
         visited = True
         yield {"name": "Ada"}
 
-    document = spreadsheet(sheet("People", table(rows(), text("name"))))
+    document = spreadsheet(
+        sheet(
+            "People",
+            table(source=rows(), columns=(text(id="name", source="name"),)),
+        )
+    )
 
     structure = inspect_layout(document)
 

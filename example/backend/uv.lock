@@ -33,6 +33,101 @@ wheels = [
 ]
 
 [[package]]
+name = "caxton"
+source = { editable = "../../" }
+dependencies = [
+    { name = "openpyxl" },
+    { name = "xlsxwriter" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "hypothesis", marker = "extra == 'hypothesis'", specifier = ">=6.165,<7.0" },
+    { name = "openpyxl", specifier = ">=3.1.5,<4.0" },
+    { name = "xlsxwriter", specifier = ">=3.2.9,<4.0" },
+]
+
+[package.metadata.requires-dev]
+build = [{ name = "twine", specifier = ">=7.0,<8.0" }]
+coverage = [{ name = "coverage", specifier = ">=7.15,<8.0" }]
+dependencies = [{ name = "deptry", specifier = ">=0.25.1,<0.26" }]
+dev = [
+    { name = "coverage", specifier = ">=7.15,<8.0" },
+    { name = "deptry", specifier = ">=0.25.1,<0.26" },
+    { name = "flake8", specifier = ">=7.3,<8.0" },
+    { name = "hatch", specifier = ">=1.17,<2.0" },
+    { name = "hypothesis", specifier = ">=6.165,<7.0" },
+    { name = "import-linter", specifier = ">=2.13,<3.0" },
+    { name = "mkdocs", specifier = ">=1.6,<2.0" },
+    { name = "mkdocs-material", specifier = ">=9.7,<10.0" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0,<2.0" },
+    { name = "mypy", specifier = ">=2.3,<3.0" },
+    { name = "pip", specifier = ">=25,<27" },
+    { name = "pre-commit", specifier = ">=4.6.1,<5.0" },
+    { name = "pytest", specifier = ">=9.1,<10.0" },
+    { name = "pytest-benchmark", specifier = ">=5.2,<6.0" },
+    { name = "pytest-cov", specifier = ">=7.1,<8.0" },
+    { name = "ruff", specifier = ">=0.16,<0.17" },
+    { name = "towncrier", specifier = ">=25.8,<26.0" },
+    { name = "tox", specifier = ">=4.52.1,<5.0" },
+    { name = "tox-uv", specifier = ">=1.29,<2.0" },
+    { name = "twine", specifier = ">=7.0,<8.0" },
+    { name = "types-openpyxl", specifier = ">=3.1.5.20260518,<3.2" },
+    { name = "wemake-python-styleguide", specifier = ">=1.7,<2.0" },
+]
+docs = [
+    { name = "hypothesis", specifier = ">=6.165,<7.0" },
+    { name = "mkdocs", specifier = ">=1.6,<2.0" },
+    { name = "mkdocs-material", specifier = ">=9.7,<10.0" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0,<2.0" },
+]
+imports = [{ name = "import-linter", specifier = ">=2.13,<3.0" }]
+lint = [
+    { name = "flake8", specifier = ">=7.3,<8.0" },
+    { name = "ruff", specifier = ">=0.16,<0.17" },
+    { name = "wemake-python-styleguide", specifier = ">=1.7,<2.0" },
+]
+maintenance = [
+    { name = "hatch", specifier = ">=1.17,<2.0" },
+    { name = "pip", specifier = ">=25,<27" },
+    { name = "towncrier", specifier = ">=25.8,<26.0" },
+]
+pre-commit = [{ name = "pre-commit", specifier = ">=4.6.1,<5.0" }]
+test = [
+    { name = "hypothesis", specifier = ">=6.165,<7.0" },
+    { name = "pytest", specifier = ">=9.1,<10.0" },
+    { name = "pytest-benchmark", specifier = ">=5.2,<6.0" },
+    { name = "pytest-cov", specifier = ">=7.1,<8.0" },
+]
+tox = [
+    { name = "tox", specifier = ">=4.52.1,<5.0" },
+    { name = "tox-uv", specifier = ">=1.29,<2.0" },
+]
+typecheck = [
+    { name = "mypy", specifier = ">=2.3,<3.0" },
+    { name = "types-openpyxl", specifier = ">=3.1.5.20260518,<3.2" },
+]
+
+[[package]]
+name = "caxton-backend-example"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "caxton" },
+    { name = "fastapi" },
+    { name = "pydantic" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "caxton", editable = "../../" },
+    { name = "fastapi", specifier = ">=0.116,<1.0" },
+    { name = "pydantic", specifier = ">=2.11,<3.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.35,<1.0" },
+]
+
+[[package]]
 name = "click"
 version = "8.4.2"
 source = { registry = "https://pypi.org/simple" }
@@ -76,61 +171,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/8a/02/91e3416a8fdd715abb903a952a6bec7cdd8d14eed55d415fc8595524c319/fastapi-0.141.1.tar.gz", hash = "sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1", size = 425799 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/03/10388a42375ee7e4ac9b94eb2c5c569c8b5795e377e701c9ac3ad63de890/fastapi-0.141.1-py3-none-any.whl", hash = "sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3", size = 131954 },
-]
-
-[[package]]
-name = "caxton"
-version = "0.0.0"
-source = { editable = "../../" }
-dependencies = [
-    { name = "openpyxl" },
-    { name = "xlsxwriter" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "hypothesis", marker = "extra == 'hypothesis'", specifier = ">=6.165,<7.0" },
-    { name = "openpyxl", specifier = ">=3.1.5,<4.0" },
-    { name = "xlsxwriter", specifier = ">=3.2.9,<4.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "coverage", specifier = ">=7.15,<8.0" },
-    { name = "deptry", specifier = ">=0.25.1,<0.26" },
-    { name = "flake8", specifier = ">=7.3,<8.0" },
-    { name = "griffe", specifier = ">=2.1,<3.0" },
-    { name = "hatch", specifier = ">=1.17,<2.0" },
-    { name = "hypothesis", specifier = ">=6.165,<7.0" },
-    { name = "import-linter", specifier = ">=2.13,<3.0" },
-    { name = "mypy", specifier = ">=2.3,<3.0" },
-    { name = "openpyxl", specifier = ">=3.1.5,<4.0" },
-    { name = "pip", specifier = ">=25,<27" },
-    { name = "pytest", specifier = ">=9.1,<10.0" },
-    { name = "pytest-benchmark", specifier = ">=5.2,<6.0" },
-    { name = "ruff", specifier = ">=0.16,<0.17" },
-    { name = "towncrier", specifier = ">=25.8,<26.0" },
-    { name = "twine", specifier = ">=7.0,<8.0" },
-    { name = "wemake-python-styleguide", specifier = ">=1.7,<2.0" },
-]
-
-[[package]]
-name = "caxton-backend-example"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "fastapi" },
-    { name = "caxton" },
-    { name = "pydantic" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi", specifier = ">=0.116,<1.0" },
-    { name = "caxton", editable = "../../" },
-    { name = "pydantic", specifier = ">=2.11,<3.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.35,<1.0" },
 ]
 
 [[package]]

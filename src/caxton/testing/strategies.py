@@ -131,8 +131,8 @@ def spreadsheet_documents(draw: st.DrawFn) -> SpreadsheetDocument:
             )
             tables.append(
                 table(
-                    [],
-                    *generated_columns,
+                    source=[],
+                    columns=generated_columns,
                     name=table_name,
                     anchor=(
                         f"A{table_index * 3 + 1}"

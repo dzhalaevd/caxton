@@ -39,12 +39,14 @@ def test_inspection_does_not_consume_rows() -> None:
         sheet(
             "Summary",
             table(
-                rows(),
-                money("revenue")
-                .titled("Revenue")
-                .align("right")
-                .width(18)
-                .format(money_format(currency="USD")),
+                source=rows(),
+                columns=(
+                    money(id="revenue", source="revenue")
+                    .titled("Revenue")
+                    .align("right")
+                    .width(18)
+                    .format(money_format(currency="USD")),
+                ),
                 name="sales",
                 anchor="D10",
             ),
@@ -53,9 +55,9 @@ def test_inspection_does_not_consume_rows() -> None:
     )
 
     inspected = inspect_spec(document)
-    column = inspected.worksheet("Summary").table("sales").column("revenue")
+    inspected_column = inspected.worksheet("Summary").table("sales").column("revenue")
 
-    assert column == ColumnSpec(
+    assert inspected_column == ColumnSpec(
         id="revenue",
         title="Revenue",
         semantic_type=SemanticTypeSpec(
@@ -75,7 +77,14 @@ def test_value_objects_expose_declaration_order() -> None:
     document = spreadsheet(
         sheet(
             "Summary",
-            table([], text("name"), money("revenue"), name="sales"),
+            table(
+                source=[],
+                columns=(
+                    text(id="name", source="name"),
+                    money(id="revenue", source="revenue"),
+                ),
+                name="sales",
+            ),
         ),
     )
 
@@ -123,7 +132,10 @@ def test_missing_selector_has_focused_error(
     message: str,
 ) -> None:
     document = spreadsheet(
-        sheet("Summary", table([], text("name"), name="sales")),
+        sheet(
+            "Summary",
+            table(source=[], columns=(text(id="name", source="name"),), name="sales"),
+        ),
     )
 
     with pytest.raises(LookupError, match=message):
@@ -154,8 +166,15 @@ def test_equal_spreadsheets_do_not_consume_rows() -> None:
         visited = True
         yield {"name": "Ada"}
 
-    actual = spreadsheet(sheet("People", table(rows(), text("name"))))
-    expected = spreadsheet(sheet("People", table([], text("name"))))
+    actual = spreadsheet(
+        sheet(
+            "People",
+            table(source=rows(), columns=(text(id="name", source="name"),)),
+        )
+    )
+    expected = spreadsheet(
+        sheet("People", table(source=[], columns=(text(id="name", source="name"),)))
+    )
 
     assert_spreadsheet_equal(actual, expected)
     assert not visited
@@ -165,13 +184,21 @@ def test_spreadsheet_difference_has_semantic_path() -> None:
     actual = spreadsheet(
         sheet(
             "Sales",
-            table([], money("revenue").titled("Actual"), name="sales"),
+            table(
+                source=[],
+                columns=(money(id="revenue", source="revenue").titled("Actual"),),
+                name="sales",
+            ),
         ),
     )
     expected = spreadsheet(
         sheet(
             "Sales",
-            table([], money("revenue").titled("Expected"), name="sales"),
+            table(
+                source=[],
+                columns=(money(id="revenue", source="revenue").titled("Expected"),),
+                name="sales",
+            ),
         ),
     )
 
@@ -238,14 +265,17 @@ def test_metadata_check_can_be_disabled() -> None:
 @pytest.mark.parametrize(
     ("actual_column", "expected_column"),
     [
-        (text("value", source="actual"), text("value", source="expected")),
         (
-            text("value", source=path("actual", "name")),
-            text("value", source=path("expected", "name")),
+            text(id="value", source="actual"),
+            text(id="value", source="expected"),
         ),
         (
-            decimal("value", source=field("left") + 1),
-            decimal("value", source=field("right") + 1),
+            text(id="value", source=path("actual", "name")),
+            text(id="value", source=path("expected", "name")),
+        ),
+        (
+            decimal(id="value", source=field("left") + 1),
+            decimal(id="value", source=field("right") + 1),
         ),
     ],
 )
@@ -253,8 +283,12 @@ def test_column_source_difference(
     actual_column: Column,
     expected_column: Column,
 ) -> None:
-    actual = spreadsheet(sheet("Data", table([], actual_column, name="data")))
-    expected = spreadsheet(sheet("Data", table([], expected_column, name="data")))
+    actual = spreadsheet(
+        sheet("Data", table(source=[], columns=(actual_column,), name="data"))
+    )
+    expected = spreadsheet(
+        sheet("Data", table(source=[], columns=(expected_column,), name="data"))
+    )
 
     with pytest.raises(SpreadsheetAssertionError) as captured:
         assert_spreadsheet_equal(actual, expected)
@@ -262,12 +296,68 @@ def test_column_source_difference(
     assert captured.value.differences[0].path.endswith(".source")
 
 
-def test_semantic_type_parameter_difference() -> None:
+def test_column_diff_collects_all_differences() -> None:
     actual = spreadsheet(
-        sheet("Data", table([], money("amount", currency="USD"), name="data")),
+        sheet(
+            "Data",
+            table(
+                source=[],
+                columns=(
+                    text(id="value", source="actual")
+                    .titled("Actual")
+                    .grouped(merge=True),
+                ),
+                name="data",
+            ),
+        ),
     )
     expected = spreadsheet(
-        sheet("Data", table([], money("amount", currency="EUR"), name="data")),
+        sheet(
+            "Data",
+            table(
+                source=[],
+                columns=(
+                    text(id="value", source="expected")
+                    .titled("Expected")
+                    .grouped(order="descending"),
+                ),
+                name="data",
+            ),
+        ),
+    )
+
+    with pytest.raises(SpreadsheetAssertionError) as captured:
+        assert_spreadsheet_equal(actual, expected)
+
+    assert [
+        difference.path.rsplit(".", 1)[-1] for difference in captured.value.differences
+    ] == [
+        "title",
+        "source",
+        "grouping",
+    ]
+
+
+def test_semantic_type_parameter_difference() -> None:
+    actual = spreadsheet(
+        sheet(
+            "Data",
+            table(
+                source=[],
+                columns=(money(id="amount", source="amount", currency="USD"),),
+                name="data",
+            ),
+        ),
+    )
+    expected = spreadsheet(
+        sheet(
+            "Data",
+            table(
+                source=[],
+                columns=(money(id="amount", source="amount", currency="EUR"),),
+                name="data",
+            ),
+        ),
     )
 
     with pytest.raises(SpreadsheetAssertionError) as captured:
@@ -288,9 +378,15 @@ def test_callable_sources_use_callable_identity() -> None:
     def second(row: object) -> object:
         return row
 
-    shared = spreadsheet(sheet("Data", table([], text("value", source=first))))
-    same = spreadsheet(sheet("Data", table([], text("value", source=first))))
-    different = spreadsheet(sheet("Data", table([], text("value", source=second))))
+    shared = spreadsheet(
+        sheet("Data", table(source=[], columns=(text(id="value", source=first),)))
+    )
+    same = spreadsheet(
+        sheet("Data", table(source=[], columns=(text(id="value", source=first),)))
+    )
+    different = spreadsheet(
+        sheet("Data", table(source=[], columns=(text(id="value", source=second),)))
+    )
 
     assert_spreadsheet_equal(shared, same)
     with pytest.raises(SpreadsheetAssertionError):
@@ -302,13 +398,28 @@ def test_callable_identity_is_deterministic() -> None:
         return lambda row: row["value"] + offset
 
     first = inspect_spec(
-        spreadsheet(sheet("Data", table([], text("value", source=make_source(1))))),
+        spreadsheet(
+            sheet(
+                "Data",
+                table(source=[], columns=(text(id="value", source=make_source(1)),)),
+            )
+        ),
     )
     equivalent = inspect_spec(
-        spreadsheet(sheet("Data", table([], text("value", source=make_source(1))))),
+        spreadsheet(
+            sheet(
+                "Data",
+                table(source=[], columns=(text(id="value", source=make_source(1)),)),
+            )
+        ),
     )
     different = inspect_spec(
-        spreadsheet(sheet("Data", table([], text("value", source=make_source(2))))),
+        spreadsheet(
+            sheet(
+                "Data",
+                table(source=[], columns=(text(id="value", source=make_source(2)),)),
+            )
+        ),
     )
 
     first_source = first.worksheet("Data").tables[0].columns[0].source
@@ -324,26 +435,66 @@ def test_duplicate_identities_use_positions(
 ) -> None:
     if duplicate_level == "worksheet":
         actual = spreadsheet(
-            sheet("Same", table([], text("value").titled("Actual"))),
-            sheet("Same", table([], text("value").titled("Shared"))),
+            sheet(
+                "Same",
+                table(
+                    source=[],
+                    columns=(text(id="value", source="value").titled("Actual"),),
+                ),
+            ),
+            sheet(
+                "Same",
+                table(
+                    source=[],
+                    columns=(text(id="value", source="value").titled("Shared"),),
+                ),
+            ),
         )
         expected = spreadsheet(
-            sheet("Same", table([], text("value").titled("Expected"))),
-            sheet("Same", table([], text("value").titled("Shared"))),
+            sheet(
+                "Same",
+                table(
+                    source=[],
+                    columns=(text(id="value", source="value").titled("Expected"),),
+                ),
+            ),
+            sheet(
+                "Same",
+                table(
+                    source=[],
+                    columns=(text(id="value", source="value").titled("Shared"),),
+                ),
+            ),
         )
     elif duplicate_level == "table":
         actual = spreadsheet(
             sheet(
                 "Data",
-                table([], text("value").titled("Actual"), name="same"),
-                table([], text("value").titled("Shared"), name="same"),
+                table(
+                    source=[],
+                    columns=(text(id="value", source="value").titled("Actual"),),
+                    name="same",
+                ),
+                table(
+                    source=[],
+                    columns=(text(id="value", source="value").titled("Shared"),),
+                    name="same",
+                ),
             ),
         )
         expected = spreadsheet(
             sheet(
                 "Data",
-                table([], text("value").titled("Expected"), name="same"),
-                table([], text("value").titled("Shared"), name="same"),
+                table(
+                    source=[],
+                    columns=(text(id="value", source="value").titled("Expected"),),
+                    name="same",
+                ),
+                table(
+                    source=[],
+                    columns=(text(id="value", source="value").titled("Shared"),),
+                    name="same",
+                ),
             ),
         )
     else:
@@ -351,9 +502,11 @@ def test_duplicate_identities_use_positions(
             sheet(
                 "Data",
                 table(
-                    [],
-                    text("same").titled("Actual"),
-                    text("same").titled("Shared"),
+                    source=[],
+                    columns=(
+                        text(id="same", source="same").titled("Actual"),
+                        text(id="same", source="same").titled("Shared"),
+                    ),
                     name="data",
                 ),
             ),
@@ -362,9 +515,11 @@ def test_duplicate_identities_use_positions(
             sheet(
                 "Data",
                 table(
-                    [],
-                    text("same").titled("Expected"),
-                    text("same").titled("Shared"),
+                    source=[],
+                    columns=(
+                        text(id="same", source="same").titled("Expected"),
+                        text(id="same", source="same").titled("Shared"),
+                    ),
                     name="data",
                 ),
             ),
@@ -396,8 +551,8 @@ def test_layout_row_scopes_are_bounded() -> None:
         sheet(
             "Data",
             table(
-                [{"value": 1}, {"value": 2}, {"value": 3}],
-                decimal("value"),
+                source=[{"value": 1}, {"value": 2}, {"value": 3}],
+                columns=(decimal(id="value", source="value"),),
                 name="data",
             ),
         ),

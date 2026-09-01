@@ -197,7 +197,7 @@ def test_queryset_is_lazy_during_coercion() -> None:  # noqa: WPS218
 def test_custom_source_passes_through_table() -> None:
     source = CustomDataSource()
 
-    semantic_table = table(source, text("name"))
+    semantic_table = table(source=source, columns=(text(id="name", source="name"),))
     row = next(semantic_table.data.source.iter_rows())
 
     assert semantic_table.data.source is source

@@ -9,7 +9,7 @@ does not normalize inputs or drop `None`.
 ```python
 from caxton import decimal, field
 
-decimal("active_oil", source=field("oil_rate").agg(sum))
+decimal(id="active_oil", source=field("oil_rate").agg(sum))
 ```
 
 | Argument       | Meaning                                                           |
@@ -42,13 +42,16 @@ grouped columns.
 from caxton import decimal, field, table, text
 
 table(
-    production,
-    text("shop").titled("Shop").grouped(merge=True),
-    text("field").titled("Field").grouped(),
-    decimal(
-        "active_oil",
-        source=field("oil_rate").agg(sum, where=field("active"), default=0),
-    ).titled("Active oil"),
+    source=production,
+    columns=(
+        text(source="shop", title="Shop").grouped(merge=True),
+        text(source="field", title="Field").grouped(),
+        decimal(
+            id="active_oil",
+            source=field("oil_rate").agg(sum, where=field("active"), default=0),
+            title="Active oil",
+        ),
+    ),
 )
 ```
 
@@ -77,10 +80,10 @@ value columns. Axis keys are discovered from the data.
 from caxton import decimal, field, matrix
 
 matrix(
-    production,
+    source=production,
     row=field("shop"),
     column=field("month"),
-    value=decimal("oil_total", source=field("oil_rate").agg(sum)),
+    value=decimal(id="oil_total", source=field("oil_rate").agg(sum)),
 )
 ```
 

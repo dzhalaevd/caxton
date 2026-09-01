@@ -146,3 +146,13 @@ def test_issue_context_is_an_immutable_snapshot() -> None:
     assert issue.context == {"columns": ("name",)}
     with pytest.raises(TypeError):
         issue.context["other"] = True  # type: ignore[index]
+
+
+def test_error_context_is_an_immutable_snapshot() -> None:
+    context = {"columns": ["name"]}
+    error = CaxtonError("Invalid columns", context=context)
+    context["columns"].append("email")
+
+    assert error.context == {"columns": ("name",)}
+    with pytest.raises(TypeError):
+        error.context["other"] = True  # type: ignore[index]

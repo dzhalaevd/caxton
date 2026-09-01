@@ -26,7 +26,7 @@ from caxton import (  # noqa: WPS347
     template,
     text,
     write,
-)
+)  # noqa: WPS347
 from caxton.api import xlsx
 from caxton.core.models import SpreadsheetDocument
 
@@ -88,7 +88,14 @@ def test_explicit_format_accepts_an_extensionless_source(tmp_path: Path) -> None
 
 def test_template_target_requires_a_document_template() -> None:
     document = spreadsheet(
-        sheet("Report", table([{"name": "Ada"}], text("name"), into=ref("data"))),
+        sheet(
+            "Report",
+            table(
+                source=[{"name": "Ada"}],
+                columns=(text(id="name", source="name"),),
+                into=ref("data"),
+            ),
+        ),
     )
 
     with pytest.raises(ValidationError, match="requires a document template"):
@@ -103,9 +110,11 @@ def test_named_range_write_preserves_template_and_source(tmp_path: Path) -> None
         sheet(
             "Report",
             table(
-                [{"name": "Ada", "count": 2}, {"name": "Grace", "count": 3}],
-                text("name"),
-                integer("count"),
+                source=[{"name": "Ada", "count": 2}, {"name": "Grace", "count": 3}],
+                columns=(
+                    text(id="name", source="name"),
+                    integer(id="count", source="count"),
+                ),
                 into=ref("report_data"),
             ),
         ),
@@ -140,9 +149,11 @@ def test_bundled_template_preserves_untouched_formula_cells() -> None:
         sheet(
             "Monthly Report",
             table(
-                [{"product": "Coffee", "quantity": 4}],
-                text("product"),
-                integer("quantity"),
+                source=[{"product": "Coffee", "quantity": 4}],
+                columns=(
+                    text(id="product", source="product"),
+                    integer(id="quantity", source="quantity"),
+                ),
                 into=ref("report_data"),
             ),
         ),
@@ -172,10 +183,21 @@ def test_worksheet_scoped_name_wins_for_its_sheet(tmp_path: Path) -> None:
     )
     workbook.save(source)
     document = spreadsheet(
-        sheet("First", table([{"value": "one"}], text("value"), into=ref("target"))),
+        sheet(
+            "First",
+            table(
+                source=[{"value": "one"}],
+                columns=(text(id="value", source="value"),),
+                into=ref("target"),
+            ),
+        ),
         sheet(
             "Second",
-            table([{"value": "two"}], text("value"), into=ref("target")),
+            table(
+                source=[{"value": "two"}],
+                columns=(text(id="value", source="value"),),
+                into=ref("target"),
+            ),
         ),
         template=template(source),
     )
@@ -194,7 +216,11 @@ def test_missing_reference_leaves_target_untouched(tmp_path: Path) -> None:
     document = spreadsheet(
         sheet(
             "Report",
-            table([{"name": "Ada"}], text("name"), into=ref("missing")),
+            table(
+                source=[{"name": "Ada"}],
+                columns=(text(id="name", source="name"),),
+                into=ref("missing"),
+            ),
         ),
         template=template(source),
     )
@@ -214,7 +240,11 @@ def test_capability_preflight_leaves_target_untouched(tmp_path: Path) -> None:
     document = spreadsheet(
         sheet(
             "Report",
-            table([{"name": "Ada"}], text("name"), into=ref("report_data")),
+            table(
+                source=[{"name": "Ada"}],
+                columns=(text(id="name", source="name"),),
+                into=ref("report_data"),
+            ),
         ),
         template=template(source, extensions=(UnsupportedExtension(),)),
     )
@@ -244,8 +274,8 @@ def test_repeat_copies_styles_formulas_and_merged_cells(tmp_path: Path) -> None:
         sheet(
             "Report",
             table(
-                [{"name": "Ada"}, {"name": "Grace"}, {"name": "Linus"}],
-                text("name"),
+                source=[{"name": "Ada"}, {"name": "Grace"}, {"name": "Linus"}],
+                columns=(text(id="name", source="name"),),
                 into=repeat(ref("report_row")),
             ),
         ),
@@ -290,11 +320,15 @@ def test_repeat_shifts_a_downstream_resolved_target(tmp_path: Path) -> None:
         sheet(
             "Report",
             table(
-                [{"name": "A"}, {"name": "B"}, {"name": "C"}],
-                text("name"),
+                source=[{"name": "A"}, {"name": "B"}, {"name": "C"}],
+                columns=(text(id="name", source="name"),),
                 into=repeat(ref("rows")),
             ),
-            table([{"value": 42}], integer("value"), into=ref("summary")),
+            table(
+                source=[{"value": 42}],
+                columns=(integer(id="value", source="value"),),
+                into=ref("summary"),
+            ),
         ),
         template=template(source),
     )
@@ -314,7 +348,11 @@ def test_openpyxl_hook_is_namespaced_and_scoped(tmp_path: Path) -> None:
     document = spreadsheet(
         sheet(
             "Report",
-            table([{"name": "Ada"}], text("name"), into=ref("report_data")),
+            table(
+                source=[{"name": "Ada"}],
+                columns=(text(id="name", source="name"),),
+                into=ref("report_data"),
+            ),
         ),
         template=template(source, extensions=(xlsx.openpyxl_hook(configure),)),
     )
@@ -339,7 +377,11 @@ def test_missing_pivot_is_resolved_before_rows_are_consumed(tmp_path: Path) -> N
     document = spreadsheet(
         sheet(
             "Report",
-            table(rows(), text("name"), into=ref("report_data")),
+            table(
+                source=rows(),
+                columns=(text(id="name", source="name"),),
+                into=ref("report_data"),
+            ),
         ),
         template=template(
             source,

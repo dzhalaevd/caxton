@@ -149,6 +149,12 @@ class TableData:
         object.__setattr__(self, "columns", columns)
 
 
+def _require_table_data(value: object) -> None:
+    if not isinstance(value, TableData):
+        message = "Spreadsheet table data must be a TableData value"
+        raise CaxtonTypeError(message)
+
+
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
 class SpreadsheetTable:
     """Spreadsheet placement of semantic table data.
@@ -172,6 +178,7 @@ class SpreadsheetTable:
     into: ColumnRef | TemplateRepeat | None = None
 
     def __post_init__(self) -> None:  # noqa: WPS238
+        _require_table_data(self.data)
         require_optional_name(self.name, "Table name")
         require_optional_name(self.anchor, "Table anchor")
         if self.anchor is not None and self.into is not None:
@@ -399,6 +406,7 @@ class Stack:
         self.__post_init__()
 
     def __post_init__(self) -> None:
+        _require_spreadsheet_blocks(self.items, "Stack items")
         require_non_negative(self.gap, "Stack gap")
         require_optional_name(self.anchor, "Stack anchor")
 
@@ -406,6 +414,19 @@ class Stack:
 SpreadsheetBlock: TypeAlias = (
     SpreadsheetTable | Matrix | Title | Spacer | Image | Chart | Stack
 )
+
+
+def _require_spreadsheet_blocks(
+    blocks: Sequence[SpreadsheetBlock],
+    label: str,
+) -> None:
+    for block in blocks:
+        if not isinstance(
+            block,
+            (SpreadsheetTable, Matrix, Title, Spacer, Image, Chart, Stack),
+        ):
+            message = f"{label} must be spreadsheet blocks"
+            raise CaxtonTypeError(message)
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
@@ -423,7 +444,9 @@ class Worksheet:
 
     def __post_init__(self) -> None:
         require_name(self.name, "Worksheet name")
-        object.__setattr__(self, "blocks", tuple(self.blocks))
+        blocks = tuple(self.blocks)
+        _require_spreadsheet_blocks(blocks, "Worksheet blocks")
+        object.__setattr__(self, "blocks", blocks)
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
@@ -447,7 +470,12 @@ class SpreadsheetDocument:
         ):
             message = "Spreadsheet template must be created with template()"
             raise CaxtonTypeError(message)
-        object.__setattr__(self, "worksheets", tuple(self.worksheets))
+        worksheets = tuple(self.worksheets)
+        for worksheet in worksheets:
+            if not isinstance(worksheet, Worksheet):
+                message = "Spreadsheet worksheets must be Worksheet values"
+                raise CaxtonTypeError(message)
+        object.__setattr__(self, "worksheets", worksheets)
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 
 

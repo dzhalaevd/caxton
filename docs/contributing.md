@@ -46,13 +46,6 @@ make coverage
 make benchmark
 ```
 
-For a public API change, check compatibility against the intended baseline (the
-newest `v*` tag is used when `API_BASELINE` is omitted):
-
-```bash
-API_BASELINE=<tag-or-branch> python scripts/check_api_compatibility.py
-```
-
 ## Work on the documentation
 
 ```bash

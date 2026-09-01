@@ -1,19 +1,27 @@
 import dataclasses
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from typing import Any
 
 import pytest
 
 from caxton import (
     DataSourceConsumedError,
+    boolean,
+    date,
+    datetime,
     decimal,
+    duration,
     field,
     integer,
+    link,
     money,
     path,
+    percentage,
     sheet,
     spreadsheet,
     table,
     text,
+    time,
 )
 from caxton.core.formatting import Alignment, decimal_format
 from caxton.core.models import (
@@ -23,6 +31,10 @@ from caxton.core.models import (
     LiteralExpression,
     PathRef,
     SpreadsheetDocument,
+    SpreadsheetTable,
+    Stack,
+    TableData,
+    Worksheet,
 )
 from caxton.core.protocols import DataSourceInfo, Repeatability
 from caxton.core.types import Decimal
@@ -33,6 +45,17 @@ class _MutableLeaf:
     pass
 
 
+class _EmptySource:
+    def iter_rows(self) -> Iterator[object]:
+        return iter(())
+
+    def get_value(self, _row: object, _field: str) -> object:
+        return object()
+
+
+_FOREIGN_NODE: Any = object()
+
+
 def test_readme_example_builds_semantic_graph() -> None:
     rows = [{"manager": "Ada", "revenue": 100}]
 
@@ -40,9 +63,11 @@ def test_readme_example_builds_semantic_graph() -> None:
         sheet(
             "Sales",
             table(
-                rows,
-                text("manager").titled("Manager"),
-                money("revenue").titled("Revenue"),
+                source=rows,
+                columns=(
+                    text(id="manager", source="manager", title="Manager"),
+                    money(id="revenue", source="revenue", title="Revenue"),
+                ),
                 name="sales",
             ),
         ),
@@ -59,7 +84,7 @@ def test_readme_example_builds_semantic_graph() -> None:
 
 
 def test_column_operations_are_generative() -> None:  # noqa: WPS218
-    base = money("revenue")
+    base = money(id="revenue", source="revenue")
     titled = base.titled("Revenue")
     styled = titled.width(20).align("right")
 
@@ -71,14 +96,56 @@ def test_column_operations_are_generative() -> None:  # noqa: WPS218
     assert styled.alignment is Alignment.RIGHT
 
 
+@pytest.mark.parametrize(
+    "factory",
+    [
+        boolean,
+        date,
+        datetime,
+        decimal,
+        duration,
+        integer,
+        link,
+        money,
+        percentage,
+        text,
+        time,
+    ],
+)
+def test_factories_accept_title(
+    factory: Callable[..., Column],
+) -> None:
+    result = factory(id="value", source="value", title="Display value")
+
+    assert result.id == "value"
+    assert result.title == "Display value"
+    assert result.display_title == "Display value"
+
+
+@pytest.mark.parametrize(
+    ("value", "error", "message"),
+    [
+        (1, TypeError, "Column title must be a string"),
+        (" ", ValueError, "Column title cannot be empty"),
+    ],
+)
+def test_factory_validates_title(
+    value: Any,
+    error: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(error, match=message):
+        text(id="value", source="value", title=value)
+
+
 def test_nested_collections_are_copied() -> None:
-    columns = [text("name")]
-    blocks = [table([], *columns)]
+    columns = [text(id="name", source="name")]
+    blocks = [table(source=[], columns=columns)]
     worksheets = [sheet("People", *blocks)]
     metadata = {"owner": "team"}
 
     document = spreadsheet(*worksheets, metadata=metadata)
-    columns.append(integer("age"))
+    columns.append(integer(id="age", source="age"))
     blocks.clear()
     worksheets.clear()
     metadata["owner"] = "other"
@@ -89,6 +156,59 @@ def test_nested_collections_are_copied() -> None:
     assert document.metadata["owner"] == "team"
     with pytest.raises(TypeError):
         document.metadata["new"] = "value"  # type: ignore[index]
+
+
+def test_direct_model_freezes_nested_collections() -> None:
+    name_column = text(id="name", source="name")
+    columns = [name_column]
+    semantic_table = SpreadsheetTable(
+        data=TableData(source=_EmptySource(), columns=columns),
+    )
+    blocks = [semantic_table]
+    worksheet = Worksheet(name="People", blocks=blocks)
+    worksheets = [worksheet]
+
+    document = SpreadsheetDocument(worksheets=worksheets)
+    columns.append(integer(id="age", source="age"))
+    blocks.clear()
+    worksheets.clear()
+
+    assert document.worksheets == (worksheet,)
+    assert worksheet.blocks == (semantic_table,)
+    assert semantic_table.columns == (name_column,)
+
+
+@pytest.mark.parametrize(
+    ("construct", "message"),
+    [
+        (
+            lambda: TableData(source=_EmptySource(), columns=(_FOREIGN_NODE,)),
+            "Table columns must be Column values",
+        ),
+        (
+            lambda: SpreadsheetTable(data=_FOREIGN_NODE),
+            "Spreadsheet table data must be a TableData value",
+        ),
+        (
+            lambda: Stack(items=(_FOREIGN_NODE,)),
+            "Stack items must be spreadsheet blocks",
+        ),
+        (
+            lambda: Worksheet(name="Data", blocks=(_FOREIGN_NODE,)),
+            "Worksheet blocks must be spreadsheet blocks",
+        ),
+        (
+            lambda: SpreadsheetDocument(worksheets=(_FOREIGN_NODE,)),
+            "Spreadsheet worksheets must be Worksheet values",
+        ),
+    ],
+)
+def test_direct_model_rejects_foreign_nodes(
+    construct: Callable[[], object],
+    message: str,
+) -> None:
+    with pytest.raises(TypeError, match=message):
+        construct()
 
 
 def test_metadata_is_deeply_frozen() -> None:
@@ -128,16 +248,16 @@ def test_column_requires_source_or_formula() -> None:
 
 
 def test_frozen_nodes_reject_direct_mutation() -> None:
-    column = text("name")
+    name_column = text(id="name", source="name")
 
     with pytest.raises(dataclasses.FrozenInstanceError):
-        column.id = "other"  # type: ignore[misc]
+        name_column.id = "other"  # type: ignore[misc]
 
 
 def test_identity_is_separate_from_source() -> None:  # noqa: WPS218
-    direct = text("name", source="full_name")
-    nested = text("manager", source=path("manager", "name"))
-    computed = decimal("delta", source=field("price") - field("base_price"))
+    direct = text(id="name", source="full_name")
+    nested = text(id="manager", source=path("manager", "name"))
+    computed = decimal(id="delta", source=field("price") - field("base_price"))
 
     assert direct.id == "name"
     assert isinstance(direct.source, FieldRef)
@@ -164,7 +284,7 @@ def test_expression_rejects_boolean_context() -> None:
 
 
 def test_formatting_is_generative() -> None:
-    base = decimal("amount")
+    base = decimal(id="amount", source="amount")
     formatted = base.format(decimal_format(places=3))
 
     assert base.display_format is None
@@ -179,7 +299,7 @@ def test_table_keeps_generator_lazy() -> None:
         visited = True
         yield {"id": 1}
 
-    semantic_table = table(rows(), integer("id"))
+    semantic_table = table(source=rows(), columns=(integer(id="id", source="id"),))
 
     assert not visited
     assert isinstance(semantic_table.data.source, DataSourceInfo)
@@ -193,4 +313,4 @@ def test_table_keeps_generator_lazy() -> None:
 @pytest.mark.parametrize("value", [0, -1, float("nan"), float("inf")])
 def test_width_must_be_positive(value: float) -> None:
     with pytest.raises(ValueError, match="positive"):
-        text("name").width(value)
+        text(id="name", source="name").width(value)

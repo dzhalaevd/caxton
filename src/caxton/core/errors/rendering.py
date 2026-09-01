@@ -9,18 +9,23 @@ class RenderError(CaxtonError):
 
 
 @dataclasses.dataclass(eq=False)
+class OutputError(RenderError):
+    """Raised when artifact output cannot be delivered to its target."""
+
+
+@dataclasses.dataclass(eq=False)
 class BackendError(RenderError):
     """Wrap an implementation-specific renderer failure."""
 
     backend: str | None = dataclasses.field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
         if self.backend is not None:
             self.context = {
                 **self.context,
                 "backend": self.backend,
             }
+        super().__post_init__()
 
 
 @dataclasses.dataclass(eq=False)

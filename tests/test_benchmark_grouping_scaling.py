@@ -66,10 +66,10 @@ def _prepare_pivot(rows: Iterator[dict[str, object]]) -> int | None:
         sheet(
             "Matrix",
             matrix(
-                rows,
+                source=rows,
                 row=field("row"),
                 column=field("column"),
-                value=decimal("value", source=field("value").agg(sum)),
+                value=decimal(id="value", source=field("value").agg(sum)),
             ),
         ),
     )
@@ -89,13 +89,22 @@ def _prepare_aggregates(aggregate_count: int, *, filtered: bool) -> int | None:
     condition = field("active") == True if filtered else None  # noqa: E712
     columns = [
         decimal(
-            f"total_{position}",
+            id=f"total_{position}",
             source=field("value").agg(sum, where=condition),
         )
         for position in range(aggregate_count)
     ]
     document = spreadsheet(
-        sheet("Summary", table(rows, text("key").grouped(), *columns)),
+        sheet(
+            "Summary",
+            table(
+                source=rows,
+                columns=(
+                    text(id="key", source="key").grouped(),
+                    *columns,
+                ),
+            ),
+        ),
     )
     layout = inspect_layout(document, rows=Rows.none())
     return layout.worksheet("Summary").block("block[0]").rows

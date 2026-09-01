@@ -64,7 +64,7 @@ def _evaluate_directly(row: object, *columns: Column) -> object:
 
 def _evaluate(rows: object, *columns: Column) -> list[RowLayout]:
     document = spreadsheet(
-        sheet("Data", table(rows, *columns, name="data")),
+        sheet("Data", table(source=rows, columns=columns, name="data")),
     )
     layout = inspect_layout(document, rows=Rows.all())
     return list(layout.worksheet("Data").table("data").rows)
@@ -79,16 +79,16 @@ def test_evaluates_all_source_kinds() -> None:
             "base_price": 100,
         },
     ]
-    label = text("label", source=lambda row: row["full_name"].upper())
+    label = text(id="label", source=lambda row: row["full_name"].upper())
 
     semantic_row = _evaluate(
         rows,
-        text("name", source="full_name"),
-        text("city", source=path("customer", "address", "city")),
+        text(id="name", source="full_name"),
+        text(id="city", source=path("customer", "address", "city")),
         label,
-        decimal("price"),
-        decimal("base_price"),
-        decimal("delta", source=ref("price") - ref("base_price")),
+        decimal(id="price", source="price"),
+        decimal(id="base_price", source="base_price"),
+        decimal(id="delta", source=ref("price") - ref("base_price")),
     )[0]
 
     assert semantic_row.values == {
@@ -104,9 +104,9 @@ def test_evaluates_all_source_kinds() -> None:
 def test_expression_uses_semantic_forward_refs() -> None:
     semantic_row = _evaluate(
         [{"gross_value": 90, "cost_value": 30}],
-        decimal("margin", source=ref("gross") - ref("cost")),
-        decimal("gross", source="gross_value"),
-        decimal("cost", source="cost_value"),
+        decimal(id="margin", source=ref("gross") - ref("cost")),
+        decimal(id="gross", source="gross_value"),
+        decimal(id="cost", source="cost_value"),
     )[0]
 
     assert semantic_row["margin"] == 60
@@ -115,9 +115,9 @@ def test_expression_uses_semantic_forward_refs() -> None:
 def test_field_reads_raw_row_data() -> None:
     semantic_row = _evaluate(
         [{"qty": 3, "unit_price": 20}],
-        integer("quantity", source="qty"),
-        decimal("unit", source="unit_price"),
-        decimal("total", source=field("qty") * field("unit_price")),
+        integer(id="quantity", source="qty"),
+        decimal(id="unit", source="unit_price"),
+        decimal(id="total", source=field("qty") * field("unit_price")),
     )[0]
 
     assert semantic_row["total"] == 60
@@ -126,9 +126,9 @@ def test_field_reads_raw_row_data() -> None:
 def test_ref_reads_semantic_column() -> None:
     semantic_row = _evaluate(
         [{"qty": 3, "unit_price": 20}],
-        integer("quantity", source="qty"),
-        decimal("unit", source="unit_price"),
-        decimal("total", source=ref("quantity") * ref("unit")),
+        integer(id="quantity", source="qty"),
+        decimal(id="unit", source="unit_price"),
+        decimal(id="total", source=ref("quantity") * ref("unit")),
     )[0]
 
     assert semantic_row["total"] == 60
@@ -140,8 +140,8 @@ def test_unknown_ref_raises_column_error() -> None:
     with pytest.raises(ColumnNotFoundError) as captured:
         _evaluate_directly(
             {"amount": 1},
-            decimal("amount"),
-            decimal("copy", source=ref("nope")),
+            decimal(id="amount", source="amount"),
+            decimal(id="copy", source=ref("nope")),
         )
 
     error = captured.value
@@ -153,8 +153,8 @@ def test_cyclic_ref_raises_cycle_error() -> None:
     with pytest.raises(CyclicColumnError) as captured:
         _evaluate_directly(
             {"value": 1},
-            decimal("left", source=ref("right")),
-            decimal("right", source=ref("left")),
+            decimal(id="left", source=ref("right")),
+            decimal(id="right", source=ref("left")),
         )
 
     error = captured.value
@@ -172,7 +172,14 @@ def test_evaluation_stays_lazy_for_generator() -> None:
         yield {"name": "Ada"}
 
     document = spreadsheet(
-        sheet("Data", table(rows(), text("name"), name="data")),
+        sheet(
+            "Data",
+            table(
+                source=rows(),
+                columns=(text(id="name", source="name"),),
+                name="data",
+            ),
+        ),
     )
 
     structure = inspect_layout(document)
@@ -192,7 +199,7 @@ def test_iteration_failure_has_source_context() -> None:
         raise failure
 
     with pytest.raises(DataSourceIterationError) as captured:
-        _evaluate(rows(), text("name"))
+        _evaluate(rows(), text(id="name", source="name"))
 
     error = captured.value
     assert error.row_index == 1
@@ -213,7 +220,14 @@ def test_cell_value_validation_is_lazy() -> None:
         yield {"value": ["mutable"]}
 
     document = spreadsheet(
-        sheet("Data", table(rows(), text("value"), name="data")),
+        sheet(
+            "Data",
+            table(
+                source=rows(),
+                columns=(text(id="value", source="value"),),
+                name="data",
+            ),
+        ),
     )
 
     inspect_layout(document)
@@ -224,14 +238,14 @@ def test_cell_value_validation_is_lazy() -> None:
 
 
 def test_custom_source_controls_field_access() -> None:
-    semantic_row = _evaluate(AliasedSource(), text("name"))[0]
+    semantic_row = _evaluate(AliasedSource(), text(id="name", source="name"))[0]
 
     assert semantic_row["name"] == "Ada"
 
 
 def test_missing_field_has_semantic_row_context() -> None:
     with pytest.raises(MissingFieldError) as captured:
-        _evaluate([{"name": "Ada"}], text("email"))
+        _evaluate([{"name": "Ada"}], text(id="email", source="email"))
 
     error = captured.value
     assert error.field == "email"
@@ -245,7 +259,7 @@ def test_nested_missing_field_has_context() -> None:
     with pytest.raises(MissingFieldError) as captured:
         _evaluate(
             [{"customer": {"name": "Ada"}}],
-            text("city", source=path("customer", "address", "city")),
+            text(id="city", source=path("customer", "address", "city")),
         )
 
     error = captured.value
@@ -257,9 +271,9 @@ def test_expression_keeps_dependency_error_path() -> None:
     with pytest.raises(MissingFieldError) as captured:
         _evaluate(
             [{"cost": 30}],
-            decimal("margin", source=ref("gross") - ref("cost")),
-            decimal("gross"),
-            decimal("cost"),
+            decimal(id="margin", source=ref("gross") - ref("cost")),
+            decimal(id="gross", source="gross"),
+            decimal(id="cost", source="cost"),
         )
 
     assert captured.value.path == 'row[0].column["gross"]'
@@ -267,7 +281,7 @@ def test_expression_keeps_dependency_error_path() -> None:
 
 def test_attribute_failure_keeps_original_cause() -> None:
     with pytest.raises(FieldAccessError) as captured:
-        _evaluate(BrokenRow(), text("name"))
+        _evaluate(BrokenRow(), text(id="name", source="name"))
 
     error = captured.value
     assert error.row_index == 0
@@ -278,12 +292,12 @@ def test_attribute_failure_keeps_original_cause() -> None:
 @pytest.mark.parametrize(
     ("columns", "failed_column", "exception_type"),
     [
-        ((text("label", source=_fail_source),), "label", RuntimeError),
+        ((text(id="label", source=_fail_source),), "label", RuntimeError),
         (
             (
-                decimal("value"),
-                decimal("denominator"),
-                decimal("ratio", source=ref("value") / ref("denominator")),
+                decimal(id="value", source="value"),
+                decimal(id="denominator", source="denominator"),
+                decimal(id="ratio", source=ref("value") / ref("denominator")),
             ),
             "ratio",
             ZeroDivisionError,

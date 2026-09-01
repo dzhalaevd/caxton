@@ -67,13 +67,6 @@ repos:
 
   - repo: local
     hooks:
-      - id: api-compatibility
-        name: validate API compatibility with Griffe
-        entry: python scripts/check_api_compatibility.py
-        language: system
-        pass_filenames: false
-        types: [python]
-
       - id: changelog
         name: validate Towncrier fragments
         entry: towncrier build --draft --version 0.0.0

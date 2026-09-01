@@ -27,8 +27,8 @@ report = spreadsheet(
     sheet(
         "People",
         table(
-            rows,
-            text("name").titled("Name"),
+            source=rows,
+            columns=(text(source="name", title="Name"),),
         ),
     ),
 )

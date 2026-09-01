@@ -33,16 +33,28 @@ def build_report() -> SpreadsheetDocument:
         A reusable immutable spreadsheet specification.
     """
     sales = table(
-        [
+        source=[
             {"price": 10, "base_price": 8},
             {"price": 15, "base_price": 12},
         ],
-        decimal("price", style="number").titled("Price").width("auto"),
-        decimal("base_price", style="number").titled("Base price"),
-        decimal("delta")
-        .titled("Delta")
-        .formula(
-            col("price") - col("base_price").absolute(row=False),
+        columns=(
+            decimal(
+                id="price",
+                source=field("price"),
+                title="Price",
+                style="number",
+            ).width("auto"),
+            decimal(
+                id="base_price",
+                source=field("base_price"),
+                title="Base price",
+                style="number",
+            ),
+            decimal(
+                id="delta",
+                formula=col("price") - col("base_price").absolute(row=False),
+                title="Delta",
+            ),
         ),
         name="sales",
         header_style=Style(
@@ -58,17 +70,21 @@ def build_report() -> SpreadsheetDocument:
         auto_width=True,
     )
     summary = table(
-        [{}],
-        decimal(
-            "first_price",
-            formula=(
-                sheet_ref("Sales").table("sales").column("price").cell(0).absolute()
+        source=[{}],
+        columns=(
+            decimal(
+                id="first_price",
+                title="First price",
+                formula=(
+                    sheet_ref("Sales").table("sales").column("price").cell(0).absolute()
+                ),
             ),
-        ).titled("First price"),
-        decimal(
-            "all_prices",
-            formula=table_ref("sales").column("price"),
-        ).titled("Named range"),
+            decimal(
+                id="all_prices",
+                title="Named range",
+                formula=table_ref("sales").column("price"),
+            ),
+        ),
         name="summary",
     )
     production = (
@@ -102,26 +118,37 @@ def build_report() -> SpreadsheetDocument:
         },
     )
     grouped = table(
-        production,
-        text("shop").titled("Shop").grouped(merge=True),
-        text("field").titled("Field").grouped(),
-        decimal(
-            "active_oil",
-            source=field("oil_rate").agg(
-                sum,
-                where=field("active"),
-                default=0,
+        source=production,
+        columns=(
+            text(
+                id="shop",
+                source=field("shop"),
+                title="Shop",
+            ).grouped(merge=True),
+            text(
+                id="field",
+                source=field("field"),
+                title="Field",
+            ).grouped(),
+            decimal(
+                id="active_oil",
+                title="Active oil",
+                source=field("oil_rate").agg(
+                    sum,
+                    where=field("active"),
+                    default=0,
+                ),
+                style="number",
             ),
-            style="number",
-        ).titled("Active oil"),
+        ),
         header_style=Style(font=FontStyle(bold=True), fill="#D9EAF7"),
     )
     production_matrix = matrix(
-        production,
-        row=field("shop"),
-        column=field("month"),
+        source=production,
+        row="shop",
+        column="month",
         value=decimal(
-            "oil_total",
+            id="oil_total",
             source=field("oil_rate").agg(sum),
             style="number",
         ),

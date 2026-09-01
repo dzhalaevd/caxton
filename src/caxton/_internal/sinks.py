@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import os
 import tempfile
 from io import BytesIO
 from pathlib import Path
+from typing import NoReturn
 
-from caxton.core.errors import RenderError
+from caxton.core.errors import CaxtonTypeError, OutputError, RenderError
 from caxton.core.protocols import (
     BinarySeekable,
     BinaryWritable,
@@ -46,6 +48,15 @@ class FileSink:
             with staged.open("wb") as stream:
                 _write_all(stream, data)
             return self.commit_staged(staged)
+        except OSError as error:
+            with contextlib.suppress(OSError):
+                self.discard_staged(staged)
+            _raise_output_error(
+                "Could not write the output artifact",
+                error=error,
+                operation="write",
+                target=str(self.path),
+            )
         except BaseException:
             self.discard_staged(staged)
             raise
@@ -56,13 +67,21 @@ class FileSink:
         Returns:
             A temporary path owned by this sink until commit or discard.
         """
-        with tempfile.NamedTemporaryFile(
-            dir=self.path.parent,
-            prefix=f".{self.path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as stream:
-            return Path(stream.name)
+        try:
+            with tempfile.NamedTemporaryFile(
+                dir=self.path.parent,
+                prefix=f".{self.path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as stream:
+                return Path(stream.name)
+        except OSError as error:
+            _raise_output_error(
+                "Could not create a staging file for the output target",
+                error=error,
+                operation="create_staging_file",
+                target=str(self.path),
+            )
 
     def commit_staged(self, staged: Path) -> int:
         """Atomically replace the target with a completed staged artifact.
@@ -70,8 +89,16 @@ class FileSink:
         Returns:
             The committed artifact size in bytes.
         """
-        bytes_written = staged.stat().st_size
-        staged.replace(self.path)
+        try:
+            bytes_written = staged.stat().st_size
+            staged.replace(self.path)
+        except OSError as error:
+            _raise_output_error(
+                "Could not commit the output artifact",
+                error=error,
+                operation="commit",
+                target=str(self.path),
+            )
         return bytes_written
 
     def discard_staged(self, staged: Path) -> None:
@@ -86,7 +113,15 @@ class BufferSink:
     buffer: BinaryWritable
 
     def write(self, data: bytes) -> int:
-        return _write_all(self.buffer, data)
+        try:
+            return _write_all(self.buffer, data)
+        except OSError as error:
+            _raise_output_error(
+                "Could not write the output artifact",
+                error=error,
+                operation="write",
+                target_type=type(self.buffer).__name__,
+            )
 
     @property
     def seekable_buffer(self) -> BinarySeekable | None:
@@ -132,7 +167,7 @@ def coerce_output_sink(target: OutputTarget) -> tuple[OutputSink, str | None]:
         The sink and an optional human-readable target label.
 
     Raises:
-        TypeError: If the target is neither a path nor a binary buffer.
+        CaxtonTypeError: If the target is neither a path nor a binary buffer.
     """
     if isinstance(target, (str, os.PathLike)):
         path = Path(target)
@@ -140,7 +175,29 @@ def coerce_output_sink(target: OutputTarget) -> tuple[OutputSink, str | None]:
     if isinstance(target, BinaryWritable):
         return BufferSink(target), None
     message = f"Unsupported output target: {type(target).__name__}"
-    raise TypeError(message)
+    raise CaxtonTypeError(
+        message,
+        context={"target_type": type(target).__name__},
+    )
+
+
+def _raise_output_error(
+    message: str,
+    *,
+    error: OSError,
+    operation: str,
+    target: str | None = None,
+    target_type: str | None = None,
+) -> NoReturn:
+    context = {
+        "exception_type": type(error).__name__,
+        "operation": operation,
+    }
+    if target is not None:
+        context["target"] = target
+    if target_type is not None:
+        context["target_type"] = target_type
+    raise OutputError(message, context=context) from error
 
 
 def _write_all(target: BinaryWritable | OutputSink, data: bytes) -> int:

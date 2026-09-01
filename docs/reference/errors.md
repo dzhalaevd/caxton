@@ -1,8 +1,9 @@
 # `caxton.core.errors`
 
 Every library exception inherits from `CaxtonError` and carries a semantic path
-plus structured context. `CaxtonTypeError` and `CaxtonValueError` also subclass
-the Python built-ins, so existing handlers keep working.
+plus an immutable structured-context snapshot. `CaxtonTypeError` and
+`CaxtonValueError` also subclass the Python built-ins, so existing handlers keep
+working.
 
 See [Errors and validation](../guides/errors.md) for the hierarchy at a glance.
 
@@ -63,6 +64,7 @@ See [Errors and validation](../guides/errors.md) for the hierarchy at a glance.
       show_root_toc_entry: false
       members:
         — RenderError
+        - OutputError
         - BackendError
         - TemplateError
         - TemplateFormatError

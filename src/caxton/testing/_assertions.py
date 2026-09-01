@@ -215,6 +215,7 @@ def _compare_column(
         "display_format",
         "style",
         "auto_width",
+        "grouping",
     )
     for field in fields:
         _compare_value(

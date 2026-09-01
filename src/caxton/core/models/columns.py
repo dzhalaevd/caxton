@@ -9,7 +9,7 @@ from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 from caxton.core.formatting import Alignment, DisplayFormat, Style, StyleInput
 from caxton.core.types import SemanticType
 
-from ._validation import require_name
+from ._validation import require_name, require_optional_name
 from .expressions import ColumnSource, ColumnSourceInput, normalize_source
 from .formulas import Formula, FormulaInput, as_formula
 
@@ -71,8 +71,12 @@ class Column:
 
     def __post_init__(self) -> None:
         require_name(self.id, "Column id")
+        require_optional_name(self.title, "Column title")
         if (self.source is None) == (self.excel_formula is None):
-            message = "A column must define either a Python source or an Excel formula"
+            message = (
+                f"Column {self.id!r} requires either a Python source "
+                "or an Excel formula"
+            )
             raise CaxtonValueError(message)
 
     @property
@@ -86,16 +90,8 @@ class Column:
         Returns:
             A column carrying the new display title.
 
-        Raises:
-            CaxtonTypeError: If the title is not a string.
-            CaxtonValueError: If the title is empty.
         """
-        if not isinstance(value, str):
-            message = "Column title must be a string"
-            raise CaxtonTypeError(message)
-        if not value.strip():
-            message = "Column title cannot be empty"
-            raise CaxtonValueError(message)
+        require_name(value, "Column title")
         return dataclasses.replace(self, title=value)
 
     def align(self, value: Alignment | str) -> Self:
@@ -198,12 +194,14 @@ class Column:
         return dataclasses.replace(self, grouping=Grouping(merge=merge, order=order))
 
 
-def make_column(
+def make_column(  # noqa: WPS211
     column_id: str,
     semantic_type: SemanticType,
     source: ColumnSourceInput,
+    *,
     formula: FormulaInput | None = None,
     style: StyleInput | None = None,
+    title: str | None = None,
 ) -> Column:
     """Build a semantic column from declared factory arguments.
 
@@ -211,8 +209,9 @@ def make_column(
         An immutable column specification.
 
     Raises:
-        CaxtonTypeError: If the column id is not a string.
-        CaxtonValueError: If both a Python source and a formula are supplied.
+        CaxtonTypeError: If the column id or title has an invalid type.
+        CaxtonValueError: If the id or title is empty, or if source and formula
+            are both supplied.
     """
     if not isinstance(column_id, str):
         message = "Column id must be a string"
@@ -224,8 +223,9 @@ def make_column(
     return Column(
         id=column_id,
         semantic_type=semantic_type,
-        source=None if formula is not None else normalize_source(column_id, source),
+        source=None if formula is not None else normalize_source(source),
         excel_formula=None if formula is None else as_formula(formula),
+        title=title,
         style_ref=style,
     )
 
