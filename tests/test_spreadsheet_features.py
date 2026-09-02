@@ -6,6 +6,9 @@ import pytest
 
 from caxton import (
     AggregateFunction,
+    AutoWidth,
+    CaxtonTypeError,
+    CaxtonValueError,
     CorporateTheme,
     FillStyle,
     FontStyle,
@@ -33,6 +36,7 @@ from caxton import (
     validate,
     when,
 )
+from caxton._internal.backends._common import fitted_width  # noqa: PLC2701
 from caxton._internal.backends.openpyxl import (  # noqa: PLC2701
     OpenpyxlRenderer,
 )
@@ -131,6 +135,8 @@ def test_spreadsheet_features_are_immutable_lazy_semantic_intent() -> None:
 
 
 def test_spreadsheet_features_compile_to_resolved_layout() -> None:
+    table_width = AutoWidth(minimum=15, maximum=40)
+    amount_width = AutoWidth(minimum=10, maximum=20)
     document = spreadsheet(
         sheet(
             "Sales",
@@ -138,7 +144,9 @@ def test_spreadsheet_features_compile_to_resolved_layout() -> None:
                 source=[{"name": "A", "amount": 10, "delta": 2}],
                 columns=(
                     text(id="name", source="name"),
-                    decimal(id="amount", source="amount", style="money").width("auto"),
+                    decimal(id="amount", source="amount", style="money").width(
+                        amount_width,
+                    ),
                     decimal(id="delta", source="delta"),
                 ),
                 name="sales",
@@ -153,7 +161,7 @@ def test_spreadsheet_features_compile_to_resolved_layout() -> None:
                 ),
                 autofilter=True,
                 freeze_header=True,
-                auto_width=True,
+                auto_width=table_width,
             ),
             freeze=Freeze(rows=0, columns=1),
         ),
@@ -184,8 +192,8 @@ def test_spreadsheet_features_compile_to_resolved_layout() -> None:
         bold=True,
         color="#FFFFFF",
     )
-    assert sales.column("amount").auto_width
-    assert sales.column("name").auto_width
+    assert sales.column("amount").auto_width == amount_width
+    assert sales.column("name").auto_width == table_width
     assert sales.column("amount").display_format == money_format()
     assert sales.footer is not None
     assert sales.footer.items[0].column_offset == 1
@@ -256,6 +264,53 @@ def test_spreadsheet_features_render_backend_neutral_xlsx(backend: str) -> None:
     assert worksheet.conditional_formats[0].cell_range == "A2:C3"
     assert worksheet.conditional_formats[0].formulae == ("AND($C2>0,$B2>0)",)
     assert worksheet.conditional_formats[0].fill_color == "#C6EFCE"
+
+
+@pytest.mark.parametrize("backend", ["xlsxwriter", "openpyxl"])
+def test_auto_width_bounds_render_backend_neutral_xlsx(backend: str) -> None:
+    policy = AutoWidth(minimum=15, maximum=20)
+    document = spreadsheet(
+        sheet(
+            "Widths",
+            table(
+                source=[{"short": "x", "long": "x" * 100}],
+                columns=(text(source="short"), text(source="long")),
+                auto_width=policy,
+            ),
+        ),
+    )
+
+    worksheet = inspect_artifact(render(document, backend=backend)).worksheet("Widths")
+    short_width = worksheet.column("A").width
+    long_width = worksheet.column("B").width
+
+    assert fitted_width(1, policy) == 15
+    assert fitted_width(100, policy) == 20
+    assert short_width is not None
+    assert long_width is not None
+    assert 15 <= short_width < 16
+    assert 20 <= long_width < 21
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "error", "message"),
+    [
+        ({"minimum": "15"}, CaxtonTypeError, "minimum must be numeric"),
+        ({"maximum": 0}, CaxtonValueError, "maximum must be positive"),
+        (
+            {"minimum": 20, "maximum": 10},
+            CaxtonValueError,
+            "minimum must not exceed",
+        ),
+    ],
+)
+def test_auto_width_rejects_invalid_bounds(
+    kwargs: dict[str, object],
+    error: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(error, match=message):
+        AutoWidth(**kwargs)  # type: ignore[arg-type]
 
 
 def test_spreadsheet_feature_validation_is_structural_and_lazy() -> None:
@@ -356,7 +411,7 @@ def test_testing_diff_and_snapshot_include_stage_three_properties() -> None:
 
     assert captured.value.differences[0].path.endswith(".header_style")
     snapshot = canonical_snapshot(inspect_spec(actual))
-    assert '"auto_width": true' in snapshot
+    assert '"$type": "AutoWidth"' in snapshot
     assert '"autofilter": true' in snapshot
 
     shared_style = Style(fill="#C6EFCE")

@@ -57,6 +57,30 @@ def test_validation_collects_schema_issues() -> None:
     }
 
 
+def test_transform_retains_column_dependencies() -> None:
+    document = spreadsheet(
+        sheet(
+            "Data",
+            table(
+                source=[],
+                columns=(
+                    text(
+                        id="status",
+                        source=ref("missing").transform(str),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        validate(document)
+
+    assert {issue.code for issue in captured.value.issues} == {
+        "ColumnNotFoundError",
+    }
+
+
 def test_validation_uses_xlsx_name_identity() -> None:
     document = spreadsheet(
         sheet(

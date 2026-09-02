@@ -9,6 +9,7 @@ from caxton.core.models import Column
 from caxton.testing import (
     BlockKind,
     BlockSpec,
+    CallableSpec,
     ColumnSpec,
     Difference,
     DifferenceKind,
@@ -391,6 +392,34 @@ def test_callable_sources_use_callable_identity() -> None:
     assert_spreadsheet_equal(shared, same)
     with pytest.raises(SpreadsheetAssertionError):
         assert_spreadsheet_equal(shared, different)
+
+
+def test_transform_source_is_inspectable() -> None:
+    def title(value: object) -> str:
+        return str(value).title()
+
+    document = spreadsheet(
+        sheet(
+            "Data",
+            table(
+                source=[],
+                columns=(
+                    text(
+                        id="status",
+                        source=field("raw_status").transform(title),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    source = inspect_spec(document).worksheet("Data").tables[0].column("status").source
+
+    assert source is not None
+    assert source.kind is SourceKind.TRANSFORM
+    assert isinstance(source.value, CallableSpec)
+    assert source.value.qualname.endswith("title")
+    assert source.operands == (SourceSpec(SourceKind.FIELD, "raw_status"),)
 
 
 def test_callable_identity_is_deterministic() -> None:
