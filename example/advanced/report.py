@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from caxton import (
+    AutoWidth,
     CorporateTheme,
     FontStyle,
     Freeze,
@@ -67,7 +68,7 @@ def build_report() -> SpreadsheetDocument:
         rules=(when(col("delta") > 0, style="positive"),),
         autofilter=True,
         freeze_header=True,
-        auto_width=True,
+        auto_width=AutoWidth(minimum=12, maximum=40),
     )
     summary = table(
         source=[{}],

@@ -16,6 +16,7 @@ from caxton.api import render, sheet, spreadsheet, table, text, validate, write
 
 ```python
 from caxton.api import (
+    AutoWidth,
     Style,
     StyleSheet,
     custom_format,
