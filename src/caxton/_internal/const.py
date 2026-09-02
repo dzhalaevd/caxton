@@ -1,9 +1,10 @@
 import operator
 import re
+from collections import deque
 from collections.abc import Callable, Mapping
 from typing import Any, Final, TypeAlias
 
-from caxton.core.formatting import BorderLineStyle
+from caxton.core.formatting import AutoWidth, BorderLineStyle
 from caxton.core.ir import SpreadsheetBlockKind
 from caxton.core.models import (
     AggregateFunction,
@@ -18,6 +19,38 @@ from caxton.core.models import (
     Stack,
     Title,
 )
+from caxton.core.rendering import WorkbookOperation
+
+_BUFFERED_ROW_WARNING_THRESHOLD: Final[int] = 1_000_000
+
+_AUTO_WIDTH_PADDING: Final[int] = 2
+_DEFAULT_AUTO_WIDTH: Final[AutoWidth] = AutoWidth()
+
+_RELATIONSHIP_NAMESPACE: Final[str] = (
+    "http://schemas.openxmlformats.org/package/2006/relationships"
+)
+_SPREADSHEET_NAMESPACE: Final[str] = (
+    "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+)
+
+_OPENPYXL_EXPORTS: Final[Mapping[str, str]] = {
+    "OpenpyxlRenderer": "renderer",
+    "OpenpyxlTemplateRenderer": "template_renderer",
+}
+
+_KNOWN_CONTAINERS: Final[tuple[type, ...]] = (
+    list,
+    tuple,
+    range,
+    set,
+    frozenset,
+    deque,
+)
+
+_DEFAULT_BACKENDS: Final[Mapping[WorkbookOperation, str]] = {
+    WorkbookOperation.CREATE_NEW_WORKBOOK: "xlsxwriter",
+    WorkbookOperation.USE_EXISTING_TEMPLATE: "openpyxl-template",
+}
 
 _OPERATORS: Final[dict[str, str]] = {
     FormulaOperator.ADD: "+",

@@ -22,6 +22,15 @@ capability diagnostic when it cannot preserve the intent.
         - Alignment
         - VerticalAlignment
 
+## Column sizing
+
+::: caxton.core.formatting
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      members:
+        - AutoWidth
+
 ## Themes
 
 ::: caxton.core.formatting

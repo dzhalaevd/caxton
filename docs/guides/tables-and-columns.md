@@ -25,10 +25,26 @@ people = table(
 | `rules`         | Conditional formatting rules created with `when()`.                  |
 | `autofilter`    | Adds the spreadsheet autofilter to the table range.                  |
 | `freeze_header` | Keeps this table's header row visible.                               |
-| `auto_width`    | Sizes every column that declares no explicit width.                  |
+| `auto_width`    | Sizes columns without explicit widths; accepts `True` or `AutoWidth`. |
 | `into`          | Template target created with `ref()` or `repeat()`.                  |
 
 `anchor` and `into` are mutually exclusive.
+
+Use `AutoWidth` when content-derived widths need bounds:
+
+```python
+from caxton import AutoWidth, table
+
+table(
+    source=rows,
+    columns=columns,
+    auto_width=AutoWidth(minimum=15, maximum=40),
+)
+```
+
+`auto_width=True` uses the default range from 1 through 80. A column-level
+policy overrides the table policy, while `.width(number)` keeps that column at
+an explicit width.
 
 ## Row sources
 
@@ -74,6 +90,30 @@ A callable source receives the original row object:
 text(id="label", source=lambda row: f"{row['product']} ({row['region']})")
 ```
 
+When a function needs one resolved value instead of the complete row, transform
+an expression explicitly:
+
+```python
+from caxton import field, text
+
+
+def status_title(status: object | None) -> str:
+    if status is None:
+        return ""
+    return {"new": "Новое"}.get(str(status), str(status))
+
+
+text(
+    id="status",
+    source=field("status").transform(status_title),
+    title="Статус проверки",
+)
+```
+
+`.transform()` receives the evaluated `field()`, `path()`, or `ref()` value for
+each row. The input remains visible to validation and semantic testing. A
+literal is only a constant value and has no implicit current-row context.
+
 ## Column factories
 
 One factory per semantic type, all with the same keyword-only shape:
@@ -103,12 +143,12 @@ Passing both source and formula raises `CaxtonValueError`.
 Every method returns a new column.
 
 ```python
-from caxton import money
+from caxton import AutoWidth, money
 from caxton.core.formatting import money_format
 
 money(source="revenue", title="Revenue", currency="RUB")
 .align("right")
-.width(14)
+.width(AutoWidth(minimum=14, maximum=30))
 .format(money_format(currency="RUB"))
 .styled("emphasis")
 ```
@@ -117,7 +157,8 @@ money(source="revenue", title="Revenue", currency="RUB")
 |-------------------------------------|-------------------------------------------------------------|
 | `.titled(str)`                      | Sets the header label. Defaults to the column id.           |
 | `.align("left"\|"center"\|"right")` | Horizontal alignment hint.                                  |
-| `.width(number)`                    | Explicit width; `.width("auto")` sizes from content.        |
+| `.width(number)`                    | Sets an explicit fixed width.                               |
+| `.width("auto" \| AutoWidth(...))` | Sizes from content, optionally within declared bounds.      |
 | `.format(display_format)`           | Backend-independent display format.                         |
 | `.styled(Style \| "name")`          | Inline style or a name from the document `StyleSheet`.      |
 | `.formula(formula)`                 | Replaces the Python source with a live spreadsheet formula. |

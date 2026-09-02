@@ -11,11 +11,13 @@ from caxton.core._compat import StrEnum
 from caxton.core._values import freeze_mapping, freeze_value
 from caxton.core.formatting import (
     Alignment,
+    AutoWidth,
     DisplayFormat,
     DocumentTheme,
     StyleInput,
     StyleSheet,
 )
+from caxton.core.formatting.widths import resolve_auto_width
 from caxton.core.ir import SpreadsheetBlockKind as BlockKind
 from caxton.core.models import (
     AggregateExpr,
@@ -43,6 +45,8 @@ from caxton.core.models import (
     SpreadsheetTable,
     Title,
     Totals,
+    TransformCallable,
+    TransformExpression,
     iter_tables,
 )
 from caxton.core.models.common import freeze_metadata
@@ -59,6 +63,7 @@ class SourceKind(StrEnum):
     BINARY = "binary"
     CALLABLE = "callable"
     AGGREGATE = "aggregate"
+    TRANSFORM = "transform"
 
 
 class FormulaKind(StrEnum):
@@ -141,7 +146,7 @@ class ColumnSpec:
     display_format: DisplayFormat | None
     formula: FormulaSpec | None = None
     style: StyleInput | None = None
-    auto_width: bool = False
+    auto_width: AutoWidth | None = None
     grouping: Grouping | None = None
 
 
@@ -179,7 +184,7 @@ class TableSpec:
     rules: Sequence[ConditionalRuleSpec] = ()
     autofilter: bool = False
     freeze_header: bool = False
-    auto_width: bool = False
+    auto_width: AutoWidth | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "columns", tuple(self.columns))
@@ -317,7 +322,7 @@ def inspect_spec(document: SpreadsheetDocument) -> SpreadsheetSpec:
                         ),
                         autofilter=table.autofilter,
                         freeze_header=table.freeze_header,
-                        auto_width=table.auto_width,
+                        auto_width=resolve_auto_width(table.auto_width),
                         columns=tuple(
                             _inspect_column_spec(column) for column in table.columns
                         ),
@@ -415,7 +420,7 @@ def _inspect_column_spec(column: Column) -> ColumnSpec:
         width=column.width_hint,
         display_format=column.display_format,
         style=column.style_ref,
-        auto_width=column.auto_width,
+        auto_width=resolve_auto_width(column.auto_width),
         grouping=column.grouping,
     )
 
@@ -454,6 +459,12 @@ def _inspect_source(source: ColumnSource) -> SourceSpec:
         )
     if isinstance(source, CallableSource):
         return SourceSpec(SourceKind.CALLABLE, _inspect_callable(source.function))
+    if isinstance(source, TransformExpression):
+        return SourceSpec(
+            SourceKind.TRANSFORM,
+            _inspect_callable(source.function),
+            (_inspect_source(source.expression),),
+        )
     if isinstance(source, AggregateExpr):
         return SourceSpec(
             SourceKind.AGGREGATE,
@@ -471,7 +482,7 @@ def _inspect_source(source: ColumnSource) -> SourceSpec:
     raise TypeError(message)
 
 
-def _inspect_callable(function: RowCallable) -> CallableSpec:
+def _inspect_callable(function: RowCallable | TransformCallable) -> CallableSpec:
     return CallableSpec(
         module=getattr(function, "__module__", None),
         qualname=getattr(function, "__qualname__", type(function).__name__),

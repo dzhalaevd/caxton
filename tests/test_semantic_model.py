@@ -34,6 +34,7 @@ from caxton.core.models import (
     SpreadsheetTable,
     Stack,
     TableData,
+    TransformExpression,
     Worksheet,
 )
 from caxton.core.protocols import DataSourceInfo, Repeatability
@@ -240,6 +241,23 @@ def test_literal_keeps_scalar_cell_values() -> None:
 def test_literal_rejects_non_cell_values(value: object) -> None:
     with pytest.raises(TypeError, match="Unsupported cell value"):
         LiteralExpression(value)
+
+
+def test_transform_is_explicit_immutable_intent() -> None:
+    def title(value: object) -> str:
+        return str(value).title()
+
+    expression = field("status").transform(title)
+
+    assert isinstance(expression, TransformExpression)
+    assert isinstance(expression.expression, FieldRef)
+    assert expression.expression.name == "status"
+    assert expression.function is title
+
+
+def test_expression_transform_requires_callable() -> None:
+    with pytest.raises(TypeError, match="must be callable"):
+        field("status").transform("title")  # type: ignore[arg-type]
 
 
 def test_column_requires_source_or_formula() -> None:

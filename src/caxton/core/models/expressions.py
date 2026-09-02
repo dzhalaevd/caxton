@@ -19,6 +19,8 @@ class _MissingAggregateDefault(enum.Enum):
 
 _MISSING_AGGREGATE_DEFAULT = _MissingAggregateDefault.VALUE
 
+TransformCallable: TypeAlias = Callable[..., object]
+
 
 class BinaryOperator(StrEnum):
     ADD = "add"
@@ -75,6 +77,14 @@ class Expression(BinaryOperatorMixin["BinaryExpression"]):
             default=default,
         )
 
+    def transform(self, function: TransformCallable) -> TransformExpression:
+        """Apply a Python function to this expression for every source row.
+
+        Returns:
+            Immutable value-transform intent retaining this expression as input.
+        """
+        return TransformExpression(function=function, expression=self)
+
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
 class FieldRef(Expression):
@@ -129,6 +139,25 @@ class LiteralExpression(Expression):
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
+class TransformExpression(Expression):
+    """Python value transformation evaluated once for each source row."""
+
+    function: TransformCallable
+    expression: Expression
+
+    def __post_init__(self) -> None:
+        if not callable(self.function):
+            message = "Expression transform must be callable"
+            raise CaxtonTypeError(message)
+        if not isinstance(self.expression, Expression):
+            message = "Expression transform input must be an expression"
+            raise CaxtonTypeError(message)
+        if contains_aggregate(self.expression):
+            message = "Expression transform input must be non-aggregate"
+            raise CaxtonTypeError(message)
+
+
+@dataclasses.dataclass(frozen=True, slots=True, eq=False)
 class BinaryExpression(Expression):
     operator: BinaryOperator
     left: Expression
@@ -143,6 +172,8 @@ def contains_aggregate(expression: Expression) -> bool:
         return contains_aggregate(expression.left) or contains_aggregate(
             expression.right,
         )
+    if isinstance(expression, TransformExpression):
+        return contains_aggregate(expression.expression)
     return False
 
 
@@ -276,6 +307,8 @@ __all__ = (
     "LiteralExpression",
     "PathRef",
     "RowCallable",
+    "TransformCallable",
+    "TransformExpression",
     "contains_aggregate",
     "field",
     "path",

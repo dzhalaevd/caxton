@@ -28,6 +28,7 @@ from caxton.core.models import (
     FieldRef,
     LiteralExpression,
     PathRef,
+    TransformExpression,
 )
 from caxton.core.protocols import DataSource
 from caxton.core.values import CellValue
@@ -71,6 +72,10 @@ class SemanticRowEvaluator:
             PathRef: cast("ExpressionHandler", self._path_expression),
             ColumnRef: cast("ExpressionHandler", self._column_expression),
             LiteralExpression: cast("ExpressionHandler", self._literal_expression),
+            TransformExpression: cast(
+                "ExpressionHandler",
+                self._transform_expression,
+            ),
             BinaryExpression: cast("ExpressionHandler", self._binary_expression),
             AggregateExpr: cast("ExpressionHandler", self._aggregate_expression),
         }
@@ -315,6 +320,14 @@ class SemanticRowEvaluator:
         left = self._evaluate_expression(expression.left, context)
         right = self._evaluate_expression(expression.right, context)
         return _BINARY_OPERATIONS[expression.operator](left, right)
+
+    def _transform_expression(
+        self,
+        expression: TransformExpression,
+        context: _RowContext,
+    ) -> object:
+        value = self._evaluate_expression(expression.expression, context)
+        return expression.function(value)
 
 
 def _column_catalog(

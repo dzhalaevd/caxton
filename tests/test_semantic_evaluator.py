@@ -57,6 +57,10 @@ def _fail_source(_row: object) -> object:
     raise RuntimeError(message)
 
 
+def _status_title(value: object) -> str:
+    return "" if value is None else {"new": "Новое"}.get(str(value), str(value))
+
+
 def _evaluate_directly(row: object, *columns: Column) -> object:
     source = coerce_data_source([row])
     return SemanticRowEvaluator().evaluate_row(source, row, columns, row_index=0)
@@ -99,6 +103,18 @@ def test_evaluates_all_source_kinds() -> None:
         "base_price": 100,
         "delta": 20,
     }
+
+
+def test_transform_receives_evaluated_value() -> None:
+    semantic_rows = _evaluate(
+        [{"status": "new"}, {"status": None}],
+        text(
+            id="status",
+            source=field("status").transform(_status_title),
+        ),
+    )
+
+    assert [row["status"] for row in semantic_rows] == ["Новое", ""]
 
 
 def test_expression_uses_semantic_forward_refs() -> None:
@@ -293,6 +309,16 @@ def test_attribute_failure_keeps_original_cause() -> None:
     ("columns", "failed_column", "exception_type"),
     [
         ((text(id="label", source=_fail_source),), "label", RuntimeError),
+        (
+            (
+                text(
+                    id="label",
+                    source=field("value").transform(_fail_source),
+                ),
+            ),
+            "label",
+            RuntimeError,
+        ),
         (
             (
                 decimal(id="value", source="value"),

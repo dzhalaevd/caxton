@@ -1,6 +1,7 @@
 from .api import (  # noqa: WPS347
     AggregateExpr,
     AggregateFunction,
+    AutoWidth,
     BlockDirection,
     BorderLine,
     BorderLineStyle,
@@ -114,6 +115,7 @@ __all__ = (
     "AggregateExpr",
     "AggregateFunction",
     "AmbiguousTemplateRefError",
+    "AutoWidth",
     "BackendError",
     "BlockDirection",
     "BorderLine",

@@ -17,6 +17,7 @@ from caxton.core.models import (
     Column,
     ColumnRef,
     Expression,
+    TransformExpression,
 )
 
 from .cycles import report_reference_cycles
@@ -107,6 +108,11 @@ def _aggregate_references(expression: AggregateExpr) -> Iterator[str]:
         yield from expression_references(item)
     if expression.where is not None:
         yield from expression_references(expression.where)
+
+
+@expression_references.register
+def _transform_references(expression: TransformExpression) -> Iterator[str]:
+    yield from expression_references(expression.expression)
 
 
 def _column_references(column: Column) -> Iterator[str]:

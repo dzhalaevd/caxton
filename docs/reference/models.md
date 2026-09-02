@@ -51,6 +51,22 @@ layout, execution state or backend-native objects.
         - BlockDirection
         - Freeze
 
+## Python expressions
+
+::: caxton.core.models
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      members:
+        - Expression
+        - FieldRef
+        - PathRef
+        - ColumnRef
+        - LiteralExpression
+        - BinaryExpression
+        - TransformExpression
+        - AggregateExpr
+
 ## Templates
 
 ::: caxton.core.models

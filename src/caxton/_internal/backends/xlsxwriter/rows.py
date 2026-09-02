@@ -169,7 +169,7 @@ def apply_auto_widths(
             worksheet.set_column(
                 physical_column,
                 physical_column,
-                fitted_width(widths[column.offset]),
+                fitted_width(widths[column.offset], column.auto_width),
             )
 
 

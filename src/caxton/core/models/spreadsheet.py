@@ -7,11 +7,13 @@ from typing import Any, TypeAlias
 from caxton.core._compat import StrEnum
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 from caxton.core.formatting import (
+    AutoWidth,
     DocumentTheme,
     Style,
     StyleInput,
     StyleSheet,
 )
+from caxton.core.formatting.widths import resolve_auto_width
 from caxton.core.protocols.data import DataSource
 
 from ._validation import (
@@ -174,7 +176,7 @@ class SpreadsheetTable:
     rules: Sequence[ConditionalRule] = ()
     autofilter: bool = False
     freeze_header: bool = False
-    auto_width: bool = False
+    auto_width: AutoWidth | bool | None = None
     into: ColumnRef | TemplateRepeat | None = None
 
     def __post_init__(self) -> None:  # noqa: WPS238
@@ -199,6 +201,7 @@ class SpreadsheetTable:
                 message = "Table rules must be ConditionalRule values"
                 raise CaxtonTypeError(message)
         object.__setattr__(self, "rules", rules)
+        object.__setattr__(self, "auto_width", resolve_auto_width(self.auto_width))
 
     @property
     def columns(self) -> Sequence[Column]:

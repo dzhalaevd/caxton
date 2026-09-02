@@ -1,10 +1,7 @@
 """Small renderer-neutral helpers shared by built-in spreadsheet backends."""
 
-from typing import Final
-
-_AUTO_WIDTH_MIN: Final[int] = 1
-_AUTO_WIDTH_MAX: Final[int] = 80
-_AUTO_WIDTH_PADDING: Final[int] = 2
+from caxton._internal.const import _AUTO_WIDTH_PADDING, _DEFAULT_AUTO_WIDTH
+from caxton.core.formatting import AutoWidth
 
 
 def display_width(value: object) -> int:
@@ -12,15 +9,16 @@ def display_width(value: object) -> int:
     return 0 if value is None else len(str(value))
 
 
-def fitted_width(observed: int) -> int:
+def fitted_width(observed: int, policy: AutoWidth | None = None) -> float:
     """Clamp an observed width to the shared XLSX auto-width policy.
 
     Returns:
         The padded width within supported display bounds.
     """
+    resolved = policy or _DEFAULT_AUTO_WIDTH
     return min(
-        _AUTO_WIDTH_MAX,
-        max(_AUTO_WIDTH_MIN, observed + _AUTO_WIDTH_PADDING),
+        resolved.maximum,
+        max(resolved.minimum, observed + _AUTO_WIDTH_PADDING),
     )
 
 

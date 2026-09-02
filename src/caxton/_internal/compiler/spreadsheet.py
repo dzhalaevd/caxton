@@ -29,12 +29,14 @@ from caxton._internal.shape import table_needs_preparation
 from caxton._internal.validation import validate_spreadsheet
 from caxton.core.errors import Notification, UnsupportedFeatureError
 from caxton.core.formatting import (
+    AutoWidth,
     CellAlignment,
     FontStyle,
     Style,
     StyleInput,
     StyleSheet,
 )
+from caxton.core.formatting.widths import resolve_auto_width
 from caxton.core.ir import (
     SPREADSHEET_IR_VERSION,
     CellAddress,
@@ -456,7 +458,7 @@ def _compile_column(  # noqa: WPS211
     catalog: FormulaCatalog,
     styles: StyleSheet,
     base_style: Style,
-    table_auto_width: bool,
+    table_auto_width: AutoWidth | bool | None,
 ) -> SpreadsheetColumnIR:
     resolved_style = _resolve_style(column.style_ref, styles, base=base_style)
     legacy = Style(
@@ -491,10 +493,20 @@ def _compile_column(  # noqa: WPS211
             )
         ),
         style=resolved_style,
-        auto_width=(
-            column.auto_width or (table_auto_width and column.width_hint is None)
-        ),
+        auto_width=_column_auto_width(column, table_auto_width),
     )
+
+
+def _column_auto_width(
+    column: Column,
+    table_auto_width: AutoWidth | bool | None,
+) -> AutoWidth | None:
+    column_policy = resolve_auto_width(column.auto_width)
+    if column_policy is not None:
+        return column_policy
+    if column.width_hint is not None:
+        return None
+    return resolve_auto_width(table_auto_width)
 
 
 def _resolve_style(

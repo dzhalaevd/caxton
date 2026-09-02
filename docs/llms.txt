@@ -1,0 +1,59 @@
+# Caxton
+
+> Caxton is a typed, declarative Python library for describing spreadsheet documents and rendering them to XLSX.
+
+Caxton supports Python 3.10 and newer. Its public model is immutable and semantic:
+documents describe values, structure, and presentation intent while compilation and
+rendering handle layout and backend details. The current delivered document family is
+spreadsheet-to-XLSX, with XlsxWriter and OpenPyXL backends. Prefer imports from
+`caxton`, `caxton.api`, `caxton.core.*`, and `caxton.testing`; `caxton._internal` is not
+public API. The project is pre-alpha, so consult the changelog when targeting a specific
+release.
+
+## Start here
+
+- [Installation](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/getting-started/installation.md): Supported Python versions, installation commands, and backend selection.
+- [Quickstart](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/getting-started/quickstart.md): Build, validate, inspect, render, and write a complete report using the public facade.
+- [Core concepts](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/getting-started/concepts.md): Immutability, semantic identity, value namespaces, lazy data, the compilation pipeline, and public boundaries.
+- [Tables and columns](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/guides/tables-and-columns.md): Define tables, distinguish column id, source, and title, and use semantic column factories.
+- [Examples](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/examples.md): Guide to runnable examples covering basic reports, reuse, advanced features, dashboards, templates, and web services.
+
+## Guides
+
+- [Values and display formats](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/guides/values-and-formats.md): Semantic value types, coercion, and display formatting.
+- [Styles and themes](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/guides/styles-and-themes.md): Backend-neutral styles, themes, and conditional formatting.
+- [Formulas and references](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/guides/formulas-and-references.md): Row fields, semantic references, and live spreadsheet formulas.
+- [Grouping and aggregation](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/guides/grouping-and-aggregation.md): Grouped tables, aggregates, matrices, and single-pass data behavior.
+- [Worksheet layout](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/guides/layout-and-blocks.md): Anchors, stacking, titles, spacers, charts, and resolved placement.
+- [Rendering and output](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/guides/rendering-and-output.md): Renderer selection, capabilities, in-memory rendering, paths, buffers, and atomic writes.
+- [XLSX templates](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/guides/templates.md): Inspect and fill existing workbooks with the OpenPyXL template route.
+- [Testing documents](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/guides/testing.md): Inspect semantic intent, compiled layout, and completed artifacts.
+- [Errors and validation](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/guides/errors.md): Validation stages, stable exception types, and failure timing.
+
+## API reference
+
+- [API overview](https://dzhalaevd.github.io/caxton/reference/): Public stability boundaries and recommended imports.
+- [caxton facade](https://dzhalaevd.github.io/caxton/reference/caxton/): Short public facade for everyday document construction and output.
+- [caxton.api](https://dzhalaevd.github.io/caxton/reference/api/): Extended factories and render, write, and validate operations.
+- [Semantic models](https://dzhalaevd.github.io/caxton/reference/models/): Immutable spreadsheet document nodes and expressions.
+- [Semantic types](https://dzhalaevd.github.io/caxton/reference/types/): Text, numeric, temporal, boolean, money, percentage, and link types.
+- [Formatting](https://dzhalaevd.github.io/caxton/reference/formatting/): Styles, themes, alignment, and display vocabulary.
+- [Protocols](https://dzhalaevd.github.io/caxton/reference/protocols/): Public extension contracts for data sources, renderers, and templates.
+- [Spreadsheet IR](https://dzhalaevd.github.io/caxton/reference/ir/): Versioned read-only intermediate representation for custom renderers.
+- [Errors](https://dzhalaevd.github.io/caxton/reference/errors/): Public exception and warning hierarchy.
+- [Testing API](https://dzhalaevd.github.io/caxton/reference/testing/): Stable inspection, assertion, snapshot, and strategy helpers.
+
+## Project information
+
+- [Architecture](https://raw.githubusercontent.com/dzhalaevd/caxton/main/ARCHITECTURE.md): Authoritative delivered profile, boundaries, invariants, extension points, and deliberate deferrals.
+- [Changelog](https://raw.githubusercontent.com/dzhalaevd/caxton/main/CHANGELOG.md): Released changes and compatibility information.
+- [Contributing](https://raw.githubusercontent.com/dzhalaevd/caxton/main/docs/contributing.md): Development environment, checks, and contribution workflow.
+- [Source repository](https://github.com/dzhalaevd/caxton): Package source, issues, and runnable examples.
+- [PyPI package](https://pypi.org/project/caxton/): Published releases and installation metadata.
+
+## Optional
+
+- [Advanced example source](https://raw.githubusercontent.com/dzhalaevd/caxton/main/example/advanced/report.py): Formulas, grouping, aggregation, matrices, styles, and artifact assertions in one executable report.
+- [Dashboard example source](https://raw.githubusercontent.com/dzhalaevd/caxton/main/example/dashboard/report.py): Declarative block layout with a chart and embedded image.
+- [Template example source](https://raw.githubusercontent.com/dzhalaevd/caxton/main/example/template/report.py): Populate an existing XLSX template and apply an OpenPyXL hook.
+- [Backend example source](https://raw.githubusercontent.com/dzhalaevd/caxton/main/example/backend/app.py): Return an in-memory XLSX artifact from a FastAPI service.

@@ -2,6 +2,14 @@
 
 <!-- towncrier release notes start -->
 
+## [0.2.1] - 2026-09-02
+
+### Features
+
+- Allow automatic spreadsheet column widths to declare backend-neutral minimum and maximum bounds with `AutoWidth`.
+- Allow row expressions to apply a Python value transformation with `.transform(function)` without hiding field or column dependencies inside a lambda.
+
+
 ## [0.2.1] - 2026-09-01
 
 ### Features

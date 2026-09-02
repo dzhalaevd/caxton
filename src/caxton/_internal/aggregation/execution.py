@@ -6,14 +6,13 @@ from collections.abc import Mapping, MutableMapping, Sequence
 from types import MappingProxyType
 from typing import Any
 
+from caxton._internal.const import _BUFFERED_ROW_WARNING_THRESHOLD
 from caxton._internal.semantic import SemanticRowEvaluator
 from caxton.core._values import normalize_cell_value
 from caxton.core.errors import AggregateEvaluationError, CaxtonError, PerformanceWarning
 from caxton.core.models import AggregateExpr, Column, Expression
 from caxton.core.protocols import DataSource
 from caxton.core.values import CellValue
-
-_BUFFERED_ROW_WARNING_THRESHOLD = 1_000_000
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

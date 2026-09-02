@@ -99,6 +99,11 @@ Shared tabular data uses `TableData` (`schema` + `DataSource`), but the visual
 concepts (`Receipt`, `Invoice`, or a specific `Report`) are composed in the
 application layer from neutral nodes and do not become Core families.
 
+Automatic column sizing is backend-neutral presentation intent. `AutoWidth`
+may bound a content-derived width with a positive minimum and maximum; an
+explicit column policy overrides its table policy, while an explicit numeric
+width selected through the fluent API disables automatic sizing for that column.
+
 Backend-independent semantic types include `Text`, `Integer`, `Decimal`,
 `Boolean`, `Date`, `Time`, `DateTime`, `Duration`, `Money`, `Percentage`, and
 `Link`. Formatting (alignment, border, color, font, display format, and width
@@ -185,6 +190,10 @@ the evaluated value of another semantic column; all three are evaluated by the
 library before rendering, while `col()`, `table_ref()`, and `sheet_ref()`
 remain formula intent. `field()` never resolves a column id and `ref()` never
 reads a row field, so the two namespaces cannot be confused. The
+`.transform(function)` expression applies ordinary typed Python business logic
+to one resolved `field()`/`path()`/`ref()` value per row while retaining that
+input in the dependency graph. A literal remains a constant and never provides
+implicit access to the current row. The
 compiler resolves their semantic IDs into cell/range nodes in the Spreadsheet
 IR; the XLSX renderer materializes A1 or structured references. A Python
 expression cannot depend on a formula-backed column because its value appears
@@ -324,7 +333,7 @@ The following behavior is implemented and forms the current feature boundary:
 
 | Area                          | Delivered behavior                                                                                                                                         |
 |-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Tables and values             | typed columns, mappings and Python row objects, Python expressions, semantic value normalization, explicit and automatic widths                            |
+| Tables and values             | typed columns, mappings and Python row objects, Python expressions, semantic value normalization, explicit and bounded automatic widths                    |
 | Spreadsheet expressions       | semantic cell/range and cross-sheet formulas, conditional formatting, totals, and named table references                                                   |
 | Data shaping                  | hierarchical grouping, arbitrary Python aggregates with filters/defaults, and dynamic matrix axes with duplicate-cell conflict detection                   |
 | Presentation                  | reusable styles/themes, multiple worksheets, filters, freeze panes, titles, spacers, stacks, images, and charts bound to named tables                      |

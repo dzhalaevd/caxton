@@ -28,9 +28,11 @@ from .styles import (
     StyleSheet,
     VerticalAlignment,
 )
+from .widths import AutoWidth
 
 __all__ = (
     "Alignment",
+    "AutoWidth",
     "BorderLine",
     "BorderLineStyle",
     "Borders",
