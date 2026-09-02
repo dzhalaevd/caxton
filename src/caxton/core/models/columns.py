@@ -6,7 +6,14 @@ from typing import Literal, get_args
 
 from caxton.core._compat import Self, StrEnum
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
-from caxton.core.formatting import Alignment, DisplayFormat, Style, StyleInput
+from caxton.core.formatting import (
+    Alignment,
+    AutoWidth,
+    DisplayFormat,
+    Style,
+    StyleInput,
+)
+from caxton.core.formatting.widths import resolve_auto_width
 from caxton.core.types import SemanticType
 
 from ._validation import require_name, require_optional_name
@@ -66,7 +73,7 @@ class Column:
     width_hint: float | None = None
     display_format: DisplayFormat | None = None
     style_ref: StyleInput | None = None
-    auto_width: bool = False
+    auto_width: AutoWidth | bool | None = None
     grouping: Grouping | None = None
 
     def __post_init__(self) -> None:
@@ -78,6 +85,12 @@ class Column:
                 "or an Excel formula"
             )
             raise CaxtonValueError(message)
+        auto_width = resolve_auto_width(self.auto_width)
+        object.__setattr__(
+            self,
+            "auto_width",
+            None if self.width_hint is not None else auto_width,
+        )
 
     @property
     def display_title(self) -> str:
@@ -114,8 +127,8 @@ class Column:
             raise CaxtonValueError(message) from error
         return dataclasses.replace(self, alignment=alignment)
 
-    def width(self, value: float | Literal["auto"]) -> Self:
-        """Return a column with a positive width hint.
+    def width(self, value: float | Literal["auto"] | AutoWidth) -> Self:
+        """Return a column with fixed or content-derived width intent.
 
         Returns:
             A column carrying the new width intent.
@@ -125,14 +138,20 @@ class Column:
             CaxtonValueError: If the width is not positive and finite.
         """
         if value == "auto":
-            return dataclasses.replace(self, width_hint=None, auto_width=True)
+            return dataclasses.replace(
+                self,
+                width_hint=None,
+                auto_width=AutoWidth(),
+            )
+        if isinstance(value, AutoWidth):
+            return dataclasses.replace(self, width_hint=None, auto_width=value)
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             message = "Column width must be numeric"
             raise CaxtonTypeError(message)
         if not math.isfinite(value) or value <= 0:
             message = "Column width must be positive"
             raise CaxtonValueError(message)
-        return dataclasses.replace(self, width_hint=float(value), auto_width=False)
+        return dataclasses.replace(self, width_hint=float(value), auto_width=None)
 
     def format(self, value: DisplayFormat) -> Self:
         """Return a column with a backend-independent display format.

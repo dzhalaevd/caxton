@@ -10,7 +10,7 @@ from caxton._internal.formulas import lower_excel_formula
 from caxton._internal.normalization import format_cell_address, parse_cell_address
 from caxton.core._compat import Self, StrEnum
 from caxton.core._values import freeze_mapping
-from caxton.core.formatting import Alignment, DisplayFormat, Style
+from caxton.core.formatting import Alignment, AutoWidth, DisplayFormat, Style
 from caxton.core.ir import (
     CellAddress,
     CellRange,
@@ -127,7 +127,7 @@ class ColumnLayout:
     header_address: str
     formula: ResolvedFormula | None = None
     style: Style = dataclasses.field(default_factory=Style)
-    auto_width: bool = False
+    auto_width: AutoWidth | None = None
     matrix_key: tuple[object, ...] | None = None
 
 

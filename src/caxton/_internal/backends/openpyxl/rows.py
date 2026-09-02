@@ -105,6 +105,7 @@ def apply_auto_widths(
             letter = get_column_letter(start_column + column.offset)
             worksheet.column_dimensions[letter].width = fitted_width(
                 widths[column.offset],
+                column.auto_width,
             )
 
 

@@ -1,5 +1,6 @@
 from caxton._internal.data import data_source
 from caxton.core.formatting import (
+    AutoWidth,
     BorderLine,
     BorderLineStyle,
     Borders,
@@ -81,6 +82,7 @@ from .templates import repeat, template
 __all__ = (
     "AggregateExpr",
     "AggregateFunction",
+    "AutoWidth",
     "BlockDirection",
     "BorderLine",
     "BorderLineStyle",

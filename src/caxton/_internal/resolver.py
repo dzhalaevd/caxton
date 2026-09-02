@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 
+from caxton._internal.const import _DEFAULT_BACKENDS
 from caxton.core.errors import RenderError, UnsupportedFeatureError
 from caxton.core.ir import SpreadsheetIR
 from caxton.core.protocols import Renderer, TemplateRenderer
@@ -83,10 +84,11 @@ def _select_builtins(
     selected_backend = backend or _DEFAULT_BACKENDS.get(required.workbook_operation)
     if selected_backend is None:
         return ()
-    loader = _BUILTIN_LOADERS.get(
-        (required.workbook_operation, selected_backend.lower()),
+    loaded = _load_builtin(
+        required.workbook_operation,
+        selected_backend.lower(),
     )
-    return () if loader is None else (loader(),)
+    return () if loaded is None else (loaded,)
 
 
 def _filter_renderers(
@@ -143,23 +145,23 @@ def _load_openpyxl_template() -> TemplateRenderer[SpreadsheetIR]:
     return OpenpyxlTemplateRenderer()
 
 
-_DEFAULT_BACKENDS = {
-    WorkbookOperation.CREATE_NEW_WORKBOOK: "xlsxwriter",
-    WorkbookOperation.USE_EXISTING_TEMPLATE: "openpyxl-template",
-}
-_BUILTIN_LOADERS: dict[
-    tuple[WorkbookOperation, str],
-    Callable[[], RendererOption],
-] = {
-    (WorkbookOperation.CREATE_NEW_WORKBOOK, "xlsxwriter"): _load_xlsxwriter,
-    # Transitional explicit create-new compatibility adapter. Template
-    # rendering uses the separate loader below.
-    (WorkbookOperation.CREATE_NEW_WORKBOOK, "openpyxl"): _load_openpyxl,
-    (
-        WorkbookOperation.USE_EXISTING_TEMPLATE,
-        "openpyxl-template",
-    ): _load_openpyxl_template,
-}
+def _load_builtin(
+    operation: WorkbookOperation,
+    backend: str,
+) -> RendererOption | None:
+    if operation is WorkbookOperation.CREATE_NEW_WORKBOOK:
+        if backend == "xlsxwriter":
+            return _load_xlsxwriter()
+        # Transitional explicit create-new compatibility adapter. Template
+        # rendering uses the separate loader below.
+        if backend == "openpyxl":
+            return _load_openpyxl()
+    elif (
+        operation is WorkbookOperation.USE_EXISTING_TEMPLATE
+        and backend == "openpyxl-template"
+    ):
+        return _load_openpyxl_template()
+    return None
 
 
 def _preflight(

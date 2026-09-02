@@ -5,7 +5,7 @@ from collections.abc import Iterable, Sequence
 
 from caxton.core._compat import StrEnum
 from caxton.core._values import normalize_cell_value
-from caxton.core.formatting import Alignment, DisplayFormat, Style
+from caxton.core.formatting import Alignment, AutoWidth, DisplayFormat, Style
 from caxton.core.models.common import (
     DocumentKind,
     DocumentMetadata,
@@ -16,7 +16,7 @@ from caxton.core.models.spreadsheet import AggregateFunction, ChartKind, Freeze
 from caxton.core.types import SemanticType
 from caxton.core.values import CellValue
 
-SPREADSHEET_IR_VERSION = 5
+SPREADSHEET_IR_VERSION = 6
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -127,7 +127,7 @@ class SpreadsheetColumnIR:
     display_format: DisplayFormat | None
     formula: ResolvedFormula | None = None
     style: Style = dataclasses.field(default_factory=Style)
-    auto_width: bool = False
+    auto_width: AutoWidth | None = None
     matrix_key: tuple[CellValue, ...] | None = None
 
 

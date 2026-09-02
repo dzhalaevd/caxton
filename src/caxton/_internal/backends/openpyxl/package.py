@@ -10,10 +10,8 @@ from typing import Protocol
 
 from openpyxl.xml.functions import fromstring, tostring
 
+from caxton._internal.const import _RELATIONSHIP_NAMESPACE, _SPREADSHEET_NAMESPACE
 from caxton.core.errors import InvalidTemplateRefError, TemplateError
-
-_RELATIONSHIP_NAMESPACE = "http://schemas.openxmlformats.org/package/2006/relationships"
-_SPREADSHEET_NAMESPACE = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

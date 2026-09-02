@@ -2,19 +2,16 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
-from collections import deque
-from collections.abc import Iterable, Iterator, Mapping
-from typing import Any, Generic, NoReturn, TypeVar
+from collections.abc import Iterable, Iterator, Mapping, Sized
+from typing import Any, Generic, NoReturn, TypeVar, cast
 
+from caxton._internal.const import _KNOWN_CONTAINERS
 from caxton.core.errors import DataSourceConsumedError, UnsupportedDataSourceError
 from caxton.core.protocols import DataSource, Repeatability, RowAccessor
 
 from .accessors import DefaultRowAccessor
 
 RowT = TypeVar("RowT")
-
-_DEFAULT_ACCESSOR = DefaultRowAccessor()
-_KNOWN_CONTAINERS = (list, tuple, range, set, frozenset, deque)
 
 
 @dataclasses.dataclass(slots=True)
@@ -66,18 +63,19 @@ def coerce_data_source(  # noqa: C901, WPS212
             raise TypeError(message)
         return data
     _reject_columnar_source(data)
+    resolved_accessor = accessor or DefaultRowAccessor()
     if isinstance(data, Mapping):
-        return _single_source(data, accessor or _DEFAULT_ACCESSOR)
+        return _single_source(data, resolved_accessor)
     if _is_named_tuple(data) or _is_dataclass_instance(data):
-        return _single_source(data, accessor or _DEFAULT_ACCESSOR)
+        return _single_source(data, resolved_accessor)
     if _is_rejected_scalar(data):
         return _raise_unsupported(data)
     if isinstance(data, Iterable):
-        return _iterable_source(data, accessor or _DEFAULT_ACCESSOR)
+        return _iterable_source(data, resolved_accessor)
     if _is_attribute_object(data) or (
         accessor is not None and _is_non_builtin_object(data)
     ):
-        return _single_source(data, accessor or _DEFAULT_ACCESSOR)
+        return _single_source(data, resolved_accessor)
     return _raise_unsupported(data)
 
 
@@ -90,7 +88,9 @@ def _iterable_source(
     accessor: RowAccessor[Any],
 ) -> DataSource[Any]:
     repeatability = _classify_repeatability(rows)
-    row_count = len(rows) if isinstance(rows, _KNOWN_CONTAINERS) else None
+    row_count = (
+        len(cast("Sized", rows)) if isinstance(rows, _KNOWN_CONTAINERS) else None
+    )
     return IterableDataSource(rows, accessor, repeatability, row_count)
 
 

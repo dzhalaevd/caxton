@@ -6,7 +6,13 @@ from typing import Any
 
 from caxton._internal.data import coerce_data_source
 from caxton.core.errors import CaxtonTypeError
-from caxton.core.formatting import DocumentTheme, Style, StyleInput, StyleSheet
+from caxton.core.formatting import (
+    AutoWidth,
+    DocumentTheme,
+    Style,
+    StyleInput,
+    StyleSheet,
+)
 from caxton.core.models import (
     DEFAULT_OBJECT_HEIGHT,
     DEFAULT_OBJECT_WIDTH,
@@ -59,7 +65,7 @@ def table(  # noqa: WPS211
     rules: Sequence[ConditionalRule] = (),
     autofilter: bool = False,
     freeze_header: bool = False,
-    auto_width: bool = False,
+    auto_width: AutoWidth | bool = False,
     into: ColumnRef | TemplateRepeat | None = None,
 ) -> SpreadsheetTable:
     """Create a spreadsheet table without consuming its row source.
@@ -78,7 +84,7 @@ def table(  # noqa: WPS211
         rules: Conditional formatting rules.
         autofilter: Whether to add an XLSX autofilter.
         freeze_header: Whether to keep the header visible while scrolling.
-        auto_width: Whether to size columns without explicit widths.
+        auto_width: Content-derived sizing policy for columns without widths.
         into: Optional template target.
 
     Returns:
