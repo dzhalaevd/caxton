@@ -12,7 +12,7 @@ See [Testing documents](../guides/testing.md) for guidance on which level to use
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — inspect_spec
+        - inspect_spec
         - SpreadsheetSpec
         - WorksheetSpec
         - TableSpec
@@ -35,7 +35,7 @@ See [Testing documents](../guides/testing.md) for guidance on which level to use
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — inspect_layout
+        - inspect_layout
         - Rows
         - RowsMode
         - SpreadsheetLayout
@@ -61,7 +61,7 @@ See [Testing documents](../guides/testing.md) for guidance on which level to use
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — inspect_artifact
+        - inspect_artifact
         - SpreadsheetArtifact
         - ArtifactWorksheet
         - ArtifactTable
@@ -78,7 +78,7 @@ See [Testing documents](../guides/testing.md) for guidance on which level to use
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — assert_spreadsheet_equal
+        - assert_spreadsheet_equal
         - SpreadsheetAssertionError
         - Difference
         - DifferenceKind

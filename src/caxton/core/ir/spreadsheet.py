@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence, Sized
+from typing import TypeAlias
 
-from caxton.core._compat import StrEnum
+from caxton.core._compat import Self, StrEnum, final
 from caxton.core._values import normalize_cell_value
+from caxton.core.errors import (
+    CaxtonTypeError,
+    CaxtonValueError,
+    InvalidOperationError,
+)
 from caxton.core.formatting import Alignment, AutoWidth, DisplayFormat, Style
 from caxton.core.models.common import (
     DocumentKind,
@@ -19,6 +25,27 @@ from caxton.core.values import CellValue
 SPREADSHEET_IR_VERSION = 6
 
 
+def _require_positive_integer(value: object, label: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        message = f"{label} must be an integer"
+        raise CaxtonTypeError(message)
+    if value < 1:
+        message = f"{label} must be positive"
+        raise CaxtonValueError(message)
+
+
+def _require_cell_address(value: object, label: str) -> None:
+    if not isinstance(value, CellAddress):
+        message = f"{label} must be a CellAddress"
+        raise CaxtonTypeError(message)
+
+
+def _require_ordered_range(start: CellAddress, end: CellAddress) -> None:
+    if end.row < start.row or end.column < start.column:
+        message = "Cell range end must not precede its start"
+        raise CaxtonValueError(message)
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class CellAddress:
     """One-based backend-independent spreadsheet coordinate."""
@@ -27,9 +54,8 @@ class CellAddress:
     column: int
 
     def __post_init__(self) -> None:
-        if self.row < 1 or self.column < 1:
-            message = "Cell coordinates must be positive"
-            raise ValueError(message)
+        _require_positive_integer(self.row, "Cell row")
+        _require_positive_integer(self.column, "Cell column")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -40,9 +66,9 @@ class CellRange:
     end: CellAddress
 
     def __post_init__(self) -> None:
-        if self.end.row < self.start.row or self.end.column < self.start.column:
-            message = "Cell range end must not precede its start"
-            raise ValueError(message)
+        _require_cell_address(self.start, "Cell range start")
+        _require_cell_address(self.end, "Cell range end")
+        _require_ordered_range(self.start, self.end)
 
     @property
     def rows(self) -> int:
@@ -65,7 +91,26 @@ class CellRange:
 
 
 class ResolvedFormula:
-    """Base for backend-independent formulas with resolved semantic references."""
+    """Base for backend-independent formulas with resolved semantic references.
+
+    The set of nodes is closed: :data:`ResolvedFormulaNode` enumerates it, so a
+    renderer can match it exhaustively and a type checker reports a forgotten
+    branch when the IR grows a node.
+    """
+
+    def __new__(cls, *_args: object, **_kwargs: object) -> Self:
+        """Create a concrete resolved formula node.
+
+        Returns:
+            A new instance of a concrete node type.
+
+        Raises:
+            CaxtonTypeError: If the abstract base itself is instantiated.
+        """
+        if cls is ResolvedFormula:
+            message = "ResolvedFormula is abstract and cannot be instantiated"
+            raise CaxtonTypeError(message)
+        return object.__new__(cls)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -98,9 +143,9 @@ class ResolvedCellReference(ResolvedFormula):
     row_absolute: bool = False
 
     def __post_init__(self) -> None:
-        if self.column < 1 or (self.row is not None and self.row < 1):
-            message = "Resolved cell coordinates must be positive"
-            raise ValueError(message)
+        _require_positive_integer(self.column, "Resolved cell column")
+        if self.row is not None:
+            _require_positive_integer(self.row, "Resolved cell row")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -112,6 +157,19 @@ class ResolvedRangeReference(ResolvedFormula):
     column_title: str
     column_absolute: bool = False
     row_absolute: bool = False
+
+    def __post_init__(self) -> None:
+        _require_cell_address(self.start, "Resolved range start")
+        _require_cell_address(self.end, "Resolved range end")
+        _require_ordered_range(self.start, self.end)
+
+
+ResolvedFormulaNode: TypeAlias = (
+    ResolvedFormulaLiteral
+    | ResolvedFormulaBinary
+    | ResolvedCellReference
+    | ResolvedRangeReference
+)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -169,14 +227,86 @@ class SpreadsheetRowIR:
         )
 
 
+@final
+class RowStream:
+    """One-shot stream of resolved rows carried by a table.
+
+    The IR is read-only, but rows stay lazy: the stream may wrap a generator or
+    a one-shot data source, so it is delivered exactly once. A second pass
+    raises instead of silently yielding nothing, which is what a bare exhausted
+    iterator would do.
+    """
+
+    __slots__ = ("_consumed", "_rows")
+
+    def __init__(self, rows: Iterable[SpreadsheetRowIR]) -> None:
+        self._rows = rows
+        self._consumed = False
+
+    @property
+    def consumed(self) -> bool:
+        """Whether the stream has already been handed out."""
+        return self._consumed
+
+    def consume(self) -> Iterator[SpreadsheetRowIR]:
+        """Return the row iterator exactly once.
+
+        Returns:
+            An iterator over the resolved rows.
+
+        Raises:
+            InvalidOperationError: If the stream was already consumed.
+        """
+        if self._consumed:
+            message = (
+                "Table rows are a one-shot stream and were already consumed; "
+                "collect them once if the renderer needs two passes"
+            )
+            raise InvalidOperationError(message)
+        self._consumed = True
+        return iter(self._rows)
+
+    def __iter__(self) -> Iterator[SpreadsheetRowIR]:
+        """Iterate the stream once.
+
+        Returns:
+            An iterator over the resolved rows.
+        """
+        return self.consume()
+
+    @property
+    def row_count(self) -> int | None:
+        """Number of rows when the underlying source knows it without reading."""
+        return len(self._rows) if isinstance(self._rows, Sized) else None
+
+    def materialized(self) -> RowStream:
+        """Return an unconsumed stream over the same rows, read into memory.
+
+        Consumes this stream when its rows are still lazy, so the returned
+        stream is the one to keep. Calling it again on a materialized stream
+        hands out a fresh unconsumed stream over the same rows, which is how a
+        renderer that needs a second pass pays for it explicitly.
+
+        Returns:
+            An unconsumed stream over a materialized row sequence.
+        """
+        if isinstance(self._rows, tuple):
+            return RowStream(self._rows)
+        return RowStream(tuple(self.consume()))
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class SpreadsheetTableIR:
-    """A resolved table schema with a lazy row stream."""
+    """A resolved table schema with a lazy, single-pass row stream.
+
+    ``rows`` is a :class:`RowStream`: renderers consume it exactly once. A bare
+    iterable is wrapped, so the contract holds however the table was built.
+    """
 
     name: str | None
     anchor: CellAddress
     columns: Sequence[SpreadsheetColumnIR]
-    rows: Iterable[SpreadsheetRowIR]
+    rows: RowStream
     header_style: Style = dataclasses.field(default_factory=Style)
     footer: SpreadsheetFooterIR | None = None
     rules: Sequence[SpreadsheetConditionalRuleIR] = ()
@@ -184,6 +314,8 @@ class SpreadsheetTableIR:
     merges: Sequence[CellRange] = ()
 
     def __post_init__(self) -> None:
+        if not isinstance(self.rows, RowStream):
+            object.__setattr__(self, "rows", RowStream(self.rows))
         object.__setattr__(self, "columns", tuple(self.columns))
         object.__setattr__(self, "rules", tuple(self.rules))
         object.__setattr__(self, "merges", tuple(self.merges))
@@ -223,9 +355,7 @@ class SpreadsheetTextIR:
     style: Style = dataclasses.field(default_factory=Style)
 
     def __post_init__(self) -> None:
-        if self.span < 1:
-            message = "Text span must be positive"
-            raise ValueError(message)
+        _require_positive_integer(self.span, "Text span")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -301,6 +431,12 @@ class SpreadsheetIR:
     def __post_init__(self) -> None:
         object.__setattr__(self, "worksheets", tuple(self.worksheets))
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
+        if isinstance(self.version, bool) or not isinstance(self.version, int):
+            message = "Spreadsheet IR version must be an integer"
+            raise CaxtonTypeError(message)
+        if self.version != SPREADSHEET_IR_VERSION:
+            message = f"Unsupported Spreadsheet IR version {self.version!r}"
+            raise CaxtonValueError(message)
 
 
 __all__ = (
@@ -311,7 +447,9 @@ __all__ = (
     "ResolvedFormula",
     "ResolvedFormulaBinary",
     "ResolvedFormulaLiteral",
+    "ResolvedFormulaNode",
     "ResolvedRangeReference",
+    "RowStream",
     "SpreadsheetBlockKind",
     "SpreadsheetChartIR",
     "SpreadsheetColumnIR",

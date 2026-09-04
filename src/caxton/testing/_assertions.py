@@ -7,7 +7,10 @@ from caxton.core.models import SpreadsheetDocument
 
 from ._diff import Difference, DifferenceKind
 from ._spec import (
+    BlockKind,
+    BlockSpec,
     ColumnSpec,
+    ConditionalRuleSpec,
     SpreadsheetSpec,
     TableSpec,
     WorksheetSpec,
@@ -17,6 +20,58 @@ from ._spec import (
 SpecInput = SpreadsheetDocument | SpreadsheetSpec
 SpecT = TypeVar("SpecT")
 KeyT = TypeVar("KeyT")
+
+_SPREADSHEET_VALUE_FIELDS = ("styles", "theme")
+_SPREADSHEET_FIELDS = frozenset(
+    ("worksheets", "metadata", *_SPREADSHEET_VALUE_FIELDS),
+)
+_WORKSHEET_VALUE_FIELDS = ("name", "freeze")
+_WORKSHEET_FIELDS = frozenset(("tables", "blocks", *_WORKSHEET_VALUE_FIELDS))
+_TABLE_VALUE_FIELDS = (
+    "name",
+    "anchor",
+    "style",
+    "header_style",
+    "footer",
+    "autofilter",
+    "freeze_header",
+    "auto_width",
+)
+_TABLE_FIELDS = frozenset(("columns", "rules", *_TABLE_VALUE_FIELDS))
+_COLUMN_VALUE_FIELDS = (
+    "id",
+    "title",
+    "semantic_type",
+    "source",
+    "formula",
+    "alignment",
+    "width",
+    "display_format",
+    "style",
+    "auto_width",
+    "grouping",
+)
+_COLUMN_FIELDS = frozenset(_COLUMN_VALUE_FIELDS)
+_BLOCK_VALUE_FIELDS = (
+    "kind",
+    "anchor",
+    "name",
+    "text",
+    "rows",
+    "columns",
+    "width",
+    "height",
+    "chart_kind",
+    "source",
+    "category",
+    "values",
+    "direction",
+    "gap",
+    "matrix",
+)
+_BLOCK_FIELDS = frozenset((*_BLOCK_VALUE_FIELDS, "items"))
+_RULE_VALUE_FIELDS = ("condition", "style")
+_RULE_FIELDS = frozenset(_RULE_VALUE_FIELDS)
 
 
 class SpreadsheetAssertionError(AssertionError):
@@ -58,7 +113,7 @@ def assert_spreadsheet_equal(
             path="metadata",
             differences=differences,
         )
-    for field in ("styles", "theme"):
+    for field in _SPREADSHEET_VALUE_FIELDS:
         _compare_value(
             getattr(actual_spec, field),
             getattr(expected_spec, field),
@@ -104,23 +159,26 @@ def _compare_worksheet(
     differences: list[Difference],
     check_order: bool,
 ) -> None:
-    _compare_value(
-        actual.name,
-        expected.name,
-        path=f"{path}.name",
-        differences=differences,
-    )
-    _compare_value(
-        actual.freeze,
-        expected.freeze,
-        path=f"{path}.freeze",
-        differences=differences,
-    )
-    _compare_value(
+    for field in _WORKSHEET_VALUE_FIELDS:
+        _compare_value(
+            getattr(actual, field),
+            getattr(expected, field),
+            path=f"{path}.{field}",
+            differences=differences,
+        )
+    _compare_positional(
         actual.blocks,
         expected.blocks,
-        path=f"{path}.blocks",
+        collection_path=f"{path}.blocks",
+        compare=lambda actual_item, expected_item, item_path: _compare_block(
+            actual_item,
+            expected_item,
+            path=item_path,
+            differences=differences,
+            check_order=check_order,
+        ),
         differences=differences,
+        check_order=check_order,
     )
     _compare_keyed(
         actual.tables,
@@ -148,33 +206,26 @@ def _compare_table(
     differences: list[Difference],
     check_order: bool,
 ) -> None:
-    _compare_value(
-        actual.name,
-        expected.name,
-        path=f"{path}.name",
-        differences=differences,
-    )
-    _compare_value(
-        actual.anchor,
-        expected.anchor,
-        path=f"{path}.anchor",
-        differences=differences,
-    )
-    for field in (
-        "style",
-        "header_style",
-        "footer",
-        "rules",
-        "autofilter",
-        "freeze_header",
-        "auto_width",
-    ):
+    for field in _TABLE_VALUE_FIELDS:
         _compare_value(
             getattr(actual, field),
             getattr(expected, field),
             path=f"{path}.{field}",
             differences=differences,
         )
+    _compare_positional(
+        actual.rules,
+        expected.rules,
+        collection_path=f"{path}.rules",
+        compare=lambda actual_item, expected_item, item_path: _compare_rule(
+            actual_item,
+            expected_item,
+            path=item_path,
+            differences=differences,
+        ),
+        differences=differences,
+        check_order=check_order,
+    )
     _compare_keyed(
         actual.columns,
         expected.columns,
@@ -199,25 +250,59 @@ def _compare_column(
     path: str,
     differences: list[Difference],
 ) -> None:
-    _compare_value(
-        actual.id,
-        expected.id,
-        path=f"{path}.id",
-        differences=differences,
-    )
+    for field in _COLUMN_VALUE_FIELDS:
+        _compare_value(
+            getattr(actual, field),
+            getattr(expected, field),
+            path=f"{path}.{field}",
+            differences=differences,
+        )
+
+
+def _compare_block(
+    actual: BlockSpec,
+    expected: BlockSpec,
+    *,
+    path: str,
+    differences: list[Difference],
+    check_order: bool,
+) -> None:
     fields = (
-        "title",
-        "semantic_type",
-        "source",
-        "formula",
-        "alignment",
-        "width",
-        "display_format",
-        "style",
-        "auto_width",
-        "grouping",
+        ("kind",)
+        if actual.kind is BlockKind.TABLE and expected.kind is BlockKind.TABLE
+        else _BLOCK_VALUE_FIELDS
     )
     for field in fields:
+        _compare_value(
+            getattr(actual, field),
+            getattr(expected, field),
+            path=f"{path}.{field}",
+            differences=differences,
+        )
+    _compare_positional(
+        actual.items,
+        expected.items,
+        collection_path=f"{path}.items",
+        compare=lambda actual_item, expected_item, item_path: _compare_block(
+            actual_item,
+            expected_item,
+            path=item_path,
+            differences=differences,
+            check_order=check_order,
+        ),
+        differences=differences,
+        check_order=check_order,
+    )
+
+
+def _compare_rule(
+    actual: ConditionalRuleSpec,
+    expected: ConditionalRuleSpec,
+    *,
+    path: str,
+    differences: list[Difference],
+) -> None:
+    for field in _RULE_VALUE_FIELDS:
         _compare_value(
             getattr(actual, field),
             getattr(expected, field),
@@ -246,6 +331,7 @@ def _compare_keyed(  # noqa: WPS211
             collection_path=collection_path,
             compare=compare,
             differences=differences,
+            check_order=check_order,
         )
         return
     actual_by_key = dict(zip(actual_keys, actual, strict=True))
@@ -288,14 +374,24 @@ def _compare_keyed(  # noqa: WPS211
     )
 
 
-def _compare_positional(
+def _compare_positional(  # noqa: WPS211
     actual: Sequence[SpecT],
     expected: Sequence[SpecT],
     *,
     collection_path: str,
     compare: Callable[[SpecT, SpecT, str], None],
     differences: list[Difference],
+    check_order: bool,
 ) -> None:
+    if not check_order:
+        _compare_unordered(
+            actual,
+            expected,
+            collection_path=collection_path,
+            compare=compare,
+            differences=differences,
+        )
+        return
     common_size = min(len(actual), len(expected))
     for index in range(common_size):
         compare(
@@ -320,6 +416,58 @@ def _compare_positional(
             actual=actual[index],
         )
         for index in range(common_size, len(actual))
+    )
+
+
+def _compare_unordered(
+    actual: Sequence[SpecT],
+    expected: Sequence[SpecT],
+    *,
+    collection_path: str,
+    compare: Callable[[SpecT, SpecT, str], None],
+    differences: list[Difference],
+) -> None:
+    unmatched_actual = list(enumerate(actual))
+    unmatched_expected: list[tuple[int, SpecT]] = []
+    for expected_index, expected_item in enumerate(expected):
+        match = next(
+            (
+                position
+                for position, (_, actual_item) in enumerate(unmatched_actual)
+                if actual_item == expected_item
+            ),
+            None,
+        )
+        if match is None:
+            unmatched_expected.append((expected_index, expected_item))
+            continue
+        unmatched_actual.pop(match)
+    common_size = min(len(unmatched_actual), len(unmatched_expected))
+    for position in range(common_size):
+        _, actual_item = unmatched_actual[position]
+        expected_index, expected_item = unmatched_expected[position]
+        compare(
+            actual_item,
+            expected_item,
+            f"{collection_path}[{expected_index}]",
+        )
+    differences.extend(
+        Difference(
+            path=f"{collection_path}[{expected_index}]",
+            kind=DifferenceKind.MISSING,
+            expected=expected_item,
+            actual=None,
+        )
+        for expected_index, expected_item in unmatched_expected[common_size:]
+    )
+    differences.extend(
+        Difference(
+            path=f"{collection_path}[{actual_index}]",
+            kind=DifferenceKind.UNEXPECTED,
+            expected=None,
+            actual=actual_item,
+        )
+        for actual_index, actual_item in unmatched_actual[common_size:]
     )
 
 

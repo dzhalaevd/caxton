@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import dataclasses
+import inspect
 from collections.abc import Iterable, Mapping
 from typing import Any
 
 from caxton.core._compat import Self
 from caxton.core._values import freeze_mapping
 
-from .base import CaxtonError
+from .base import CaxtonError, CaxtonTypeError, CaxtonValueError, _pickle_safe
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -44,6 +45,21 @@ class Issue:
         if self.path is None:
             return self.message
         return f"{self.message}\n   at {self.path}"
+
+    def __reduce__(  # noqa: WPS603
+        self,
+    ) -> tuple[object, tuple[object, ...]]:
+        """Preserve the immutable context through copy and pickle.
+
+        Returns:
+            A reconstruction callable and its pickle-safe arguments.
+        """
+        return _rebuild_issue, (
+            self.message,
+            self.path,
+            self.code,
+            _pickle_safe(self.context),
+        )
 
 
 @dataclasses.dataclass(eq=False)
@@ -84,6 +100,10 @@ class CyclicReferenceError(SchemaError):
     cycle: tuple[str, ...] = dataclasses.field(kw_only=True)
 
     def __post_init__(self) -> None:
+        self.cycle = tuple(self.cycle)
+        if len(self.cycle) < 2 or self.cycle[0] != self.cycle[-1]:
+            message = "Reference cycle must be a closed path with at least one edge"
+            raise CaxtonValueError(message)
         column_count = len(self.cycle) - 1
         noun = "column" if column_count == 1 else "columns"
         self.message = (
@@ -185,11 +205,40 @@ class Notification:
     def raise_if_errors(
         self,
         message: str = "Document validation failed",
+        *,
+        error_class: type[ValidationError] = ValidationError,
     ) -> None:
         """Raise one aggregate error when validation found any issues.
 
+        ``error_class`` selects the raised validation error, so a caller that
+        collects schema or shape problems reports them under their own type.
+
+        If issues have been collected, this method raises ``error_class`` with
+        those issues attached.
+
         Raises:
-            ValidationError: If at least one issue has been collected.
+            CaxtonTypeError: If ``error_class`` is not a validation error type.
         """
+        if not (
+            isinstance(error_class, type) and issubclass(error_class, ValidationError)
+        ):
+            message_type = "Notification error class must be a ValidationError type"
+            raise CaxtonTypeError(message_type)
+        try:
+            inspect.signature(error_class).bind(message, issues=tuple(self._issues))
+        except (TypeError, ValueError) as error:
+            message_type = (
+                "Notification error class must accept message and issues arguments"
+            )
+            raise CaxtonTypeError(message_type) from error
         if self._issues:
-            raise ValidationError(message, issues=tuple(self._issues))
+            raise error_class(message, issues=tuple(self._issues))
+
+
+def _rebuild_issue(
+    message: str,
+    path: str | None,
+    code: str | None,
+    context: Mapping[str, Any],
+) -> Issue:
+    return Issue(message=message, path=path, code=code, context=context)

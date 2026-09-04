@@ -43,7 +43,11 @@ class OutputSink(Protocol):
 
 @runtime_checkable
 class Renderer(Protocol[DocumentIR_contra]):
-    """Backend adapter consuming one compatible family IR."""
+    """Backend adapter consuming one compatible family IR.
+
+    Lazy iterables carried by a family IR are single-pass renderer inputs unless
+    that IR explicitly documents repeatability.
+    """
 
     descriptor: RendererDescriptor
 

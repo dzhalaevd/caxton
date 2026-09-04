@@ -2,7 +2,7 @@ from pathlib import Path
 
 from caxton import (
     AutoWidth,
-    CorporateTheme,
+    DocumentTheme,
     FontStyle,
     Freeze,
     Style,
@@ -25,6 +25,17 @@ from caxton import (
 )
 from caxton.core.models import SpreadsheetDocument
 from caxton.testing import inspect_artifact
+
+
+def _report_theme() -> DocumentTheme:
+    return DocumentTheme(
+        default=Style(font=FontStyle(name="Arial")),
+        header=Style(
+            font=FontStyle(name="Arial", bold=True, color="#FFFFFF"),
+            fill="#004B8D",
+        ),
+        total=Style(font=FontStyle(name="Arial", bold=True)),
+    )
 
 
 def build_report() -> SpreadsheetDocument:
@@ -166,11 +177,7 @@ def build_report() -> SpreadsheetDocument:
                 "positive": Style(fill="#C6EFCE", font_color="#006100"),
             },
         ),
-        theme=CorporateTheme(
-            font="Arial",
-            header_fill="#004B8D",
-            header_font_color="#FFFFFF",
-        ),
+        theme=_report_theme(),
     )
 
 

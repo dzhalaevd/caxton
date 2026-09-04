@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from openpyxl.worksheet.worksheet import Worksheet
 
+from caxton._internal.backends._common import reserved_last_row
 from caxton._internal.backends.openpyxl.conditional_formats import (
     add_conditional_formats,
 )
@@ -22,11 +23,12 @@ def render_table(worksheet: Worksheet, table: SpreadsheetTableIR) -> None:
     start_column = table.anchor.column
     write_headers(worksheet, table, header_row, start_column)
     last_row, widths = write_rows(worksheet, table, header_row, start_column)
+    body_last_row = reserved_last_row(table, header_row, last_row)
     apply_merges(worksheet, table)
     apply_auto_widths(worksheet, table, start_column, widths)
-    write_footer(worksheet, table, header_row, last_row, start_column)
+    write_footer(worksheet, table, header_row, body_last_row, start_column)
     add_conditional_formats(worksheet, table, header_row, last_row, start_column)
-    configure_table_range(worksheet, table, header_row, last_row, start_column)
+    configure_table_range(worksheet, table, header_row, body_last_row, start_column)
 
 
 __all__ = ("render_table",)

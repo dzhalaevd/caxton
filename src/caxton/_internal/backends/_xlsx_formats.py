@@ -23,19 +23,34 @@ from caxton.core.types import (
 )
 
 
-def number_format(column: SpreadsheetColumnIR) -> str:  # noqa: C901, WPS212
+def number_format(column: SpreadsheetColumnIR) -> str:  # noqa: WPS212
     """Lower one semantic column format to an XLSX number-format pattern.
 
     Returns:
         A backend-neutral XLSX number-format pattern.
     """
-    display_format = column.display_format
+    display_format = column.display_format or column.semantic_type.default_format()
+    if display_format is None:
+        return _semantic_number_format(column.semantic_type)
+    return display_number_format(display_format, semantic_type=column.semantic_type)
+
+
+def display_number_format(  # noqa: C901, WPS212
+    display_format: object,
+    *,
+    semantic_type: SemanticType | None = None,
+) -> str:
+    """Lower explicit display-format intent without requiring a column IR.
+
+    Returns:
+        An XLSX number-format pattern.
+    """
     if isinstance(display_format, DecimalFormat):
         return _decimal_pattern(display_format.places, display_format.grouping)
     if isinstance(display_format, MoneyFormat):
         currency = display_format.currency
-        if currency is None and isinstance(column.semantic_type, Money):
-            currency = column.semantic_type.currency
+        if currency is None and isinstance(semantic_type, Money):
+            currency = semantic_type.currency
         return _money_pattern(
             currency,
             display_format.places,
@@ -56,17 +71,12 @@ def number_format(column: SpreadsheetColumnIR) -> str:  # noqa: C901, WPS212
         return f"{_decimal_pattern(display_format.places, display_format.grouping)}%"
     if isinstance(display_format, CustomFormat):
         return display_format.pattern
-    return _semantic_number_format(column.semantic_type)
+    return "General"
 
 
 @singledispatch
 def _semantic_number_format(_semantic_type: SemanticType) -> str:
     return "General"
-
-
-@_semantic_number_format.register
-def _money_number_format(semantic_type: Money) -> str:
-    return _money_pattern(semantic_type.currency, 2, grouping=True)
 
 
 @_semantic_number_format.register
@@ -109,4 +119,4 @@ def _money_pattern(currency: str | None, places: int, grouping: bool) -> str:
     return number if currency is None else f'"{currency}" {number}'
 
 
-__all__ = ("number_format",)
+__all__ = ("display_number_format", "number_format")

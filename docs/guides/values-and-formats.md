@@ -24,6 +24,34 @@ You rarely construct these directly — the column factories in
 [`caxton.api`](../reference/api.md) do it for you. They live in
 [`caxton.core.types`](../reference/types.md) for custom renderers.
 
+Currency belongs to the value: `money(currency="EUR")` states it once, and the
+column renders with it even when no display format is given. `money_format(
+currency=...)` overrides that for presentation; a format that cannot show a
+currency at all — `decimal_format()`, say — is rejected when the column declares
+one, instead of dropping it silently.
+
+The set is open. A semantic type of your own declares how it behaves rather
+than waiting to be recognized by name:
+
+```python
+from typing import ClassVar
+
+from caxton.core.formatting import CustomFormat
+from caxton.core.types import SemanticType
+
+
+class Rating(SemanticType):
+    name: ClassVar[str] = "rating"
+    numeric: ClassVar[bool] = True  # a totals row may aggregate it
+
+    def default_format(self) -> CustomFormat:
+        return CustomFormat(name="rating", pattern="0.0")
+```
+
+Any renderer reporting the `semantic:extension` capability — both bundled XLSX
+backends do — renders it through that declared format, so no renderer change is
+needed to introduce one.
+
 `Decimal` scale is preserved: `Decimal("1")` and `Decimal("1.0")` are distinct
 values, which matters when they become grouping or matrix dimension keys.
 

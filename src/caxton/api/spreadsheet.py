@@ -20,7 +20,6 @@ from caxton.core.models import (
     Chart,
     ChartKind,
     Column,
-    ColumnRef,
     ConditionalRule,
     Expression,
     FieldRef,
@@ -34,6 +33,7 @@ from caxton.core.models import (
     Stack,
     TableData,
     TableReference,
+    TemplateRef,
     TemplateRepeat,
     TemplateSpecification,
     Title,
@@ -42,6 +42,7 @@ from caxton.core.models import (
     Worksheet,
 )
 from caxton.core.models.columns import make_column
+from caxton.core.protocols import RowSourceInput
 from caxton.core.types import Text
 
 _MatrixAxisItem = str | Column | Expression
@@ -55,7 +56,7 @@ _TABLE_COLUMNS_TYPE_ERROR = "Table columns must be a sequence of Column values"
 
 def table(  # noqa: WPS211
     *,
-    source: object,
+    source: RowSourceInput,
     columns: Sequence[Column],
     name: str | None = None,
     anchor: str | None = None,
@@ -66,7 +67,7 @@ def table(  # noqa: WPS211
     autofilter: bool = False,
     freeze_header: bool = False,
     auto_width: AutoWidth | bool = False,
-    into: ColumnRef | TemplateRepeat | None = None,
+    into: TemplateRef | TemplateRepeat | None = None,
 ) -> SpreadsheetTable:
     """Create a spreadsheet table without consuming its row source.
 
@@ -108,7 +109,7 @@ def table(  # noqa: WPS211
 
 def matrix(  # noqa: WPS211
     *,
-    source: object,
+    source: RowSourceInput,
     row: MatrixAxisInput,
     column: MatrixAxisInput,
     value: MatrixValueInput,
@@ -119,7 +120,9 @@ def matrix(  # noqa: WPS211
     """Create a pivot-like matrix without pre-transforming its row source.
 
     String row and column dimensions name exact top-level fields. Explicit
-    columns and expressions retain their declared semantic ids and sources.
+    columns retain their semantic type. Bare expressions are normalized as
+    ``Text`` columns; pass a typed column as ``value`` when formatting or
+    numeric semantics matter.
 
     Returns:
         An immutable matrix specification.
@@ -245,6 +248,10 @@ def image(  # noqa: WPS211
     anchor: str | None = None,
 ) -> Image:
     """Create a picture block sized in pixels instead of cell coordinates.
+
+    A path is opened during rendering; raw bytes are retained in the immutable
+    semantic model. Read failures are reported as renderer errors with their
+    original cause.
 
     Returns:
         An immutable image block.

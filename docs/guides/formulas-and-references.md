@@ -61,13 +61,18 @@ decimal(id="delta", formula=col("price") - col("base_price"))
 ```python
 col("base_price").absolute()  # $B$2
 col("base_price").absolute(row=False)  # $B2
-col("base_price").relative(column=False)  # B$2
+col("base_price").absolute(column=False)  # B$2
+col("base_price").relative()  # B2
 ```
 
 `absolute(column=..., row=...)` sets each axis to exactly the flags you pass, so
 `absolute(column=False)` really makes the column relative instead of silently
 doing nothing. The free function `absolute(reference, ...)` does the same for a
 cell or a range.
+
+`relative()` without arguments makes both axes relative. Its per-axis flags are
+deprecated because they invert their argument — `relative(row=False)` makes the
+row absolute — so state the intent with `absolute()` instead.
 
 ### Named tables and cross-sheet references
 

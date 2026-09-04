@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import enum
-from collections.abc import Iterator
-from typing import Protocol, TypeVar, runtime_checkable
+from collections.abc import Iterable, Iterator, Mapping
+from typing import Any, Protocol, TypeAlias, TypeVar, runtime_checkable
 
 RowT = TypeVar("RowT")
 AccessorRowT_contra = TypeVar("AccessorRowT_contra", contravariant=True)
@@ -41,9 +41,23 @@ class RowAccessor(Protocol[AccessorRowT_contra]):
     def __call__(self, row: AccessorRowT_contra, field: str) -> object: ...
 
 
+RowSourceInput: TypeAlias = DataSource[Any] | Iterable[object] | Mapping[str, object]
+"""Row input accepted by the public table factories.
+
+A ready :class:`DataSource`, any iterable of rows, or one mapping row. Rows
+themselves stay untyped: a row is read field by field through a
+:class:`RowAccessor`, never introspected as a whole.
+
+One bare dataclass, ``NamedTuple`` or attribute object is also accepted at
+runtime as a single-row source. That shape is not expressible in a type that
+still rejects scalars, so typed callers wrap it in a one-element sequence.
+"""
+
+
 __all__ = (
     "DataSource",
     "DataSourceInfo",
     "Repeatability",
     "RowAccessor",
+    "RowSourceInput",
 )

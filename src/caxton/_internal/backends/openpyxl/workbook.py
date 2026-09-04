@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from io import BytesIO
+from typing import cast
 
 from openpyxl import Workbook
+from openpyxl.cell.cell import Cell
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from caxton._internal.backends._xlsx_values import validate_xlsx_text
+from caxton._internal.backends.openpyxl.rows import set_literal_cell
 from caxton._internal.backends.openpyxl.styles import apply_style
 from caxton._internal.backends.openpyxl.tables import render_table
 from caxton.core.ir import SpreadsheetIR, SpreadsheetTextIR, SpreadsheetWorksheetIR
@@ -56,11 +60,14 @@ def _populate_worksheet(
 
 
 def _render_text(worksheet: Worksheet, text: SpreadsheetTextIR) -> None:
-    cell = worksheet.cell(
-        row=text.anchor.row,
-        column=text.anchor.column,
-        value=text.text,
+    cell = cast(
+        "Cell",
+        worksheet.cell(
+            row=text.anchor.row,
+            column=text.anchor.column,
+        ),
     )
+    set_literal_cell(cell, validate_xlsx_text(text.text, role="title"))
     apply_style(cell, text.style)
     if text.span > 1:
         worksheet.merge_cells(

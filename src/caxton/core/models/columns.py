@@ -10,11 +10,12 @@ from caxton.core.formatting import (
     Alignment,
     AutoWidth,
     DisplayFormat,
+    MoneyFormat,
     Style,
     StyleInput,
 )
 from caxton.core.formatting.widths import resolve_auto_width
-from caxton.core.types import SemanticType
+from caxton.core.types import Money, SemanticType
 
 from ._validation import require_name, require_optional_name
 from .expressions import ColumnSource, ColumnSourceInput, normalize_source
@@ -55,13 +56,31 @@ class Grouping:
         object.__setattr__(self, "order", normalized)
 
 
+def _require_currency_is_displayable(
+    column_id: str,
+    semantic_type: SemanticType,
+    display_format: DisplayFormat | None,
+) -> None:
+    if display_format is None or isinstance(display_format, MoneyFormat):
+        return
+    if isinstance(semantic_type, Money) and semantic_type.currency is not None:
+        message = (
+            f"Column {column_id!r} declares currency "
+            f"{semantic_type.currency!r}, which "
+            f"{type(display_format).__name__} cannot display; format it with "
+            "money_format() or drop the currency"
+        )
+        raise CaxtonValueError(message)
+
+
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
 class Column:
     """Immutable semantic column specification.
 
     A column defines its value either through a Python ``source`` evaluated
     before rendering or through an ``excel_formula`` retained in the artifact,
-    never both and never neither.
+    never both and never neither. Width is declared the same way: an explicit
+    ``width_hint`` or an ``auto_width`` policy, never both at once.
     """
 
     id: str
@@ -76,21 +95,66 @@ class Column:
     auto_width: AutoWidth | bool | None = None
     grouping: Grouping | None = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self) -> None:  # noqa: C901, WPS238
         require_name(self.id, "Column id")
         require_optional_name(self.title, "Column title")
+        if not isinstance(self.semantic_type, SemanticType):
+            message = "Column semantic type must be a SemanticType"
+            raise CaxtonTypeError(message)
+        if self.source is not None and not isinstance(self.source, ColumnSource):
+            message = "Column source must be a normalized column source"
+            raise CaxtonTypeError(message)
+        if self.excel_formula is not None and not isinstance(
+            self.excel_formula,
+            Formula,
+        ):
+            message = "Column Excel formula must be a Formula"
+            raise CaxtonTypeError(message)
         if (self.source is None) == (self.excel_formula is None):
             message = (
                 f"Column {self.id!r} requires either a Python source "
                 "or an Excel formula"
             )
             raise CaxtonValueError(message)
-        auto_width = resolve_auto_width(self.auto_width)
-        object.__setattr__(
-            self,
-            "auto_width",
-            None if self.width_hint is not None else auto_width,
+        if self.alignment is not None and not isinstance(self.alignment, Alignment):
+            message = "Column alignment must be an Alignment"
+            raise CaxtonTypeError(message)
+        if self.width_hint is not None:
+            if isinstance(self.width_hint, bool) or not isinstance(
+                self.width_hint,
+                (int, float),
+            ):
+                message = "Column width must be numeric"
+                raise CaxtonTypeError(message)
+            if not math.isfinite(self.width_hint) or self.width_hint <= 0:
+                message = "Column width must be positive"
+                raise CaxtonValueError(message)
+            object.__setattr__(self, "width_hint", float(self.width_hint))
+        if self.display_format is not None and not isinstance(
+            self.display_format,
+            _DISPLAY_FORMATS,
+        ):
+            message = "Column display format must be a display format"
+            raise CaxtonTypeError(message)
+        _require_currency_is_displayable(
+            self.id,
+            self.semantic_type,
+            self.display_format,
         )
+        if self.style_ref is not None and not isinstance(self.style_ref, (Style, str)):
+            message = "Column style must be a Style or a style name"
+            raise CaxtonTypeError(message)
+        if self.grouping is not None and not isinstance(self.grouping, Grouping):
+            message = "Column grouping must be a Grouping"
+            raise CaxtonTypeError(message)
+        auto_width = resolve_auto_width(self.auto_width)
+        if self.width_hint is not None and auto_width is not None:
+            message = (
+                f"Column {self.id!r} cannot set both an explicit width "
+                "and an auto-width policy"
+            )
+            raise CaxtonValueError(message)
+        object.__setattr__(self, "auto_width", auto_width)
 
     @property
     def display_title(self) -> str:

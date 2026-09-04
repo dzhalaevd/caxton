@@ -17,6 +17,7 @@ from caxton import (
     Expression,
     InvalidOperationError,
     Matrix,
+    RowSourceInput,
     ValidationError,
     decimal,
     field,
@@ -56,7 +57,7 @@ def _summed_value() -> Column:
 
 
 def _pivot(
-    rows: object,
+    rows: RowSourceInput,
     *,
     row: Column | Expression | None = None,
     value: Column | None = None,

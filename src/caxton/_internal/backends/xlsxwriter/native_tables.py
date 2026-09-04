@@ -41,9 +41,6 @@ def _add_native_table(
     header_format: Format,
 ) -> None:
     header_row, last_row, start_column = area
-    if last_row == header_row:
-        message = "XlsxWriter cannot create a native table without data rows"
-        raise ValueError(message)
     result = worksheet.add_table(
         header_row,
         start_column,

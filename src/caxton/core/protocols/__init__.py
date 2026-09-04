@@ -3,7 +3,13 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING
 
-from .data import DataSource, DataSourceInfo, Repeatability, RowAccessor
+from .data import (
+    DataSource,
+    DataSourceInfo,
+    Repeatability,
+    RowAccessor,
+    RowSourceInput,
+)
 
 if TYPE_CHECKING:
     from .rendering import (
@@ -34,10 +40,8 @@ def __getattr__(name: str) -> object:  # noqa: WPS413
     if name in _TEMPLATE_EXPORTS:
         templates = importlib.import_module(f"{__name__}.templates")
         return getattr(templates, name)
-    if name not in _RENDERING_EXPORTS | _TEMPLATE_EXPORTS:
-        message = f"module {__name__!r} has no attribute {name!r}"
-        raise AttributeError(message)
-    raise AssertionError(name)
+    message = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(message)
 
 
 __all__ = (
@@ -50,6 +54,7 @@ __all__ = (
     "Renderer",
     "Repeatability",
     "RowAccessor",
+    "RowSourceInput",
     "TemplateInspector",
     "TemplateRenderer",
 )

@@ -7,7 +7,7 @@ import dataclasses
 import xlsxwriter  # type: ignore[import-untyped]
 from xlsxwriter.format import Format  # type: ignore[import-untyped]
 
-from caxton._internal.backends._xlsx_formats import number_format
+from caxton._internal.backends._xlsx_formats import display_number_format, number_format
 from caxton._internal.const import _BORDER_STYLES
 from caxton.core.formatting import Style
 from caxton.core.ir import SpreadsheetColumnIR
@@ -36,7 +36,10 @@ def style_format(workbook: xlsxwriter.Workbook, style: Style) -> Format:
     Returns:
         A workbook-owned XlsxWriter format.
     """
-    return workbook.add_format(style_properties(style))
+    properties = style_properties(style)
+    if style.display_format is not None:
+        properties["num_format"] = display_number_format(style.display_format)
+    return workbook.add_format(properties)
 
 
 def footer_format(

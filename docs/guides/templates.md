@@ -30,7 +30,7 @@ A table declares where it goes with `into=`, using a workbook- or
 worksheet-scoped defined name:
 
 ```python
-from caxton import date, decimal, integer, ref, table, text
+from caxton import date, decimal, integer, slot, table, text
 
 data_table = table(
     source=ROWS,
@@ -41,25 +41,27 @@ data_table = table(
         integer(source="quantity"),
         decimal(source="unit_price"),
     ),
-    into=ref("report_data"),
+    into=slot("report_data"),
 )
 ```
 
-A plain `ref(...)` target is a **data-only** region: values are written into the
-named range and the surrounding template is untouched.
+A plain `slot(...)` target is a **data-only** region: values are written into
+the named range and the surrounding template is untouched. `slot()` names a
+region of the template document; `ref()` names a semantic column of a table and
+is not accepted here.
 
 `into` and `anchor` are mutually exclusive — a template target already says where
 the data goes.
 
 ## Repeating a template block
 
-`repeat(ref(...))` copies the named block once per semantic row, including its
+`repeat(slot(...))` copies the named block once per semantic row, including its
 styles, contained merges and relative formulas (translated for each copy):
 
 ```python
-from caxton import ref, repeat, table
+from caxton import repeat, slot, table
 
-table(source=ROWS, columns=columns, into=repeat(ref("line_item")))
+table(source=ROWS, columns=columns, into=repeat(slot("line_item")))
 ```
 
 ## What the renderer guarantees
@@ -78,8 +80,9 @@ Unresolvable targets raise focused errors: `MissingTemplateRefError`,
 
 ## XLSX escape hatches
 
-Backend-specific extensions live in `caxton.api.xlsx`, are namespaced, and never
-appear in the core model.
+Backend-specific extensions live in `caxton.api.xlsx` and are namespaced. They
+are declarations — a target name plus the capabilities a renderer must report —
+so they carry no renderer objects and re-export nothing from `caxton._internal`.
 
 ### OpenPyXL hooks
 
@@ -108,13 +111,15 @@ incompatible renderer fails early.
 ### Pivot rebinding
 
 ```python
-from caxton import ref
+from caxton import slot
 from caxton.api import xlsx
 
-xlsx.pivot("SalesPivot", source=ref("report_data"), refresh_on_open=True)
+xlsx.pivot("SalesPivot", source=slot("report_data"), refresh_on_open=True)
 ```
 
-This rebinds an existing pivot cache in the template to generated data. Pivot
+This rebinds an existing pivot cache in the template to generated data. The
+source is a template region (`slot(...)`) or a named caxton table
+(`table_ref(...)`). Pivot
 package paths and relationships stay backend-local descriptor data.
 
 !!! note

@@ -8,9 +8,14 @@ from xlsxwriter.format import Format  # type: ignore[import-untyped]
 from xlsxwriter.worksheet import Worksheet  # type: ignore[import-untyped]
 
 from caxton._internal.backends._common import display_width, fitted_width
+from caxton._internal.backends._xlsx_values import (
+    validate_xlsx_text,
+    validate_xlsx_value,
+)
 from caxton._internal.formulas import lower_excel_formula
 from caxton.core.ir import SpreadsheetTableIR
 from caxton.core.types import Link
+from caxton.core.values import CellValue
 
 WrittenRows = tuple[int, tuple[int, ...], dict[tuple[int, int], object]]
 
@@ -26,10 +31,10 @@ def write_headers(
     for column in table.columns:
         physical_column = start_column + column.offset
         _require_write(
-            worksheet.write(
+            worksheet.write_string(
                 header_row,
                 physical_column,
-                column.title,
+                validate_xlsx_text(column.title, role="table header"),
                 header_format,
             ),
             operation="header",
@@ -74,6 +79,8 @@ def write_rows(
             widths,
             merge_starts,
             merge_values,
+            worksheet_name=worksheet.name,
+            row_index=row.index,
         )
     return last_row, tuple(widths), merge_values
 
@@ -81,13 +88,16 @@ def write_rows(
 def _write_row(  # noqa: WPS211
     worksheet: Worksheet,
     table: SpreadsheetTableIR,
-    values: Sequence[object],
+    values: Sequence[CellValue],
     physical_row: int,
     start_column: int,
     column_formats: tuple[Format, ...],
     widths: list[int],
     merge_starts: set[tuple[int, int]],
     merge_values: dict[tuple[int, int], object],
+    *,
+    worksheet_name: str,
+    row_index: int,
 ) -> None:
     for column, value, cell_format in zip(
         table.columns,
@@ -113,10 +123,17 @@ def _write_row(  # noqa: WPS211
                 position=position,
             )
             continue
+        portable_value = validate_xlsx_value(
+            value,
+            worksheet=worksheet_name,
+            table=table.name,
+            row=row_index,
+            column=column.id,
+        )
         _write_cell(
             worksheet,
             position,
-            value,
+            portable_value,
             is_link=isinstance(column.semantic_type, Link),
             cell_format=cell_format,
         )
@@ -195,8 +212,9 @@ def _write_cell(
             position=position,
         )
         return
+    writer = worksheet.write_string if isinstance(value, str) else worksheet.write
     _require_write(
-        worksheet.write(row, column_index, value, cell_format),
+        writer(row, column_index, value, cell_format),
         operation="cell",
         position=position,
     )

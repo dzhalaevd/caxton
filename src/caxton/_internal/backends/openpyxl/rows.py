@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import cast
 
+from openpyxl.cell.cell import Cell
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from caxton._internal.backends._common import display_width, fitted_width
+from caxton._internal.backends._xlsx_values import (
+    validate_xlsx_text,
+    validate_xlsx_value,
+)
 from caxton._internal.backends.openpyxl.styles import apply_style, style_cell
 from caxton._internal.formulas import lower_excel_formula
 from caxton.core.ir import SpreadsheetTableIR
@@ -20,11 +26,14 @@ def write_headers(
 ) -> None:
     """Write table headers and explicit width hints."""
     for column in table.columns:
-        cell = worksheet.cell(
-            row=header_row,
-            column=start_column + column.offset,
-            value=column.title,
+        cell = cast(
+            "Cell",
+            worksheet.cell(
+                row=header_row,
+                column=start_column + column.offset,
+            ),
         )
+        set_literal_cell(cell, validate_xlsx_text(column.title, role="table header"))
         apply_style(cell, table.header_style)
         if column.width_hint is not None:
             letter = get_column_letter(start_column + column.offset)
@@ -54,6 +63,7 @@ def write_rows(
             physical_row,
             start_column,
             widths,
+            row_index=row.index,
         )
     return last_row, tuple(widths)
 
@@ -65,6 +75,8 @@ def _write_row(  # noqa: WPS211
     physical_row: int,
     start_column: int,
     widths: list[int],
+    *,
+    row_index: int,
 ) -> None:
     for column, value in zip(table.columns, values, strict=True):
         widths[column.offset] = max(widths[column.offset], display_width(value))
@@ -74,12 +86,34 @@ def _write_row(  # noqa: WPS211
                 column.formula,
                 current_row=physical_row,
             )
-        cell = worksheet.cell(
-            row=physical_row,
-            column=start_column + column.offset,
-            value=cell_value,
+        cell = cast(
+            "Cell",
+            worksheet.cell(
+                row=physical_row,
+                column=start_column + column.offset,
+            ),
         )
+        if column.formula is not None:
+            cell.value = cell_value
+        else:
+            set_literal_cell(
+                cell,
+                validate_xlsx_value(
+                    cell_value,
+                    worksheet=worksheet.title,
+                    table=table.name,
+                    row=row_index,
+                    column=column.id,
+                ),
+            )
         style_cell(cell, column)
+
+
+def set_literal_cell(cell: Cell, value: CellValue) -> None:
+    """Assign a value without letting OpenPyXL infer formula intent."""
+    cell.value = value
+    if isinstance(value, str):
+        cell.data_type = "s"
 
 
 def apply_merges(worksheet: Worksheet, table: SpreadsheetTableIR) -> None:

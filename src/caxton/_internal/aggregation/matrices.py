@@ -6,6 +6,7 @@ from collections.abc import Iterator, Sequence
 from typing import TypeAlias
 
 from caxton._internal.aggregation.execution import (
+    BUFFERED_ROW_WARNING_THRESHOLD,
     InputRow,
     evaluate_input_row,
     execute_aggregate,
@@ -36,6 +37,24 @@ class _MatrixRecord:
     column_key: GroupKey
     column_token: TokenKey
     row: InputRow
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class _MatrixRows:
+    matrix: Matrix
+    row_keys: Sequence[MatrixKeyItem]
+    column_keys: Sequence[MatrixKeyItem]
+    scopes: dict[tuple[TokenKey, TokenKey], list[InputRow]]
+    path: str
+
+    def __iter__(self) -> Iterator[tuple[CellValue, ...]]:
+        return _matrix_rows(
+            self.matrix,
+            self.row_keys,
+            self.column_keys,
+            self.scopes,
+            path=self.path,
+        )
 
 
 def prepare_matrix(
@@ -77,11 +96,11 @@ def prepare_matrix(
         _matrix_value_column(matrix.value, key, token, title, used_ids)
         for (key, token), title in zip(column_keys, headers, strict=True)
     )
-    output = _matrix_rows(
-        matrix,
-        row_keys,
-        column_keys,
-        scopes,
+    output = _MatrixRows(
+        matrix=matrix,
+        row_keys=row_keys,
+        column_keys=column_keys,
+        scopes=scopes,
         path=path,
     )
     return PreparedTabularData(
@@ -155,6 +174,7 @@ def _matrix_records(
             aggregates,
             evaluator,
             column_catalog=column_catalog,
+            path=path,
         )
         row_key = tuple(input_row.values[item.id] for item in matrix.row_dimensions)
         column_key = tuple(
@@ -169,9 +189,13 @@ def _matrix_records(
                 row=input_row,
             ),
         )
-    output = tuple(records)
-    warn_if_large_buffer(len(output), path=path, reason="matrix preparation")
-    return output
+        if len(records) == BUFFERED_ROW_WARNING_THRESHOLD + 1:
+            warn_if_large_buffer(
+                len(records),
+                path=path,
+                reason="matrix preparation",
+            )
+    return tuple(records)
 
 
 def _matrix_cell(  # noqa: WPS211

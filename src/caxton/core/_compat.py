@@ -4,11 +4,11 @@ import enum
 import sys
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    from typing import Self, final
 
     StrEnum = enum.StrEnum
 else:
-    from typing_extensions import Self
+    from typing_extensions import Self, final
 
     class StrEnum(str, enum.Enum):
         """Python 3.10-compatible subset of :class:`enum.StrEnum`."""
@@ -16,4 +16,4 @@ else:
         __str__ = str.__str__
 
 
-__all__ = ("Self", "StrEnum")
+__all__ = ("Self", "StrEnum", "final")

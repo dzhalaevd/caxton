@@ -25,6 +25,9 @@ constructors, compilers, IRs, or renderers.
 - The Semantic Model stores intent, but it does not store coordinates, layout
   decisions, execution state, caches, or backend-native objects.
 - Nested collections are available only as immutable/read-only values.
+- Concrete presentation value objects are closed to subclassing. Applications
+  customize presentation by composing those values directly or by returning
+  them from application-owned functions.
 - An entity `id` is separate from its value source (`source`) and label (`title`).
 - Validation and compilation do not modify the Semantic Model.
 - A document family owns its model, validation, compiler, IR, and testing view;
@@ -106,7 +109,10 @@ width selected through the fluent API disables automatic sizing for that column.
 
 Backend-independent semantic types include `Text`, `Integer`, `Decimal`,
 `Boolean`, `Date`, `Time`, `DateTime`, `Duration`, `Money`, `Percentage`, and
-`Link`. Formatting (alignment, border, color, font, display format, and width
+`Link`. The set is open: a user-defined `SemanticType` declares its own `name`,
+its `numeric` flag, and the display format it asks for, and every renderer
+reporting `semantic:extension` renders it through that format without knowing
+the type. Formatting (alignment, border, color, font, display format, and width
 hints) is stored separately from value semantics. The renderer controls the
 physical representation and emits a capability diagnostic when it cannot
 preserve the semantics.
@@ -143,11 +149,14 @@ The default is selected only when exactly one bundled route remains. Requirement
 analysis is renderer-independent and never reads rows merely to make this
 selection.
 
-For a path target, the built-in `FileSink` owns a sibling staging file: the
-renderer writes to the destination provided by the sink, and the sink atomically
-replaces the target only after the backend completes successfully. For a binary
-target, the adapter retries short writes until it delivers the complete output
-or raises a stable render error.
+For a path target, orchestration owns a sibling staging transaction: every
+renderer chunk is accumulated there, and the target is atomically replaced only
+after the renderer completes successfully. For a binary target, delivery is
+likewise deferred until rendering succeeds; seekable buffers are overwritten
+from offset zero and truncated, while short writes are retried until the whole
+artifact is delivered or a stable `OutputError` is raised. Backends that accept a
+seekable destination write directly into the transaction-owned buffer instead of
+creating a second staging copy.
 
 ## Data, computation, and streaming
 
@@ -300,6 +309,12 @@ MIME types/extensions, workbook operations, capabilities, and execution modes.
 A custom renderer can be passed directly without importing `_internal`; no
 global provider registry or entry-point discovery exists at this stage.
 
+Two IR contracts are stated in the types rather than in prose: table rows are a
+one-shot `RowStream` consumed exactly once — a second pass raises instead of
+yielding nothing, and `materialized()` buys a re-readable copy explicitly — and
+resolved formulas form the closed `ResolvedFormulaNode` union, so a renderer can
+match them exhaustively.
+
 For XLSX, the workbook operation is determined before adapter selection:
 
 | Operation                  | Adapter                                               |
@@ -316,11 +331,31 @@ post-processing are explicit, namespaced, and absent from the Core model.
 
 The XLSX adapter resolves generic `ref(...)` template targets through workbook-
 or worksheet-scoped defined names. A normal target is a data-only region; a
-`repeat(ref(...))` target copies the named block once per semantic row, including
+`repeat(slot(...))` target copies the named block once per semantic row, including
 styles, translated relative formulas, and contained merges. The renderer works
 on a private workbook copy and writes to the sink only after rendering, hooks,
 and ordered XLSX package post-processing succeed. Pivot package paths and
 relationships remain backend-local descriptor data.
+
+Template targets replace mapped data across the named range: unused old rows,
+literal values, and hyperlinks are cleared while styles and formulas in columns
+outside the semantic table remain template-owned. Target rows are materialized
+once before final placement validation, because their actual shape is required
+both for target-height checks and for detecting a repeated block that grows into
+another semantic placement. Because OpenPyXL does not update every dependent
+workbook structure when inserting rows, repeated blocks reject
+downstream formulas or workbook structures that cannot be shifted safely.
+Presentation intent that the data-only target route cannot preserve is rejected
+before row preparation rather than silently lost. A portable empty native table
+owns one blank data row; an optional semantic footer is placed after that row and
+is not included in the native table range.
+
+XLSX materialization preserves the semantic distinction between literal text,
+formulas, and links. Both bundled adapters reject values XLSX cannot represent
+portably—non-finite numbers, integers or decimals beyond Excel's 15 significant
+digits (ignoring insignificant trailing zeroes), overlong cell text, binary cell
+values, and timezone-aware date/time values—with stable semantic context
+instead of backend-specific failures or silent coercion.
 
 Caxton ships as a single distribution. XlsxWriter and OpenPyXL are part of the
 base runtime dependencies, but they do not form a shared rendering pipeline:

@@ -6,10 +6,13 @@ from collections.abc import Iterable, Iterator, Mapping, Sized
 from typing import Any, Generic, NoReturn, TypeVar, cast
 
 from caxton._internal.const import _KNOWN_CONTAINERS
-from caxton.core.errors import DataSourceConsumedError, UnsupportedDataSourceError
+from caxton.core.accessors import DefaultRowAccessor
+from caxton.core.errors import (
+    CaxtonTypeError,
+    DataSourceConsumedError,
+    UnsupportedDataSourceError,
+)
 from caxton.core.protocols import DataSource, Repeatability, RowAccessor
-
-from .accessors import DefaultRowAccessor
 
 RowT = TypeVar("RowT")
 
@@ -55,12 +58,12 @@ def coerce_data_source(  # noqa: C901, WPS212
         A lazy source implementing the public protocol.
 
     Raises:
-        TypeError: If an accessor is supplied for an existing data source.
+        CaxtonTypeError: If an accessor is supplied for an existing data source.
     """
     if isinstance(data, DataSource):
         if accessor is not None:
             message = "An accessor cannot override a ready DataSource"
-            raise TypeError(message)
+            raise CaxtonTypeError(message)
         return data
     _reject_columnar_source(data)
     resolved_accessor = accessor or DefaultRowAccessor()

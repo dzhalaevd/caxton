@@ -5,6 +5,7 @@ from __future__ import annotations
 import xlsxwriter  # type: ignore[import-untyped]
 from xlsxwriter.worksheet import Worksheet  # type: ignore[import-untyped]
 
+from caxton._internal.backends._xlsx_values import validate_xlsx_text
 from caxton._internal.backends.xlsxwriter.styles import footer_format, style_format
 from caxton._internal.const import _AGGREGATES
 from caxton.core.ir import SpreadsheetTableIR
@@ -25,10 +26,10 @@ def write_footer(  # noqa: WPS211
         return
     footer_row = last_row + 1
     cell_format = style_format(workbook, footer.style)
-    worksheet.write(
+    worksheet.write_string(
         footer_row,
         start_column + footer.label_column_offset,
-        footer.label,
+        validate_xlsx_text(footer.label, role="table footer label"),
         cell_format,
     )
     for item in footer.items:

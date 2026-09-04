@@ -1,4 +1,4 @@
-from caxton._internal.backends.openpyxl.extensions import (
+from caxton.core.models.extensions import (
     OpenpyxlHook,
     OpenpyxlHookContext,
     OpenpyxlHookExtension,

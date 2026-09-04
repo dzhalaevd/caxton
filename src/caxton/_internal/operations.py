@@ -10,12 +10,15 @@ from caxton._internal.requirements import analyze_spreadsheet_requirements
 from caxton._internal.resolver import BuiltinRendererResolver, canonical_format_name
 from caxton._internal.sinks import (
     BufferSink,
-    CapturingSink,
+    BufferTransactionSink,
+    FileSink,
+    FileTransactionSink,
     MemorySink,
     coerce_output_sink,
 )
 from caxton._internal.templates import XlsxTemplateCompiler, XlsxTemplateInspector
 from caxton._internal.validation import validate_spreadsheet
+from caxton.core.errors import CaxtonTypeError
 from caxton.core.ir import SpreadsheetIR
 from caxton.core.models import SpreadsheetDocument
 from caxton.core.protocols import OutputSink, OutputTarget, Renderer, TemplateRenderer
@@ -70,35 +73,43 @@ def write_document(  # noqa: WPS211
     """
     resolved_format = format_name or _infer_format(target) or "xlsx"
     sink, target_label = coerce_output_sink(target)
-    buffer_sink = sink if isinstance(sink, BufferSink) else None
-    needs_capture = (
-        target_label is None
-        and buffer_sink is not None
-        and buffer_sink.seekable_buffer is None
-    )
-    capturing_sink = CapturingSink(sink) if needs_capture else None
-    result = _execute(
-        document,
-        capturing_sink or sink,
-        format_name=resolved_format,
-        backend=backend,
-        mode=mode,
-        renderer=renderer,
-    )
+    transaction = _output_transaction(sink)
+    try:
+        result = _execute(
+            document,
+            transaction,
+            format_name=resolved_format,
+            backend=backend,
+            mode=mode,
+            renderer=renderer,
+        )
+        transaction.commit()
+    except BaseException:
+        transaction.abort()
+        raise
     return dataclasses.replace(
         result,
-        data=_result_data(capturing_sink, buffer_sink),
+        data=(
+            transaction.getvalue()
+            if isinstance(transaction, BufferTransactionSink)
+            else None
+        ),
         target=target_label,
     )
 
 
-def _result_data(
-    capturing_sink: CapturingSink | None,
-    buffer_sink: BufferSink | None,
-) -> bytes | None:
-    if capturing_sink is not None:
-        return capturing_sink.getvalue()
-    return buffer_sink.getvalue() if buffer_sink is not None else None
+def _output_transaction(
+    sink: OutputSink,
+) -> FileTransactionSink | BufferTransactionSink:
+    if isinstance(sink, FileSink):
+        return FileTransactionSink(sink)
+    if isinstance(sink, BufferSink):
+        return BufferTransactionSink(sink)
+    message = f"Unsupported transactional sink: {type(sink).__name__}"
+    raise CaxtonTypeError(
+        message,
+        context={"sink_type": type(sink).__name__},
+    )
 
 
 def _execute(  # noqa: WPS211
@@ -166,14 +177,14 @@ def _execute_template(  # noqa: WPS211
         from caxton.core.errors import UnsupportedFeatureError  # noqa: PLC0415
 
         raise UnsupportedFeatureError(message)
-    inspected = XlsxTemplateInspector().inspect(template)
-    compiled = XlsxTemplateCompiler().compile(document, inspected)
     selected = BuiltinRendererResolver().select(
         required,
         format_name=format_name,
         backend=backend,
         renderer=renderer,
     )
+    inspected = XlsxTemplateInspector().inspect(template)
+    compiled = XlsxTemplateCompiler().compile(document, inspected)
     context = RenderContext(
         format=canonical_format_name(selected, format_name),
         backend=selected.descriptor.name,

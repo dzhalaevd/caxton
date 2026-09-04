@@ -35,7 +35,7 @@ The widest feature slice:
 - a totals footer, conditional rules, autofilter, freeze panes, auto width;
 - a hierarchically grouped table with a filtered Python aggregate and a default;
 - a matrix with dynamic axes;
-- a `StyleSheet` plus a `CorporateTheme`.
+- a `StyleSheet` plus an application-composed `DocumentTheme`.
 
 It then asserts the rendered formulas and merge ranges in the finished workbook.
 
@@ -49,7 +49,7 @@ chose.
 ## `template` — filling an existing workbook
 
 Loads a bundled XLSX template, writes rows into its `report_data` named range
-with `into=ref(...)`, and attaches an OpenPyXL hook to set the print area. It
+with `into=slot(...)`, and attaches an OpenPyXL hook to set the print area. It
 asserts both the populated values and that the source template file is
 byte-identical afterwards.
 

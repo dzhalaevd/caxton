@@ -5,8 +5,10 @@ from collections.abc import Callable
 from typing import Any, TypeAlias
 
 from caxton.core.errors import CaxtonTypeError
-from caxton.core.models import ColumnRef, TableReference
-from caxton.core.models._validation import require_name
+
+from ._validation import require_name
+from .formulas import TableReference
+from .templates import TemplateRef
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -45,7 +47,7 @@ class PivotBinding:
     """XLSX-only intent to rebind an existing pivot cache source."""
 
     target: str
-    source: ColumnRef | TableReference
+    source: TemplateRef | TableReference
     refresh_on_open: bool = True
     namespace: str = dataclasses.field(default="xlsx.pivot", init=False)
     required_capabilities: frozenset[str] = dataclasses.field(
@@ -55,8 +57,8 @@ class PivotBinding:
 
     def __post_init__(self) -> None:
         require_name(self.target, "Pivot target")
-        if not isinstance(self.source, (ColumnRef, TableReference)):
-            message = "Pivot source must be created with ref() or table_ref()"
+        if not isinstance(self.source, (TemplateRef, TableReference)):
+            message = "Pivot source must be created with slot() or table_ref()"
             raise CaxtonTypeError(message)
 
 
@@ -76,7 +78,7 @@ def openpyxl_hook(
 def pivot(
     target: str,
     *,
-    source: ColumnRef | TableReference,
+    source: TemplateRef | TableReference,
     refresh_on_open: bool = True,
 ) -> PivotBinding:
     """Bind an existing XLSX pivot to generated data.

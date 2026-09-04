@@ -77,4 +77,8 @@ recommended default.
       members:
         — template
         - repeat
+        - slot
         - data_source
+        - DefaultRowAccessor
+        - MappingRowAccessor
+        - AttributeRowAccessor

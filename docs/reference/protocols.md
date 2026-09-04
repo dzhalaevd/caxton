@@ -13,6 +13,7 @@ target or renderer — no registration and no `caxton._internal` import required
         — DataSource
         - DataSourceInfo
         - RowAccessor
+        - RowSourceInput
         - Repeatability
 
 ## Rendering and output

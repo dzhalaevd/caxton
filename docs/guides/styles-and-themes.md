@@ -77,13 +77,27 @@ DocumentTheme(
 )
 ```
 
-`CorporateTheme` is the shorthand for the common branded-header case:
+Applications can package a reusable branded theme in an ordinary function. The
+function still returns the exact value type understood by Caxton instead of
+introducing a theme subclass whose additional state would be ignored:
 
 ```python
-from caxton import CorporateTheme
+from caxton import DocumentTheme, FontStyle, Style
 
-CorporateTheme(font="Arial", header_fill="#004B8D", header_font_color="#FFFFFF")
+
+def acme_theme() -> DocumentTheme:
+    return DocumentTheme(
+        default=Style(font=FontStyle(name="Arial")),
+        header=Style(
+            font=FontStyle(name="Arial", bold=True, color="#FFFFFF"),
+            fill="#004B8D",
+        ),
+        total=Style(font=FontStyle(name="Arial", bold=True)),
+    )
 ```
+
+Presentation value objects are closed to subclassing. Compose them directly or
+return them from application-owned functions when reusable defaults are needed.
 
 ## Resolution order
 

@@ -7,9 +7,26 @@ from typing import Generic, Protocol, TypeAlias, TypeVar, runtime_checkable
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 
 from ._validation import require_name
-from .expressions import ColumnRef
 
-TemplateReference: TypeAlias = ColumnRef
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class TemplateRef:
+    """Logical name of a region inside a template.
+
+    A template reference names a region of the template document, such as
+    an XLSX named range. It is deliberately not a
+    :class:`~caxton.core.models.expressions.ColumnRef`: a column reference
+    names a semantic column of a table, and the two live in different
+    namespaces even when they share a spelling.
+    """
+
+    name: str
+
+    def __post_init__(self) -> None:
+        require_name(self.name, "Template reference name")
+
+
+TemplateReference: TypeAlias = TemplateRef
 
 
 @runtime_checkable
@@ -25,7 +42,11 @@ class Extension(Protocol):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class TemplateSpecification:
-    """Immutable, format-independent description of a template source."""
+    """Immutable, format-independent description of a template source.
+
+    A path is resolved when the template is inspected for rendering. Raw bytes
+    are retained directly in the semantic model.
+    """
 
     source: str | bytes
     format: str
@@ -56,11 +77,11 @@ class TemplateSpecification:
 class TemplateRepeat:
     """Generic intent to repeat the region identified by a logical reference."""
 
-    reference: TemplateReference
+    reference: TemplateRef
 
     def __post_init__(self) -> None:
-        if not isinstance(self.reference, ColumnRef):
-            message = "Repeat target must be created with ref()"
+        if not isinstance(self.reference, TemplateRef):
+            message = "Repeat target must be created with slot()"
             raise CaxtonTypeError(message)
 
 
@@ -109,6 +130,7 @@ __all__ = (
     "ResolvedTemplateTarget",
     "TemplateCompilationResult",
     "TemplateContext",
+    "TemplateRef",
     "TemplateReference",
     "TemplateRepeat",
     "TemplateSpecification",

@@ -1,19 +1,29 @@
+from typing import Literal
+
+from typing_extensions import assert_type
+
 from caxton import (
     AutoWidth,
-    CorporateTheme,
+    DocumentTheme,
+    FontStyle,
     Freeze,
     Style,
     StyleSheet,
     Total,
     Totals,
     col,
+    date_format,
     decimal,
     field,
     sheet,
     spreadsheet,
     table,
+    time_format,
     when,
 )
+
+assert_type(date_format().variant, Literal["iso", "short", "long"])
+assert_type(time_format().clock, Literal[12, 24])
 
 styles = StyleSheet({"number": Style(fill="#D9EAF7")})
 document = spreadsheet(
@@ -37,9 +47,12 @@ document = spreadsheet(
         freeze=Freeze(rows=0, columns=1),
     ),
     styles=styles,
-    theme=CorporateTheme(
-        font="Arial",
-        header_fill="#004B8D",
-        header_font_color="#FFFFFF",
+    theme=DocumentTheme(
+        default=Style(font=FontStyle(name="Arial")),
+        header=Style(
+            font=FontStyle(name="Arial", bold=True, color="#FFFFFF"),
+            fill="#004B8D",
+        ),
+        total=Style(font=FontStyle(name="Arial", bold=True)),
     ),
 )

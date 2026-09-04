@@ -30,6 +30,7 @@ from caxton.core.rendering import (
     RequiredCapabilities,
     WorkbookOperation,
 )
+from caxton.core.types import BUILTIN_SEMANTIC_TYPES, SemanticType
 
 
 def analyze_spreadsheet_requirements(  # noqa: C901, WPS213
@@ -212,11 +213,17 @@ def _source_requirements(
     )
 
 
+def _semantic_feature(semantic_type: SemanticType) -> str:
+    if type(semantic_type) in BUILTIN_SEMANTIC_TYPES:  # noqa: WPS516
+        return f"semantic:{semantic_type.name}"
+    return "semantic:extension"
+
+
 def _column_features(  # noqa: C901
     column: Column,
     document: SpreadsheetDocument,
 ) -> set[str]:
-    features = {f"semantic:{column.semantic_type.name}"}
+    features = {_semantic_feature(column.semantic_type)}
     if column.alignment is not None:
         features.add("alignment")
     if column.width_hint is not None:

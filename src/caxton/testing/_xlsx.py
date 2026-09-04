@@ -4,6 +4,7 @@ from io import BytesIO
 from typing import cast
 
 from openpyxl.cell.cell import Cell, MergedCell
+from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.table import Table
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -29,7 +30,7 @@ def inspect_xlsx(payload: bytes, *, source: str) -> SpreadsheetArtifact:
         ModuleNotFoundError: If a missing transitive module prevents import.
     """
     try:
-        return _inspect_workbook(payload)
+        workbook = _load_workbook(payload)
     except ModuleNotFoundError as error:
         if error.name != "openpyxl":
             raise
@@ -44,17 +45,17 @@ def inspect_xlsx(payload: bytes, *, source: str) -> SpreadsheetArtifact:
             message,
             context={"format": "xlsx", "source": source},
         ) from error
-
-
-def _inspect_workbook(payload: bytes) -> SpreadsheetArtifact:
-    from openpyxl import load_workbook  # noqa: PLC0415
-
-    workbook = load_workbook(BytesIO(payload))
     try:
         worksheets = tuple(_inspect_worksheet(item) for item in workbook.worksheets)
         return SpreadsheetArtifact(format="xlsx", worksheets=worksheets)
     finally:
         workbook.close()
+
+
+def _load_workbook(payload: bytes) -> Workbook:
+    from openpyxl import load_workbook  # noqa: PLC0415
+
+    return load_workbook(BytesIO(payload))
 
 
 def _inspect_worksheet(worksheet: Worksheet) -> ArtifactWorksheet:
@@ -66,7 +67,10 @@ def _inspect_worksheet(worksheet: Worksheet) -> ArtifactWorksheet:
     )
     columns = tuple(
         ArtifactColumn(letter=letter, width=dimension.width)
-        for letter, dimension in sorted(worksheet.column_dimensions.items())
+        for letter, dimension in sorted(
+            worksheet.column_dimensions.items(),
+            key=_column_dimension_key,
+        )
     )
     tables = tuple(
         _inspect_table(worksheet.tables[name]) for name in sorted(worksheet.tables)
@@ -142,8 +146,19 @@ def _inspect_conditional_formats(
     return tuple(inspected)
 
 
-def _color(value: object) -> str | None:
-    if value is None or getattr(value, "type", None) != "rgb":
+def _color(value: object) -> str | None:  # noqa: C901, WPS212
+    if value is None:
+        return None
+    color_type = getattr(value, "type", None)
+    if color_type == "theme":
+        theme = getattr(value, "theme", None)
+        return None if theme is None else f"theme:{theme}"
+    if color_type == "indexed":
+        indexed = getattr(value, "indexed", None)
+        return None if indexed is None else f"indexed:{indexed}"
+    if color_type == "auto":
+        return "auto"
+    if color_type != "rgb":
         return None
     rgb = getattr(value, "rgb", None)
     if not isinstance(rgb, str):
@@ -154,9 +169,21 @@ def _color(value: object) -> str | None:
 
 def _fill_color(fill: object) -> str | None:
     foreground = _color(getattr(fill, "fgColor", None))
+    if getattr(fill, "patternType", None) == "solid":
+        return foreground or _color(getattr(fill, "bgColor", None))
     if foreground not in {None, "#000000"}:
         return foreground
     return _color(getattr(fill, "bgColor", None))
+
+
+def _column_index(letter: str) -> int:
+    from openpyxl.utils import column_index_from_string  # noqa: PLC0415
+
+    return int(column_index_from_string(letter))
+
+
+def _column_dimension_key(item: tuple[str, object]) -> int:
+    return _column_index(item[0])
 
 
 def _inspect_table(table: Table) -> ArtifactTable:
@@ -173,7 +200,19 @@ def _inspect_table(table: Table) -> ArtifactTable:
     column_titles = tuple(column.name for column in table.tableColumns)
     expected_columns = max_column - min_column + 1
     if len(column_titles) != expected_columns:
-        column_titles = ()
+        message = (
+            f"Table {table.displayName!r} declares {len(column_titles)} columns "
+            f"over a {expected_columns}-column range"
+        )
+        raise ArtifactInspectionError(
+            message,
+            context={
+                "table": table.displayName,
+                "range": table.ref,
+                "declared_columns": len(column_titles),
+                "range_columns": expected_columns,
+            },
+        )
     return ArtifactTable(
         name=table.displayName,
         cell_range=table.ref,

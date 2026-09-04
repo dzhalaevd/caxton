@@ -3,7 +3,8 @@ from __future__ import annotations
 import dataclasses
 import decimal
 import math
-from typing import TypeAlias, overload
+import warnings
+from typing import TypeAlias, TypeVar, cast, overload
 
 from caxton.core._compat import Self, StrEnum
 from caxton.core._values import normalize_cell_value
@@ -115,14 +116,15 @@ class CellReference(Formula):
             row_absolute=row,
         )
 
-    def relative(self, *, column: bool = True, row: bool = True) -> Self:
-        """Return a reference whose axes are relative exactly as requested.
+    def relative(self, *, column: bool | None = None, row: bool | None = None) -> Self:
+        """Return a reference with both axes relative.
 
         Returns:
-            A reference with the requested axes made relative and the others
-            made absolute.
+            A reference with both axes relative. The per-axis flags are
+            deprecated: they invert their argument, so ``relative(row=False)``
+            makes the row absolute. Use :meth:`absolute` instead.
         """
-        return self.absolute(column=not column, row=not row)
+        return _relative(self, column=column, row=row)
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
@@ -163,14 +165,15 @@ class RangeReference(Formula):
             row_absolute=row,
         )
 
-    def relative(self, *, column: bool = True, row: bool = True) -> Self:
-        """Return a range whose axes are relative exactly as requested.
+    def relative(self, *, column: bool | None = None, row: bool | None = None) -> Self:
+        """Return a range with both axes relative.
 
         Returns:
-            A range with the requested axes made relative and the others made
-            absolute.
+            A range with both axes relative. The per-axis flags are deprecated:
+            they invert their argument, so ``relative(row=False)`` makes the
+            row absolute. Use :meth:`absolute` instead.
         """
-        return self.absolute(column=not column, row=not row)
+        return _relative(self, column=column, row=row)
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
@@ -249,6 +252,28 @@ def absolute(
     return reference.absolute(column=column, row=row)
 
 
+_ReferenceT = TypeVar("_ReferenceT", bound="CellReference | RangeReference")
+
+
+def _relative(
+    reference: _ReferenceT,
+    *,
+    column: bool | None,
+    row: bool | None,
+) -> _ReferenceT:
+    if column is not None or row is not None:
+        warnings.warn(
+            "relative(column=..., row=...) inverts its flags and is deprecated; "
+            "use absolute(column=..., row=...)",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+    absolute_column = False if column is None else not column
+    absolute_row = False if row is None else not row
+    made = reference.absolute(column=absolute_column, row=absolute_row)
+    return cast("_ReferenceT", made)
+
+
 def as_formula(value: FormulaInput) -> Formula:
     """Normalize declared formula input into a formula node.
 
@@ -295,7 +320,6 @@ __all__ = (
     "TableReference",
     "absolute",
     "as_formula",
-    "coerce_formula",
     "col",
     "sheet_ref",
     "table_ref",

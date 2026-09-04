@@ -75,7 +75,7 @@ def validate_chart_sources(
     notification: Notification,
 ) -> None:
     tables = {
-        table.name: table
+        (worksheet.name, table.name): table
         for worksheet in document.worksheets
         for table in iter_tables(worksheet.blocks)
         if table.name is not None
@@ -86,6 +86,7 @@ def validate_chart_sources(
                 _validate_chart(
                     block,
                     tables,
+                    worksheet=worksheet.name,
                     path=f'worksheet["{worksheet.name}"].{block_path}',
                     notification=notification,
                 )
@@ -117,18 +118,29 @@ def validate_placement(
 
 def _validate_chart(
     chart: Chart,
-    tables: dict[str, SpreadsheetTable],
+    tables: dict[tuple[str, str], SpreadsheetTable],
     *,
+    worksheet: str,
     path: str,
     notification: Notification,
 ) -> None:
-    table = tables.get(chart.source.name)
+    requested_sheet = chart.source.sheet_name or worksheet
+    table = tables.get((requested_sheet, chart.source.name))
+    if table is None and chart.source.sheet_name is None:
+        table = next(
+            (
+                candidate
+                for (_sheet, name), candidate in tables.items()
+                if name == chart.source.name
+            ),
+            None,
+        )
     if table is None:
         notification.add(
             f"Table {chart.source.name!r} was not found",
             path=f"{path}.source",
             code="table_not_found",
-            context={"table": chart.source.name},
+            context={"sheet": requested_sheet, "table": chart.source.name},
         )
         return
     column_ids = {column.id for column in table.columns}

@@ -13,8 +13,8 @@ from caxton import (  # noqa: WPS347
     decimal,
     field,
     integer,
-    ref,
     sheet,
+    slot,
     spreadsheet,
     table,
     template,
@@ -67,7 +67,7 @@ def build_report() -> SpreadsheetDocument:
                     integer(id="quantity", source=field("quantity")),
                     decimal(id="unit_price", source=field("unit_price")),
                 ),
-                into=ref("report_data"),
+                into=slot("report_data"),
             ),
         ),
         template=template(

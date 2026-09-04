@@ -107,3 +107,26 @@ result = write(document, "out.custom", renderer=MyRenderer())
 
 There is no global registry and no entry-point discovery at this stage — pass the
 renderer directly. It never needs to import `caxton._internal`.
+
+### Reading table rows
+
+`SpreadsheetTableIR.rows` is a `RowStream`, not a sequence: rows stay lazy and
+may come from a generator or a one-shot data source, so the stream is consumed
+exactly once.
+
+```python
+for row in table.rows.consume():  # or just: for row in table.rows
+    ...
+```
+
+A second pass raises `InvalidOperationError` rather than silently yielding
+nothing. A renderer that genuinely needs two passes pays for it explicitly with
+`rows = table.rows.materialized()`, which reads the rows into memory and hands
+back a fresh stream; `rows.row_count` is the row count when the source knows it
+without reading.
+
+Formula nodes are a closed set: match `ResolvedFormulaNode` exhaustively and a
+type checker reports the forgotten branch when the IR grows a node.
+
+Artifact bytes are `RenderResult.data`. The older `.content` alias is deprecated
+and emits a `DeprecationWarning`.

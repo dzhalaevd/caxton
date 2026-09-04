@@ -7,9 +7,9 @@ from io import BytesIO
 from pathlib import Path
 
 from caxton.core.errors import TemplateFormatError
-from caxton.core.models import ColumnRef
 from caxton.core.models.templates import (
     Extension,
+    TemplateRef,
     TemplateRepeat,
     TemplateSpecification,
 )
@@ -48,13 +48,22 @@ def template(  # noqa: WPS125
     )
 
 
-def repeat(reference: ColumnRef) -> TemplateRepeat:
+def slot(name: str) -> TemplateRef:
+    """Name a region of the template document, such as a named range.
+
+    Returns:
+        An immutable logical template reference.
+    """
+    return TemplateRef(name)
+
+
+def repeat(reference: TemplateRef | str) -> TemplateRepeat:
     """Repeat a logically referenced template region for table rows.
 
     Returns:
         Immutable generic repeat intent.
     """
-    return TemplateRepeat(reference)
+    return TemplateRepeat(slot(reference) if isinstance(reference, str) else reference)
 
 
 def _detect_format(source: str | bytes) -> str | None:
@@ -73,4 +82,4 @@ def _detect_format(source: str | bytes) -> str | None:
     return None
 
 
-__all__ = ("repeat", "template")
+__all__ = ("repeat", "slot", "template")
