@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import inspect
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -223,6 +224,13 @@ class Notification:
         ):
             message_type = "Notification error class must be a ValidationError type"
             raise CaxtonTypeError(message_type)
+        try:
+            inspect.signature(error_class).bind(message, issues=tuple(self._issues))
+        except (TypeError, ValueError) as error:
+            message_type = (
+                "Notification error class must accept message and issues arguments"
+            )
+            raise CaxtonTypeError(message_type) from error
         if self._issues:
             raise error_class(message, issues=tuple(self._issues))
 

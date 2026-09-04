@@ -579,6 +579,13 @@ def _closure_value(cell: types.CellType) -> object:
 
 
 def _stable_token(value: object) -> object:
+    return _stable_token_inner(value, set())
+
+
+def _stable_token_inner(  # noqa: C901, WPS212
+    value: object,
+    active: set[int],
+) -> object:
     if value is None or isinstance(
         value,
         (
@@ -597,20 +604,39 @@ def _stable_token(value: object) -> object:
         ),
     ):
         return _scalar_token(value)
-    if isinstance(value, (enum.Enum, types.CodeType)):
+    if isinstance(value, enum.Enum):
         return _special_token(value)
-    if isinstance(value, (Mapping, AbstractSet, Sequence)):
-        return _container_token(value)
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return [
-            "dataclass",
-            _type_name(value),
-            [
-                [field.name, _stable_token(getattr(value, field.name))]
-                for field in dataclasses.fields(value)
-            ],
-        ]
-    return ["object", _type_name(value)]
+    identity = id(value)
+    if identity in active:
+        return ["cycle", _type_name(value)]
+    active.add(identity)
+    try:
+        if isinstance(value, types.CodeType):
+            return _code_token(value, active)
+        if isinstance(value, (Mapping, AbstractSet, Sequence)):
+            return _container_token(value, active)
+        if dataclasses.is_dataclass(value) and not isinstance(value, type):
+            return [
+                "dataclass",
+                _type_name(value),
+                [
+                    [
+                        field.name,
+                        _stable_token_inner(getattr(value, field.name), active),
+                    ]
+                    for field in dataclasses.fields(value)
+                ],
+            ]
+        state = getattr(value, "__dict__", None)
+        if isinstance(state, Mapping):
+            return [
+                "object",
+                _type_name(value),
+                _stable_token_inner(state, active),
+            ]
+        return ["object", _type_name(value)]
+    finally:
+        active.remove(identity)
 
 
 def _scalar_token(value: object) -> object:  # noqa: C901, WPS212
@@ -641,36 +667,34 @@ def _scalar_token(value: object) -> object:  # noqa: C901, WPS212
 
 
 def _instance_token(value: object) -> object:
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return _stable_token(value)
-    state = getattr(value, "__dict__", None)
-    if not isinstance(state, Mapping):
-        return ["object", _type_name(value)]
-    return ["object", _type_name(value), _stable_token(state)]
+    return _stable_token(value)
 
 
-def _special_token(value: enum.Enum | types.CodeType) -> object:
-    if isinstance(value, enum.Enum):
-        return ["enum", _type_name(value), value.name]
-    return _code_token(value)
+def _special_token(value: enum.Enum) -> object:
+    return ["enum", _type_name(value), value.name]
 
 
 def _container_token(
     value: Mapping[object, object] | AbstractSet[object] | Sequence[object],
+    active: set[int],
 ) -> object:
     if isinstance(value, Mapping):
         items = [
-            (_stable_token(key), _stable_token(item)) for key, item in value.items()
+            (
+                _stable_token_inner(key, active),
+                _stable_token_inner(item, active),
+            )
+            for key, item in value.items()
         ]
         return ["mapping", sorted(items, key=_serialized_token)]
     if isinstance(value, AbstractSet):
-        tokens = (_stable_token(item) for item in value)
+        tokens = (_stable_token_inner(item, active) for item in value)
         return ["set", sorted(tokens, key=_serialized_token)]
-    sequence_items = [_stable_token(item) for item in value]
+    sequence_items = [_stable_token_inner(item, active) for item in value]
     return [type(value).__name__, sequence_items]
 
 
-def _code_token(code: types.CodeType) -> object:
+def _code_token(code: types.CodeType, active: set[int]) -> object:
     return [
         "code",
         code.co_argcount,
@@ -682,7 +706,7 @@ def _code_token(code: types.CodeType) -> object:
         code.co_varnames,
         code.co_freevars,
         code.co_cellvars,
-        tuple(_stable_token(item) for item in code.co_consts),
+        tuple(_stable_token_inner(item, active) for item in code.co_consts),
     ]
 
 

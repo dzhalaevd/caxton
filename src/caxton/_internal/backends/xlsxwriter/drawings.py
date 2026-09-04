@@ -5,6 +5,10 @@ from __future__ import annotations
 from io import BytesIO
 
 import xlsxwriter  # type: ignore[import-untyped]
+from xlsxwriter.exceptions import (  # type: ignore[import-untyped]
+    UndefinedImageSize,
+    UnsupportedImageFormat,
+)
 from xlsxwriter.image import Image as XlsxImage  # type: ignore[import-untyped]
 from xlsxwriter.worksheet import Worksheet  # type: ignore[import-untyped]
 
@@ -70,7 +74,7 @@ def render_image(worksheet: Worksheet, picture: SpreadsheetImageIR) -> None:
             filename,
             options,
         )
-    except OSError as error:
+    except (OSError, UnsupportedImageFormat, UndefinedImageSize) as error:
         message = "Image source could not be read"
         raise RenderError(
             message,
@@ -80,7 +84,7 @@ def render_image(worksheet: Worksheet, picture: SpreadsheetImageIR) -> None:
 
 def _unreadable_image_context(
     picture: SpreadsheetImageIR,
-    error: OSError,
+    error: OSError | UnsupportedImageFormat | UndefinedImageSize,
 ) -> dict[str, object]:
     context: dict[str, object] = {"exception_type": type(error).__name__}
     if isinstance(picture.source, str):

@@ -2,6 +2,7 @@ import dataclasses
 import datetime as dt
 from collections.abc import Iterator
 from itertools import starmap
+from typing import Any
 
 import pytest
 
@@ -157,6 +158,21 @@ def test_style_shorthands_normalize_to_semantic_value() -> None:
     assert shorthand == structured
     assert hash(shorthand) == hash(structured)
     assert shorthand.merged_over(Style()) == shorthand
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"font": "bold", "font_color": "#FF0000"},
+        {"alignment": "left", "align": "center"},
+        {"border": "none", "border_top": "thin"},
+    ],
+)
+def test_style_validates_before_shorthand_merge(
+    arguments: dict[str, Any],
+) -> None:
+    with pytest.raises(CaxtonTypeError, match="invalid type"):
+        Style(**arguments)
 
 
 def test_style_shorthands_remain_replaceable() -> None:

@@ -164,6 +164,20 @@ def test_notification_public_snapshot() -> None:
     assert captured.value.issues == (first, second)
 
 
+@pytest.mark.parametrize(
+    "error_class",
+    [ColumnNotFoundError, CyclicReferenceError],
+)
+def test_notification_rejects_specialized_errors(
+    error_class: type[ValidationError],
+) -> None:
+    notification = Notification()
+    notification.add("invalid")
+
+    with pytest.raises(CaxtonTypeError, match="accept message and issues"):
+        notification.raise_if_errors(error_class=error_class)
+
+
 def test_backend_exception_is_wrapped_and_chained() -> None:
     backend_error = RuntimeError("openpyxl failed")
 

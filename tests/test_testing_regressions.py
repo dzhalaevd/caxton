@@ -88,6 +88,29 @@ class _ConfiguredCallable:
         return self.value
 
 
+class _NestedState:  # noqa: B903 - exercises non-dataclass object state
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+
+class _NestedCallable:
+    __caxton_id__: str
+
+    def __init__(self, value: int) -> None:
+        self.state = _NestedState(value)
+
+    def __call__(self, _row: object) -> int:
+        return self.state.value
+
+
+class _CyclicCallable:
+    def __init__(self) -> None:
+        self.state = self
+
+    def __call__(self, _row: object) -> int:
+        return 1
+
+
 @pytest.mark.parametrize(
     ("first", "second"),
     [
@@ -99,6 +122,7 @@ class _ConfiguredCallable:
         (_constant(dt.date(2020, 1, 1)), _constant(dt.date(2099, 1, 1))),
         (_Multiplier(2), _Multiplier(1000)),
         (_ConfiguredCallable(1).compute, _ConfiguredCallable(2).compute),
+        (_NestedCallable(1), _NestedCallable(2)),
     ],
 )
 def test_callable_identity_includes_supported_callable_state(
@@ -106,6 +130,19 @@ def test_callable_identity_includes_supported_callable_state(
     second: Callable[[object], object],
 ) -> None:
     assert _callable_source(first) != _callable_source(second)
+
+
+def test_callable_identity_handles_cyclic_state() -> None:
+    assert _callable_source(_CyclicCallable()) == _callable_source(_CyclicCallable())
+
+
+def test_explicit_callable_identity_overrides_state() -> None:
+    first = _NestedCallable(1)
+    second = _NestedCallable(2)
+    first.__caxton_id__ = "shared"
+    second.__caxton_id__ = "shared"
+
+    assert _callable_source(first) == _callable_source(second)
 
 
 def test_block_difference_has_nested_semantic_path() -> None:

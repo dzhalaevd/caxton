@@ -214,7 +214,7 @@ def _source_requirements(
 
 
 def _semantic_feature(semantic_type: SemanticType) -> str:
-    if isinstance(semantic_type, BUILTIN_SEMANTIC_TYPES):
+    if type(semantic_type) in BUILTIN_SEMANTIC_TYPES:  # noqa: WPS516
         return f"semantic:{semantic_type.name}"
     return "semantic:extension"
 

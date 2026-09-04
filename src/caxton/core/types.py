@@ -108,9 +108,10 @@ class Money(SemanticType):
     currency: str | None = None
 
     def __post_init__(self) -> None:
-        if self.currency is not None and (
-            not isinstance(self.currency, str) or not self.currency.strip()
-        ):
+        if self.currency is not None and not isinstance(self.currency, str):
+            message = "Currency must be a string"
+            raise CaxtonTypeError(message)
+        if self.currency is not None and not self.currency.strip():
             message = "Currency cannot be empty"
             raise CaxtonValueError(message)
 

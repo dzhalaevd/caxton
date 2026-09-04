@@ -226,6 +226,14 @@ class Style:
         border_bottom: BorderLineInput | None = None,
         border_left: BorderLineInput | None = None,
     ) -> None:
+        normalized_fill = FillStyle(fill) if isinstance(fill, str) else fill
+        _validate_style_components(
+            font,
+            normalized_fill,
+            border,
+            alignment,
+            display_format,
+        )
         if font_color is not None:
             font = _merge_font(font, FontStyle(color=_color(font_color, "Font color")))
         if align is not None:
@@ -243,14 +251,6 @@ class Style:
         )
         if any(dataclasses.astuple(shorthand_border)):
             border = _merge_borders(border, shorthand_border)
-        normalized_fill = FillStyle(fill) if isinstance(fill, str) else fill
-        _validate_style_components(
-            font,
-            normalized_fill,
-            border,
-            alignment,
-            display_format,
-        )
         object.__setattr__(self, "font", font)
         object.__setattr__(
             self,

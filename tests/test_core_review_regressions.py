@@ -7,6 +7,10 @@ from collections.abc import Iterator
 from typing import ClassVar
 
 import pytest
+from xlsxwriter.exceptions import (  # type: ignore[import-untyped]
+    UndefinedImageSize,
+    UnsupportedImageFormat,
+)
 
 from caxton import (
     CaxtonTypeError,
@@ -29,6 +33,9 @@ from caxton import (
     table,
     text,
 )
+from caxton._internal.backends.xlsxwriter import (  # noqa: PLC2701
+    drawings as xlsxwriter_drawings,
+)
 from caxton.api import xlsx
 from caxton.core.formatting import CustomFormat
 from caxton.core.ir import (
@@ -41,7 +48,7 @@ from caxton.core.ir import (
 )
 from caxton.core.models import Column
 from caxton.core.models.columns import make_column
-from caxton.core.types import Money, SemanticType
+from caxton.core.types import Integer, Money
 from caxton.errors import (
     InvalidOperationError,
     MissingFieldError,
@@ -53,7 +60,7 @@ from caxton.errors import (
 _ROWS = ({"amount": 3},)
 
 
-class Rating(SemanticType):
+class Rating(Integer):
     """User-defined semantic type used to prove the extension contract."""
 
     name: ClassVar[str] = "rating"
@@ -216,6 +223,33 @@ def test_unreadable_image_names_its_source() -> None:
         render(document)
 
     assert captured.value.context["source"] == "/nonexistent/logo.png"
+    assert isinstance(captured.value.__cause__, OSError)
+
+
+@pytest.mark.parametrize(
+    "error_type",
+    [UnsupportedImageFormat, UndefinedImageSize],
+)
+def test_xlsxwriter_image_errors_are_normalized(
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
+) -> None:
+    backend_error = error_type("invalid image")
+
+    def fail(_source: object) -> None:
+        raise backend_error
+
+    monkeypatch.setattr(xlsxwriter_drawings, "_natural_size", fail)
+    document = spreadsheet(sheet("Cover", image(source=b"invalid", name="logo")))
+
+    with pytest.raises(RenderError) as captured:
+        render(document, backend="xlsxwriter")
+
+    assert captured.value.__cause__ is backend_error
+    assert captured.value.context == {
+        "exception_type": error_type.__name__,
+        "image": "logo",
+    }
 
 
 def test_relative_axis_flags_are_deprecated() -> None:
@@ -249,3 +283,11 @@ def test_notification_raises_the_requested_validation_error() -> None:
 
     with pytest.raises(CaxtonTypeError, match="ValidationError type"):
         notification.raise_if_errors(error_class=RenderResult)  # type: ignore[arg-type]
+
+
+def test_money_validates_currency_type_and_value() -> None:
+    with pytest.raises(CaxtonTypeError, match="must be a string"):
+        Money(currency=42)  # type: ignore[arg-type]
+
+    with pytest.raises(CaxtonValueError, match="cannot be empty"):
+        Money(currency="  ")
