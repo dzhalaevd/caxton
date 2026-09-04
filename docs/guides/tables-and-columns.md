@@ -44,7 +44,9 @@ table(
 
 `auto_width=True` uses the default range from 1 through 80. A column-level
 policy overrides the table policy, while `.width(number)` keeps that column at
-an explicit width.
+an explicit width. The two are mutually exclusive on one column: `.width()` and
+`.width("auto")` each clear the other, and setting both at once on a directly
+constructed `Column` is an error rather than a silent precedence.
 
 ## Row sources
 
@@ -54,6 +56,28 @@ Built-in ingestion supports, without importing your framework:
 - objects with attributes, dataclasses and `NamedTuple` — read with the exact attribute;
 - any lazy iterable of those;
 - your own `DataSource` / `RowAccessor` implementation.
+
+Your own source only has to know how to iterate. Field access is already
+solved — take it from the public accessors:
+
+```python
+from caxton import DefaultRowAccessor
+
+
+class CursorSource:
+    get_value = DefaultRowAccessor()
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def iter_rows(self):
+        return iter(self._cursor)
+```
+
+`MappingRowAccessor` and `AttributeRowAccessor` pin the semantics explicitly
+when rows are known to be one shape. The accepted input is spelled out by the
+`RowSourceInput` alias, so a scalar or `None` is a type error rather than a
+runtime one.
 
 ```python
 import dataclasses

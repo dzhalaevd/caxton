@@ -265,6 +265,54 @@ def test_column_requires_source_or_formula() -> None:
         Column(id="amount", semantic_type=Decimal(), source=None)
 
 
+@pytest.mark.parametrize(
+    ("replace_with", "message"),
+    [
+        ({"semantic_type": "decimal"}, "semantic type"),
+        ({"alignment": "right"}, "alignment"),
+        ({"display_format": object()}, "display format"),
+        ({"style_ref": object()}, "style"),
+        ({"width_hint": 0}, "width"),
+    ],
+)
+def test_direct_column_enforces_field_contracts(
+    replace_with: dict[str, object],
+    message: str,
+) -> None:
+    valid = decimal(id="amount", source="amount")
+
+    with pytest.raises(TypeError if message != "width" else ValueError, match=message):
+        dataclasses.replace(valid, **replace_with)  # type: ignore[arg-type]
+
+
+def test_column_factory_rejects_invalid_style() -> None:
+    with pytest.raises(TypeError, match="style"):
+        text(source="name", style=object())  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("replace_with", "message"),
+    [
+        ({"styles": {}}, "styles"),
+        ({"theme": {}}, "theme"),
+    ],
+)
+def test_direct_document_enforces_field_contracts(
+    replace_with: dict[str, object],
+    message: str,
+) -> None:
+    document = SpreadsheetDocument(worksheets=())
+
+    with pytest.raises(TypeError, match=message):
+        dataclasses.replace(document, **replace_with)  # type: ignore[arg-type]
+
+
+def test_expression_hash_remains_identity_based() -> None:
+    expression = field("amount")
+
+    assert {expression: "cached"}[expression] == "cached"
+
+
 def test_frozen_nodes_reject_direct_mutation() -> None:
     name_column = text(id="name", source="name")
 

@@ -59,18 +59,25 @@ class BuiltinRendererResolver:
                 message,
                 context={"backend": backend, "format": format_name},
             )
-        if len(candidates) > 1:
+        compatible = tuple(
+            candidate
+            for candidate in candidates
+            if _is_compatible(candidate, required, format_name)
+        )
+        if not compatible:
+            _preflight(candidates[0], required, format_name)
+            message = f"No compatible renderer is available for {format_name!r}"
+            raise RenderError(message)
+        if len(compatible) > 1:
             message = f"Renderer selection is ambiguous for format {format_name!r}"
             raise RenderError(
                 message,
                 context={
-                    "candidates": [item.descriptor.name for item in candidates],
+                    "candidates": [item.descriptor.name for item in compatible],
                     "format": format_name,
                 },
             )
-        selected = candidates[0]
-        _preflight(selected, required, format_name)
-        return selected
+        return compatible[0]
 
 
 def _select_builtins(
@@ -195,6 +202,18 @@ def _preflight(
                 "required_workbook_operation": required.workbook_operation.value,
             },
         )
+
+
+def _is_compatible(
+    renderer: RendererOption,
+    required: RequiredCapabilities,
+    format_name: str,
+) -> bool:
+    try:
+        _preflight(renderer, required, format_name)
+    except UnsupportedFeatureError:
+        return False
+    return True
 
 
 def canonical_format_name(

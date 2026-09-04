@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import dataclasses
+from typing import Literal
 
+from caxton.core._compat import final
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class DecimalFormat:
     """Display preferences for decimal values."""
@@ -21,9 +24,16 @@ class DecimalFormat:
             raise CaxtonValueError(message)
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class MoneyFormat:
-    """Display preferences for monetary values."""
+    """Display preferences for monetary values.
+
+    Currency belongs to the value, not to its presentation: a ``Money`` column
+    states it once through ``money(currency=...)``. ``currency`` here is an
+    explicit override for that value, and ``None`` keeps the column's own
+    currency.
+    """
 
     currency: str | None = None
     places: int = 2
@@ -43,11 +53,12 @@ class MoneyFormat:
             raise CaxtonValueError(message)
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class DateFormat:
     """Semantic date display variant."""
 
-    variant: str = "iso"
+    variant: Literal["iso", "short", "long"] = "iso"
 
     def __post_init__(self) -> None:
         if self.variant not in {"iso", "short", "long"}:
@@ -55,12 +66,13 @@ class DateFormat:
             raise CaxtonValueError(message)
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class TimeFormat:
     """Semantic time display variant."""
 
     seconds: bool = True
-    clock: int = 24
+    clock: Literal[12, 24] = 24
 
     def __post_init__(self) -> None:
         if self.clock not in {12, 24}:
@@ -68,6 +80,7 @@ class TimeFormat:
             raise CaxtonValueError(message)
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class PercentageFormat:
     """Percentage display preferences."""
@@ -79,6 +92,7 @@ class PercentageFormat:
         _validate_places(self.places, "Percentage")
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class CustomFormat:
     """Named semantic format with an XLSX-compatible fallback pattern."""
@@ -118,11 +132,18 @@ def money_format(
     return MoneyFormat(currency=currency, places=places, grouping=grouping)
 
 
-def date_format(*, variant: str = "iso") -> DateFormat:
+def date_format(
+    *,
+    variant: Literal["iso", "short", "long"] = "iso",
+) -> DateFormat:
     return DateFormat(variant=variant)
 
 
-def time_format(*, seconds: bool = True, clock: int = 24) -> TimeFormat:
+def time_format(
+    *,
+    seconds: bool = True,
+    clock: Literal[12, 24] = 24,
+) -> TimeFormat:
     return TimeFormat(seconds=seconds, clock=clock)
 
 

@@ -251,7 +251,6 @@ def _advance(
         return
     end = placement.anchor.row + placement.rows + gap
     if cursor.row is None:
-        cursor.row = end if placement.explicit else None
         return
     cursor.row = max(cursor.row, end)
 
@@ -329,7 +328,8 @@ def _measure_table(table: SpreadsheetTable) -> tuple[int | None, int]:
     if row_count is None:
         return None, columns
     footer_rows = 1 if table.footer is not None else 0
-    return 1 + row_count + footer_rows, columns
+    native_empty_row = 1 if table.name is not None and row_count == 0 else 0
+    return 1 + row_count + footer_rows + native_empty_row, columns
 
 
 def _measure_object(width: int, height: int) -> tuple[int, int]:

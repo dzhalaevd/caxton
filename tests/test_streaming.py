@@ -11,6 +11,7 @@ from caxton import (  # noqa: WPS347
     DataSourceConsumedError,
     DataSourceIterationError,
     ExecutionMode,
+    RowSourceInput,
     UnsupportedFeatureError,
     render,
     sheet,
@@ -38,7 +39,11 @@ class _UnknownSource:
         return row[field]
 
 
-def _document(rows: object, *, name: str | None = None):  # type: ignore[no-untyped-def]
+def _document(  # type: ignore[no-untyped-def]
+    rows: RowSourceInput,
+    *,
+    name: str | None = None,
+):
     return spreadsheet(
         sheet(
             "Rows",
@@ -102,7 +107,9 @@ def test_stream_plan_enables_xlsxwriter_option(
 
     render(_document([{"value": "Ada"}]))
 
-    assert observed == {"constant_memory": True}
+    assert observed["constant_memory"] is True
+    assert observed["strings_to_formulas"] is False
+    assert observed["strings_to_urls"] is False
 
 
 def test_standard_overrides_auto_streaming() -> None:
@@ -217,14 +224,14 @@ def test_path_commit_happens_after_success(tmp_path: Path) -> None:
     assert target.read_bytes() == original
 
 
-def test_seekable_output_does_not_stage_in_memory(
+def test_seekable_output_uses_transaction_buffer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def reject_staging():  # type: ignore[no-untyped-def]
-        message = "unexpected staging buffer"
+    def reject_extra_staging():  # type: ignore[no-untyped-def]
+        message = "unexpected destination staging buffer"
         raise AssertionError(message)
 
-    monkeypatch.setattr(destination, "BytesIO", reject_staging)
+    monkeypatch.setattr(destination, "BytesIO", reject_extra_staging)
     target = BytesIO()
 
     result = write(_document([{"value": "Ada"}]), target)

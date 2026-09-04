@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime as dt
+import decimal
 import enum
+import functools
 import hashlib
 import json
 import types
+import uuid
 from collections.abc import Mapping, Sequence, Set as AbstractSet
 
 from caxton.core._compat import StrEnum
@@ -433,7 +437,7 @@ def _inspect_semantic_type(semantic_type: SemanticType) -> SemanticTypeSpec:
     parameters = {
         field.name: getattr(semantic_type, field.name)
         for field in dataclasses.fields(semantic_type)
-        if field.init
+        if field.name != "name"
     }
     return SemanticTypeSpec(name=semantic_type.name, parameters=parameters)
 
@@ -527,22 +531,43 @@ def _inspect_formula(formula: object) -> FormulaSpec:
 
 
 def _callable_identity(function: object) -> str:
+    payload = _callable_token(function)
+    if isinstance(payload, str):
+        return payload
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.blake2b(serialized.encode(), digest_size=16).hexdigest()
+    return f"blake2b:{digest}"
+
+
+def _callable_token(function: object) -> object:
     explicit = getattr(function, "__caxton_id__", None)
     if isinstance(explicit, str):
         return f"explicit:{explicit}"
+    if isinstance(function, functools.partial):
+        return {
+            "kind": "partial",
+            "function": _callable_token(function.func),
+            "args": _stable_token(function.args),
+            "keywords": _stable_token(function.keywords),
+        }
     code = getattr(function, "__code__", None)
     if code is None and callable(function):
         code = getattr(function.__call__, "__code__", None)
     closure = getattr(function, "__closure__", None) or ()
     payload = {
+        "module": getattr(function, "__module__", None),
+        "qualname": getattr(function, "__qualname__", _type_name(function)),
         "code": _stable_token(code),
         "closure": tuple(_closure_value(cell) for cell in closure),
         "defaults": _stable_token(getattr(function, "__defaults__", None)),
         "kwdefaults": _stable_token(getattr(function, "__kwdefaults__", None)),
     }
-    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    digest = hashlib.blake2b(serialized.encode(), digest_size=16).hexdigest()
-    return f"blake2b:{digest}"
+    bound_self = getattr(function, "__self__", None)
+    if bound_self is not None and not isinstance(bound_self, type):
+        payload["bound_self"] = _instance_token(bound_self)
+    elif code is not getattr(function, "__code__", None) and callable(function):
+        payload["callable_state"] = _instance_token(function)
+    return payload
 
 
 def _closure_value(cell: types.CellType) -> object:
@@ -554,7 +579,23 @@ def _closure_value(cell: types.CellType) -> object:
 
 
 def _stable_token(value: object) -> object:
-    if value is None or isinstance(value, (bool, int, float, str, bytes)):
+    if value is None or isinstance(
+        value,
+        (
+            bool,
+            int,
+            float,
+            complex,
+            str,
+            bytes,
+            decimal.Decimal,
+            dt.datetime,
+            dt.date,
+            dt.time,
+            dt.timedelta,
+            uuid.UUID,
+        ),
+    ):
         return _scalar_token(value)
     if isinstance(value, (enum.Enum, types.CodeType)):
         return _special_token(value)
@@ -572,12 +613,40 @@ def _stable_token(value: object) -> object:
     return ["object", _type_name(value)]
 
 
-def _scalar_token(value: object) -> object:
+def _scalar_token(value: object) -> object:  # noqa: C901, WPS212
     if isinstance(value, float):
         return ["float", value.hex()]
     if isinstance(value, bytes):
         return ["bytes", value.hex()]
+    if isinstance(value, complex):
+        return ["complex", value.real.hex(), value.imag.hex()]
+    if isinstance(value, decimal.Decimal):
+        return ["decimal", str(value)]
+    if isinstance(value, dt.datetime):
+        return ["datetime", value.isoformat(), value.fold]
+    if isinstance(value, dt.date):
+        return ["date", value.isoformat()]
+    if isinstance(value, dt.time):
+        return ["time", value.isoformat(), value.fold]
+    if isinstance(value, dt.timedelta):
+        return [
+            "timedelta",
+            value.days,
+            value.seconds,
+            value.microseconds,
+        ]
+    if isinstance(value, uuid.UUID):
+        return ["uuid", str(value)]
     return value
+
+
+def _instance_token(value: object) -> object:
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return _stable_token(value)
+    state = getattr(value, "__dict__", None)
+    if not isinstance(state, Mapping):
+        return ["object", _type_name(value)]
+    return ["object", _type_name(value), _stable_token(state)]
 
 
 def _special_token(value: enum.Enum | types.CodeType) -> object:

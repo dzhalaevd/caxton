@@ -1,8 +1,9 @@
 # Testing documents
 
 `caxton.testing` is a stable, pytest-independent API. It returns immutable public
-values and never exposes internal IR storage, parsers, diff algorithms or
-backend-native objects.
+values, including documented `caxton.core.ir` values where appropriate, but
+never exposes mutable IR storage, parsers, diff algorithms or backend-native
+objects.
 
 Pick the narrowest level that observes the behaviour you care about.
 
@@ -49,6 +50,11 @@ Grouped tables and matrices are always compiled through their single preparation
 pass, because their shape depends on the complete source; the scope then controls
 which of the compiled rows the view exposes.
 
+Layout inspection is renderer-agnostic by default. Pass `backend="xlsxwriter"`
+or `backend="openpyxl"` when the test must also prove that the selected backend
+supports the document. Template-backed documents must be rendered and inspected
+with `inspect_artifact()`, because their placement depends on workbook contents.
+
 Charts, images and blocks are inspectable too:
 
 ```python
@@ -75,6 +81,11 @@ assert worksheet.merged_ranges == ("A2:A3",)
 
 `inspect_artifact()` accepts a `RenderResult`, a path or raw bytes. Internally it
 uses OpenPyXL, but the values it returns are plain immutable Caxton types.
+For formula cells, both `value` and `formula` contain the formula text; inspection
+preserves formulas instead of loading calculated cached values. When asserting
+that a cell is absent, also assert a positive boundary such as
+`worksheet.used_range` so a missing or displaced table cannot make the negative
+assertion pass accidentally.
 
 ## Comparison and snapshots
 
@@ -92,6 +103,8 @@ Inspecting a document for the comparison is structural and consumes no rows.
 
 `canonical_snapshot()` serializes any testing value as deterministic JSON ending
 in a single newline — suitable for committing next to a test.
+Snapshot schema v2 uses fully qualified dataclass names and escapes mapping keys
+that begin with `$`, preventing user data from colliding with snapshot tags.
 
 ## Property-based testing
 

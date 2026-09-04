@@ -21,8 +21,6 @@ from caxton.core.models import (
 )
 from caxton.core.rendering import WorkbookOperation
 
-_BUFFERED_ROW_WARNING_THRESHOLD: Final[int] = 1_000_000
-
 _AUTO_WIDTH_PADDING: Final[int] = 2
 _DEFAULT_AUTO_WIDTH: Final[AutoWidth] = AutoWidth()
 
@@ -82,6 +80,7 @@ _SEMANTIC_FEATURES: Final[frozenset[str]] = frozenset(
         "semantic:boolean",
         "semantic:date",
         "semantic:datetime",
+        "semantic:extension",
         "semantic:decimal",
         "semantic:duration",
         "semantic:integer",

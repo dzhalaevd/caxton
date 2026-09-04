@@ -6,6 +6,7 @@ from typing import NamedTuple
 import pytest
 
 from caxton import (
+    CaxtonError,
     DataSourceConsumedError,
     FieldAccessError,
     MissingFieldError,
@@ -202,6 +203,11 @@ def test_custom_source_passes_through_table() -> None:
 
     assert semantic_table.data.source is source
     assert semantic_table.data.source.get_value(row, "name") == "Ada"
+
+
+def test_ready_source_accessor_uses_caxton_error() -> None:
+    with pytest.raises(CaxtonError, match="cannot override"):
+        coerce_data_source(CustomDataSource(), accessor=LowercaseAccessor())
 
 
 def test_explicit_custom_row_accessor_is_used() -> None:

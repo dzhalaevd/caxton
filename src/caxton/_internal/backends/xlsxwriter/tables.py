@@ -5,6 +5,7 @@ from __future__ import annotations
 import xlsxwriter  # type: ignore[import-untyped]
 from xlsxwriter.worksheet import Worksheet  # type: ignore[import-untyped]
 
+from caxton._internal.backends._common import reserved_last_row
 from caxton._internal.backends.xlsxwriter.conditional_formats import (
     add_conditional_formats,
 )
@@ -39,9 +40,10 @@ def render_table(
         start_column,
         column_formats,
     )
+    body_last_row = reserved_last_row(table, header_row, last_row)
     apply_merges(worksheet, table, column_formats, merge_values)
     apply_auto_widths(worksheet, table, start_column, widths)
-    write_footer(workbook, worksheet, table, header_row, last_row, start_column)
+    write_footer(workbook, worksheet, table, header_row, body_last_row, start_column)
     add_conditional_formats(
         workbook,
         worksheet,
@@ -54,7 +56,7 @@ def render_table(
         worksheet,
         table,
         header_row,
-        last_row,
+        body_last_row,
         start_column,
         header_format,
     )

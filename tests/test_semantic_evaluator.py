@@ -9,6 +9,7 @@ from caxton import (
     DataSourceIterationError,
     FieldAccessError,
     MissingFieldError,
+    RowSourceInput,
     SourceEvaluationError,
     decimal,
     field,
@@ -66,7 +67,7 @@ def _evaluate_directly(row: object, *columns: Column) -> object:
     return SemanticRowEvaluator().evaluate_row(source, row, columns, row_index=0)
 
 
-def _evaluate(rows: object, *columns: Column) -> list[RowLayout]:
+def _evaluate(rows: RowSourceInput, *columns: Column) -> list[RowLayout]:
     document = spreadsheet(
         sheet("Data", table(source=rows, columns=columns, name="data")),
     )
@@ -297,7 +298,7 @@ def test_expression_keeps_dependency_error_path() -> None:
 
 def test_attribute_failure_keeps_original_cause() -> None:
     with pytest.raises(FieldAccessError) as captured:
-        _evaluate(BrokenRow(), text(id="name", source="name"))
+        _evaluate([BrokenRow()], text(id="name", source="name"))
 
     error = captured.value
     assert error.row_index == 0

@@ -5,9 +5,9 @@ import math
 import re
 from collections.abc import Iterator, Mapping
 from types import MappingProxyType
-from typing import TypeAlias
+from typing import TypeAlias, get_args
 
-from caxton.core._compat import StrEnum
+from caxton.core._compat import StrEnum, final
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 
 from .alignment import Alignment
@@ -26,6 +26,7 @@ def _color(value: str, label: str) -> str:
     return value.upper()
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class FontStyle:
     """Backend-independent font presentation."""
@@ -57,6 +58,7 @@ class FontStyle:
             object.__setattr__(self, "color", _color(self.color, "Font color"))
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class FillStyle:
     """Solid cell fill."""
@@ -76,6 +78,7 @@ class BorderLineStyle(StrEnum):
     DOUBLE = "double"
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class BorderLine:
     """One side of a backend-independent cell border."""
@@ -102,6 +105,7 @@ def _line(value: BorderLineInput | None) -> BorderLine | None:
     return BorderLine(BorderLineStyle(value))
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class Borders:
     """Cell border sides."""
@@ -122,6 +126,7 @@ class VerticalAlignment(StrEnum):
     BOTTOM = "bottom"
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class CellAlignment:
     """Horizontal, vertical, and wrapping alignment intent."""
@@ -140,21 +145,71 @@ class CellAlignment:
 AlignmentInput: TypeAlias = CellAlignment | Alignment | str
 
 
+def _validate_style_components(
+    font: FontStyle | None,
+    fill: FillStyle | None,
+    border: Borders | None,
+    alignment: CellAlignment | None,
+    display_format: DisplayFormat | None,
+) -> None:
+    components = (
+        (font, FontStyle, "font"),
+        (fill, FillStyle, "fill"),
+        (border, Borders, "border"),
+        (alignment, CellAlignment, "alignment"),
+    )
+    for value, expected, label in components:
+        if value is not None and not isinstance(value, expected):
+            message = f"Style {label} has an invalid type"
+            raise CaxtonTypeError(message)
+    if display_format is not None and not isinstance(
+        display_format,
+        get_args(DisplayFormat),
+    ):
+        message = "Style display format has an invalid type"
+        raise CaxtonTypeError(message)
+
+
+@final
 @dataclasses.dataclass(frozen=True, slots=True, init=False)
 class Style:
-    """Backend-independent cell presentation with convenient shorthand fields."""
+    """Backend-independent cell presentation with constructor shorthands."""
 
     font: FontStyle | None = None
     fill: FillStyle | None = None
     border: Borders | None = None
     alignment: CellAlignment | None = None
     display_format: DisplayFormat | None = None
-    font_color: str | None = None
-    align: AlignmentInput | None = None
-    border_top: BorderLineInput | None = None
-    border_right: BorderLineInput | None = None
-    border_bottom: BorderLineInput | None = None
-    border_left: BorderLineInput | None = None
+    font_color: str | None = dataclasses.field(
+        default=None,
+        compare=False,
+        repr=False,
+    )
+    align: AlignmentInput | None = dataclasses.field(
+        default=None,
+        compare=False,
+        repr=False,
+    )
+    border_top: BorderLineInput | None = dataclasses.field(
+        default=None,
+        compare=False,
+        repr=False,
+    )
+    border_right: BorderLineInput | None = dataclasses.field(
+        default=None,
+        compare=False,
+        repr=False,
+    )
+    border_bottom: BorderLineInput | None = dataclasses.field(
+        default=None,
+        compare=False,
+        repr=False,
+    )
+    border_left: BorderLineInput | None = dataclasses.field(
+        default=None,
+        compare=False,
+        repr=False,
+    )
 
     def __init__(  # noqa: WPS211, WPS213
         self,
@@ -171,47 +226,50 @@ class Style:
         border_bottom: BorderLineInput | None = None,
         border_left: BorderLineInput | None = None,
     ) -> None:
+        if font_color is not None:
+            font = _merge_font(font, FontStyle(color=_color(font_color, "Font color")))
+        if align is not None:
+            shorthand_alignment = (
+                align
+                if isinstance(align, CellAlignment)
+                else CellAlignment(horizontal=Alignment(align))
+            )
+            alignment = _merge_alignment(alignment, shorthand_alignment)
+        shorthand_border = Borders(
+            top=_line(border_top),
+            right=_line(border_right),
+            bottom=_line(border_bottom),
+            left=_line(border_left),
+        )
+        if any(dataclasses.astuple(shorthand_border)):
+            border = _merge_borders(border, shorthand_border)
+        normalized_fill = FillStyle(fill) if isinstance(fill, str) else fill
+        _validate_style_components(
+            font,
+            normalized_fill,
+            border,
+            alignment,
+            display_format,
+        )
         object.__setattr__(self, "font", font)
         object.__setattr__(
-            self, "fill", FillStyle(fill) if isinstance(fill, str) else fill
+            self,
+            "fill",
+            normalized_fill,
         )
         object.__setattr__(self, "border", border)
         object.__setattr__(self, "alignment", alignment)
         object.__setattr__(self, "display_format", display_format)
-        object.__setattr__(self, "font_color", font_color)
+        object.__setattr__(
+            self,
+            "font_color",
+            None if font_color is None else _color(font_color, "Font color"),
+        )
         object.__setattr__(self, "align", align)
         object.__setattr__(self, "border_top", border_top)
         object.__setattr__(self, "border_right", border_right)
         object.__setattr__(self, "border_bottom", border_bottom)
         object.__setattr__(self, "border_left", border_left)
-        self.__post_init__()
-
-    def __post_init__(self) -> None:
-        font = self.font
-        if self.font_color is not None:
-            color = _color(self.font_color, "Font color")
-            font = _merge_font(font, FontStyle(color=color))
-            object.__setattr__(self, "font_color", color)
-        object.__setattr__(self, "font", font)
-        alignment = self.alignment
-        if self.align is not None:
-            shorthand = (
-                self.align
-                if isinstance(self.align, CellAlignment)
-                else CellAlignment(horizontal=Alignment(self.align))
-            )
-            alignment = _merge_alignment(alignment, shorthand)
-        object.__setattr__(self, "alignment", alignment)
-        border = self.border
-        shorthand_border = Borders(
-            top=_line(self.border_top),
-            right=_line(self.border_right),
-            bottom=_line(self.border_bottom),
-            left=_line(self.border_left),
-        )
-        if any(dataclasses.astuple(shorthand_border)):
-            border = _merge_borders(border, shorthand_border)
-        object.__setattr__(self, "border", border)
 
     def merged_over(self, base: Style | None) -> Style:
         """Return this style layered over ``base``."""
@@ -233,6 +291,7 @@ class Style:
 StyleInput: TypeAlias = Style | str
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class StyleSheet(Mapping[str, Style]):
     """Immutable mapping of reusable style names to styles."""
@@ -260,7 +319,11 @@ class StyleSheet(Mapping[str, Style]):
     def __len__(self) -> int:
         return len(self.styles)
 
+    def __hash__(self) -> int:
+        return hash(frozenset(self.styles.items()))
 
+
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class DocumentTheme:
     """Document defaults, inherited in default → table/column → role order."""
@@ -268,33 +331,6 @@ class DocumentTheme:
     default: Style = Style()
     header: Style = Style(font=FontStyle(bold=True))
     total: Style = Style(font=FontStyle(bold=True))
-
-
-@dataclasses.dataclass(frozen=True, slots=True, init=False)
-class CorporateTheme(DocumentTheme):
-    """Convenience theme for a corporate font and branded table headers."""
-
-    def __init__(
-        self,
-        *,
-        font: str,
-        header_fill: str,
-        header_font_color: str,
-    ) -> None:
-        object.__setattr__(self, "default", Style(font=FontStyle(name=font)))
-        object.__setattr__(
-            self,
-            "header",
-            Style(
-                font=FontStyle(name=font, bold=True, color=header_font_color),
-                fill=header_fill,
-            ),
-        )
-        object.__setattr__(
-            self,
-            "total",
-            Style(font=FontStyle(name=font, bold=True)),
-        )
 
 
 def _merge_font(base: FontStyle | None, override: FontStyle | None) -> FontStyle | None:
@@ -353,7 +389,6 @@ __all__ = (
     "BorderLineStyle",
     "Borders",
     "CellAlignment",
-    "CorporateTheme",
     "DocumentTheme",
     "FillStyle",
     "FontStyle",

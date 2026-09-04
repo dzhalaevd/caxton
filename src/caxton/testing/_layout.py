@@ -8,8 +8,12 @@ from caxton._internal.aggregation.keys import dimension_token
 from caxton._internal.compiler import SpreadsheetCompiler
 from caxton._internal.formulas import lower_excel_formula
 from caxton._internal.normalization import format_cell_address, parse_cell_address
+from caxton._internal.requirements import analyze_spreadsheet_requirements
+from caxton._internal.resolver import BuiltinRendererResolver
+from caxton._internal.validation import validate_spreadsheet
 from caxton.core._compat import Self, StrEnum
 from caxton.core._values import freeze_mapping
+from caxton.core.errors import UnsupportedFeatureError
 from caxton.core.formatting import Alignment, AutoWidth, DisplayFormat, Style
 from caxton.core.ir import (
     CellAddress,
@@ -53,6 +57,7 @@ class Rows:
     limit: int | None = None
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "mode", RowsMode(self.mode))
         if self.mode is RowsMode.SAMPLE:
             if (
                 isinstance(self.limit, bool)
@@ -169,7 +174,15 @@ class RowLayout:
         )
 
     def __getitem__(self, column_id: str) -> object:
-        return self.values[column_id]
+        try:
+            return self.values[column_id]
+        except KeyError as error:
+            available = ", ".join(repr(item) for item in self.values)
+            message = (
+                f"Column {column_id!r} was not inspected in row {self.index}; "
+                f"available columns: {available or '<none>'}"
+            )
+            raise KeyError(message) from error
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -385,7 +398,6 @@ class WorksheetLayout:
             for row in table.rows:
                 physical_row = anchor.row + row.index + 1
                 for column in table.columns:
-                    physical_row = anchor.row + row.index + 1
                     yield CellLayout(
                         address=format_cell_address(
                             physical_row,
@@ -439,6 +451,7 @@ def inspect_layout(
     document: SpreadsheetDocument,
     *,
     rows: Rows | None = None,
+    backend: str | None = None,
 ) -> SpreadsheetLayout:
     """Compile a spreadsheet into a stable, backend-independent layout view.
 
@@ -446,11 +459,44 @@ def inspect_layout(
     because their schema or occupied range depends on the complete source.
     ``rows`` controls which compiled rows the returned view exposes.
 
+    By default inspection is renderer-agnostic and does not prove that a
+    renderer can materialize every requested capability. Pass ``backend`` to
+    preflight that bundled renderer and compile against its capabilities.
+    Template placement is not represented; inspect the rendered artifact for
+    template-backed documents.
+
     Returns:
         An immutable layout view with only the explicitly requested rows.
+
+    Raises:
+        UnsupportedFeatureError: If templates or the requested backend are
+            incompatible with layout inspection.
     """
+    if document.template is not None:
+        message = (
+            "Layout inspection does not model template placement; "
+            "inspect the rendered artifact instead"
+        )
+        raise UnsupportedFeatureError(
+            message,
+            context={"template_format": document.template.format},
+        )
     row_scope = rows or Rows.none()
-    compiled = SpreadsheetCompiler().compile(document)
+    compiler = SpreadsheetCompiler()
+    if backend is None:
+        compiled = compiler.compile(document)
+    else:
+        validate_spreadsheet(document)
+        required = analyze_spreadsheet_requirements(document)
+        selected = BuiltinRendererResolver().select(
+            required,
+            format_name="xlsx",
+            backend=backend,
+        )
+        compiled = compiler.compile_validated(
+            document,
+            capabilities=selected.descriptor.capabilities,
+        )
     return SpreadsheetLayout(
         worksheets=tuple(
             _inspect_worksheet(worksheet, row_scope)
@@ -635,7 +681,10 @@ def _materialize_rows(
         return ()
     if scope.mode is RowsMode.SAMPLE:
         return tuple(itertools.islice(rows, scope.limit))
-    return tuple(rows)
+    if scope.mode is RowsMode.ALL:
+        return tuple(rows)
+    message = f"Unsupported row inspection mode: {scope.mode!r}"
+    raise ValueError(message)
 
 
 def _format_coordinate(address: CellAddress) -> str:

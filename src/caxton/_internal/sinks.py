@@ -8,7 +8,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import NoReturn
 
-from caxton.core.errors import CaxtonTypeError, OutputError, RenderError
+from caxton.core.errors import CaxtonTypeError, OutputError
 from caxton.core.protocols import (
     BinarySeekable,
     BinaryWritable,
@@ -115,13 +115,41 @@ class BufferSink:
     def write(self, data: bytes) -> int:
         try:
             return _write_all(self.buffer, data)
-        except OSError as error:
+        except (OSError, ValueError) as error:
             _raise_output_error(
                 "Could not write the output artifact",
                 error=error,
                 operation="write",
                 target_type=type(self.buffer).__name__,
             )
+
+    def replace(self, data: bytes) -> int:
+        """Overwrite a seekable target, or deliver to a forward-only stream.
+
+        Returns:
+            The number of delivered bytes.
+        """
+        try:
+            written = self._replace(data)
+        except (OSError, ValueError) as error:
+            _raise_output_error(
+                "Could not write the output artifact",
+                error=error,
+                operation="write",
+                target_type=type(self.buffer).__name__,
+            )
+        return written
+
+    def _replace(self, data: bytes) -> int:
+        seekable = self.seekable_buffer
+        truncate = getattr(self.buffer, "truncate", None)
+        if seekable is None or not callable(truncate):
+            return _write_all(self.buffer, data)
+        seekable.seek(0)
+        written = _write_all(self.buffer, data)
+        truncate()
+        seekable.flush()
+        return written
 
     @property
     def seekable_buffer(self) -> BinarySeekable | None:
@@ -144,20 +172,75 @@ class BufferSink:
 
 
 @dataclasses.dataclass(slots=True)
-class CapturingSink:
-    """Capture exactly the bytes accepted by another output sink."""
+class FileTransactionSink:
+    """Accumulate one renderer invocation in a sibling staging file."""
 
-    sink: OutputSink
-    _buffer: bytearray = dataclasses.field(default_factory=bytearray)
+    sink: FileSink
+    _staged: Path | None = None
+
+    @property
+    def staging_path(self) -> Path:
+        """Invocation-owned staging path, created lazily."""
+        if self._staged is None:
+            self._staged = self.sink.create_staging_path()
+        return self._staged
 
     def write(self, data: bytes) -> int:
-        written = _write_all(self.sink, data)
-        self._buffer.extend(data)
-        return written
+        try:
+            with self.staging_path.open("ab") as stream:
+                return _write_all(stream, data)
+        except OSError as error:
+            _raise_output_error(
+                "Could not write the output artifact",
+                error=error,
+                operation="write",
+                target=str(self.sink.path),
+            )
+
+    def commit(self) -> int:
+        """Atomically publish every chunk written during the invocation.
+
+        Returns:
+            The committed artifact size.
+        """
+        return self.sink.commit_staged(self.staging_path)
+
+    def abort(self) -> None:
+        """Discard the invocation staging file, if one was created."""
+        if self._staged is not None:
+            self.sink.discard_staged(self._staged)
+
+
+@dataclasses.dataclass(slots=True)
+class BufferTransactionSink:
+    """Defer delivery to an external buffer until rendering succeeds."""
+
+    sink: BufferSink
+    _buffer: BytesIO = dataclasses.field(default_factory=BytesIO)
+
+    def write(self, data: bytes) -> int:
+        return self._buffer.write(data)
+
+    @property
+    def buffer(self) -> BytesIO:
+        """Invocation-owned buffer used for direct backend output."""
+        return self._buffer
+
+    def commit(self) -> int:
+        """Deliver the completed artifact with overwrite semantics when possible.
+
+        Returns:
+            The number of delivered bytes.
+        """
+        return self.sink.replace(self._buffer.getvalue())
+
+    def abort(self) -> None:
+        """Drop staged bytes without touching the external target."""
+        self._buffer = BytesIO()
 
     def getvalue(self) -> bytes:
-        """Return the captured artifact bytes."""
-        return bytes(self._buffer)
+        """Return the completed staged artifact."""
+        return self._buffer.getvalue()
 
 
 def coerce_output_sink(target: OutputTarget) -> tuple[OutputSink, str | None]:
@@ -184,7 +267,7 @@ def coerce_output_sink(target: OutputTarget) -> tuple[OutputSink, str | None]:
 def _raise_output_error(
     message: str,
     *,
-    error: OSError,
+    error: OSError | ValueError,
     operation: str,
     target: str | None = None,
     target_type: str | None = None,
@@ -202,8 +285,10 @@ def _raise_output_error(
 
 def _write_all(target: BinaryWritable | OutputSink, data: bytes) -> int:
     total = 0
+    maximum_chunk_size = min(len(data), 64 * 1024)
+    chunk_size = maximum_chunk_size
     while total < len(data):
-        remaining = data[total:]
+        remaining = data[total : total + chunk_size]
         written = target.write(remaining)
         if written is None:
             written = len(remaining)
@@ -214,21 +299,26 @@ def _write_all(target: BinaryWritable | OutputSink, data: bytes) -> int:
             or written > len(remaining)
         ):
             message = "Output target returned an invalid write count"
-            raise RenderError(
+            raise OutputError(
                 message,
                 context={"remaining": len(remaining), "written": written},
             )
         if written == 0:
             message = "Output target did not accept the remaining artifact bytes"
-            raise RenderError(message, context={"remaining": len(remaining)})
+            raise OutputError(message, context={"remaining": len(remaining)})
         total += written
+        if written < len(remaining):
+            chunk_size = max(written * 2, 1)
+        else:
+            chunk_size = maximum_chunk_size
     return total
 
 
 __all__ = (
     "BufferSink",
-    "CapturingSink",
+    "BufferTransactionSink",
     "FileSink",
+    "FileTransactionSink",
     "MemorySink",
     "coerce_output_sink",
 )

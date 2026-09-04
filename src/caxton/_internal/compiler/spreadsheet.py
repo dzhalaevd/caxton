@@ -44,6 +44,7 @@ from caxton.core.ir import (
     ResolvedCellReference,
     ResolvedFormula,
     ResolvedFormulaBinary,
+    RowStream,
     SpreadsheetChartIR,
     SpreadsheetColumnIR,
     SpreadsheetConditionalRuleIR,
@@ -95,6 +96,20 @@ class _CompiledRows:
                     for column in self.columns
                 ),
             )
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class _PreparedRows:
+    prepared: PreparedTabularData
+
+    def __iter__(self) -> Iterator[SpreadsheetRowIR]:
+        return (
+            SpreadsheetRowIR(index=index, values=values)
+            for index, values in enumerate(self.prepared.rows)
+        )
+
+    def __len__(self) -> int:
+        return self.prepared.row_count
 
 
 class SpreadsheetCompiler:
@@ -174,6 +189,8 @@ class SpreadsheetCompiler:
         for worksheet in document.worksheets:
             for block, block_path in iter_blocks_with_paths(worksheet.blocks):
                 path = f'worksheet["{worksheet.name}"].{block_path}'
+                if block in prepared:
+                    continue
                 if isinstance(block, Matrix):
                     prepared[block] = prepare_matrix(
                         block,
@@ -275,14 +292,14 @@ class SpreadsheetCompiler:
             name=table.name,
             anchor=anchor,
             columns=columns,
-            rows=(
+            rows=RowStream(
                 _prepared_rows(prepared)
                 if prepared is not None
                 else _CompiledRows(
                     source=table.data.source,
                     columns=table.columns,
                     evaluator=self._evaluator,
-                )
+                ),
             ),
             header_style=_resolve_style(
                 table.header_style,
@@ -333,7 +350,7 @@ def _compile_matrix(
         name=None,
         anchor=anchor,
         columns=columns,
-        rows=_prepared_rows(prepared),
+        rows=RowStream(_prepared_rows(prepared)),
         header_style=_resolve_style(
             matrix.header_style,
             document.styles,
@@ -378,11 +395,8 @@ def _compile_prepared_column(
     )
 
 
-def _prepared_rows(prepared: PreparedTabularData) -> Iterator[SpreadsheetRowIR]:
-    return (
-        SpreadsheetRowIR(index=index, values=values)
-        for index, values in enumerate(prepared.rows)
-    )
+def _prepared_rows(prepared: PreparedTabularData) -> _PreparedRows:
+    return _PreparedRows(prepared)
 
 
 def _absolute_merges(
@@ -554,9 +568,7 @@ def _compile_footer(
         items = tuple(
             Total(column.id)
             for column in table.columns
-            if column.id != label_id
-            and column.semantic_type.name
-            in {"decimal", "duration", "integer", "money", "percentage"}
+            if column.id != label_id and column.semantic_type.numeric
         )
     return SpreadsheetFooterIR(
         label=footer.label,

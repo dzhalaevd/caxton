@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import dataclasses
+import warnings
 from collections.abc import Mapping
 from types import MappingProxyType
 
 from caxton.core._compat import StrEnum
+from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 from caxton.core.models.common import DocumentKind
 from caxton.core.protocols.data import Repeatability
 
@@ -35,13 +37,25 @@ class DataSourceRequirements:
     repeatability: Repeatability = Repeatability.UNKNOWN
     row_count: int | None = None
 
-    def __post_init__(self) -> None:
-        if self.worksheet_index < 0 or self.table_index < 0:
+    def __post_init__(self) -> None:  # noqa: WPS238
+        indexes = (self.worksheet_index, self.table_index)
+        invalid_index = any(
+            isinstance(index, bool) or not isinstance(index, int) for index in indexes
+        )
+        if invalid_index:
+            message = "Data source indexes must be integers"
+            raise CaxtonTypeError(message)
+        if any(index < 0 for index in indexes):
             message = "Data source indexes cannot be negative"
-            raise ValueError(message)
+            raise CaxtonValueError(message)
+        if self.row_count is not None and (
+            isinstance(self.row_count, bool) or not isinstance(self.row_count, int)
+        ):
+            message = "Data source row count must be an integer"
+            raise CaxtonTypeError(message)
         if self.row_count is not None and self.row_count < 0:
             message = "Data source row count cannot be negative"
-            raise ValueError(message)
+            raise CaxtonValueError(message)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -127,6 +141,17 @@ class RendererCapabilities:
             and execution_supported
         )
 
+    def __hash__(self) -> int:
+        versions = frozenset(self.ir_versions.items())
+        return hash(
+            (
+                versions,
+                self.features,
+                self.workbook_operations,
+                self.execution_modes,
+            ),
+        )
+
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class RendererDescriptor:
@@ -178,7 +203,16 @@ class RenderResult:
 
     @property
     def content(self) -> bytes | None:
-        """Artifact bytes under the delivery-oriented public name."""
+        """Deprecated alias of :attr:`data`.
+
+        Returns:
+            The artifact bytes held by :attr:`data`.
+        """
+        warnings.warn(
+            "RenderResult.content is deprecated; use RenderResult.data",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.data
 
 

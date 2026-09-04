@@ -20,7 +20,7 @@ class StandardExecutionPlan:
     @property
     def workbook_options(self) -> dict[str, bool]:
         """Isolated XlsxWriter options for this invocation."""
-        return {}
+        return {"strings_to_formulas": False, "strings_to_urls": False}
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -34,7 +34,11 @@ class ConstantMemoryExecutionPlan:
     @property
     def workbook_options(self) -> dict[str, bool]:
         """Isolated XlsxWriter options for this invocation."""
-        return {"constant_memory": True}
+        return {
+            "constant_memory": True,
+            "strings_to_formulas": False,
+            "strings_to_urls": False,
+        }
 
 
 ExecutionPlan = StandardExecutionPlan | ConstantMemoryExecutionPlan

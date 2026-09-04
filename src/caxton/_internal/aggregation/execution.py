@@ -4,15 +4,16 @@ import dataclasses
 import warnings
 from collections.abc import Mapping, MutableMapping, Sequence
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Final
 
-from caxton._internal.const import _BUFFERED_ROW_WARNING_THRESHOLD
 from caxton._internal.semantic import SemanticRowEvaluator
 from caxton.core._values import normalize_cell_value
 from caxton.core.errors import AggregateEvaluationError, CaxtonError, PerformanceWarning
 from caxton.core.models import AggregateExpr, Column, Expression
 from caxton.core.protocols import DataSource
 from caxton.core.values import CellValue
+
+BUFFERED_ROW_WARNING_THRESHOLD: Final[int] = 1_000_000
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -56,11 +57,16 @@ def read_rows(
                 aggregates,
                 evaluator,
                 column_catalog=column_catalog,
+                path=path,
             ),
         )
-    output = tuple(rows)
-    warn_if_large_buffer(len(output), path=path, reason="grouping or aggregation")
-    return output
+        if len(rows) == BUFFERED_ROW_WARNING_THRESHOLD + 1:
+            warn_if_large_buffer(
+                len(rows),
+                path=path,
+                reason="grouping or aggregation",
+            )
+    return tuple(rows)
 
 
 def evaluate_input_row(  # noqa: WPS211
@@ -72,6 +78,7 @@ def evaluate_input_row(  # noqa: WPS211
     evaluator: SemanticRowEvaluator,
     *,
     column_catalog: Mapping[str, Column],
+    path: str = "table",
 ) -> InputRow:
     """Evaluate all retained state before releasing an original row.
 
@@ -93,6 +100,7 @@ def evaluate_input_row(  # noqa: WPS211
         columns=column_catalog,
         values=semantic.values,
         evaluator=evaluator,
+        path=path,
     )
     return InputRow(
         index=index,
@@ -110,6 +118,7 @@ def _evaluate_aggregate_expressions(  # noqa: WPS211
     columns: Mapping[str, Column],
     values: Mapping[str, CellValue],
     evaluator: SemanticRowEvaluator,
+    path: str,
 ) -> Mapping[Expression, object]:
     filters = _unique_expressions(
         tuple(aggregate.where for aggregate in aggregates),
@@ -127,7 +136,8 @@ def _evaluate_aggregate_expressions(  # noqa: WPS211
         tuple(
             expression
             for aggregate in aggregates
-            if aggregate.where is None or bool(output[aggregate.where])
+            if aggregate.where is None
+            or _predicate_matches(output[aggregate.where], row_index=index, path=path)
             for expression in aggregate.expressions
         ),
     )
@@ -178,7 +188,7 @@ def _unique_expressions(
 
 def warn_if_large_buffer(row_count: int, *, path: str, reason: str) -> None:
     """Warn once when a shape-dependent block retains a very large source."""
-    if row_count <= _BUFFERED_ROW_WARNING_THRESHOLD:
+    if row_count <= BUFFERED_ROW_WARNING_THRESHOLD:
         return
     warnings.warn(
         f"{path} buffered {row_count:,} rows for {reason}",
@@ -207,6 +217,7 @@ def execute_aggregate(
         expression.where,
         rows,
         filter_cache=filter_cache,
+        path=path,
     )
     if not included and expression.has_default:
         return normalize_cell_value(expression.default)
@@ -243,17 +254,42 @@ def _included_rows(
         tuple[InputRow, ...],
     ]
     | None,
+    path: str,
 ) -> tuple[InputRow, ...]:
     if filter_cache is not None and where in filter_cache:
         return filter_cache[where]
     included = (
         tuple(rows)
         if where is None
-        else tuple(row for row in rows if bool(row.expressions[where]))
+        else tuple(
+            row
+            for row in rows
+            if _predicate_matches(
+                row.expressions[where],
+                row_index=row.index,
+                path=path,
+            )
+        )
     )
     if filter_cache is not None:
         filter_cache[where] = included
     return included
+
+
+def _predicate_matches(value: object, *, row_index: int, path: str) -> bool:
+    try:
+        return bool(value)
+    except Exception as error:
+        message = "Aggregate predicate evaluation failed"
+        raise AggregateEvaluationError(
+            message,
+            path=path,
+            context={
+                "exception_type": type(error).__name__,
+                "phase": "predicate",
+                "row_index": row_index,
+            },
+        ) from error
 
 
 def _call_aggregate(
@@ -306,6 +342,7 @@ def _normalize_aggregate_result(
 
 
 __all__ = (
+    "BUFFERED_ROW_WARNING_THRESHOLD",
     "InputRow",
     "evaluate_input_row",
     "execute_aggregate",

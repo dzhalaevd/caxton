@@ -11,7 +11,7 @@ import uuid
 from collections.abc import Mapping, Sequence, Set as AbstractSet
 from typing import Any, cast
 
-SNAPSHOT_SCHEMA = "caxton.testing.snapshot/v1"
+SNAPSHOT_SCHEMA = "caxton.testing.snapshot/v2"
 
 
 def canonical_snapshot(value: object) -> str:
@@ -97,7 +97,9 @@ def _normalize_dataclass(value: object, *, active: set[int]) -> object:
     identity = _enter(value, active)
     try:
         dataclass_value = cast("Any", value)
-        result: dict[str, object] = {"$type": type(value).__name__}
+        value_type = type(value)
+        qualified_name = f"{value_type.__module__}.{value_type.__qualname__}"
+        result: dict[str, object] = {"$type": qualified_name}
         result.update(
             {
                 field.name: _normalize(
@@ -121,7 +123,8 @@ def _normalize_mapping(
     try:
         if all(isinstance(key, str) for key in value):
             return {
-                str(key): _normalize(item, active=active) for key, item in value.items()
+                _escape_mapping_key(str(key)): _normalize(item, active=active)
+                for key, item in value.items()
             }
         items = [
             [_normalize(key, active=active), _normalize(item, active=active)]
@@ -160,6 +163,10 @@ def _enter(value: object, active: set[int]) -> int:
 
 def _sort_key(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _escape_mapping_key(key: str) -> str:
+    return f"${key}" if key.startswith("$") else key
 
 
 def _timedelta_microseconds(value: dt.timedelta) -> int:

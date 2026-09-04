@@ -67,6 +67,10 @@ class Expression(BinaryOperatorMixin["BinaryExpression"]):
     ) -> AggregateExpr:
         """Aggregate this expression and any additional inputs in one scope.
 
+        The callable receives one value sequence per input expression, in
+        declaration order. Caxton does not remove ``None`` or otherwise
+        normalize those sequences before invoking it.
+
         Returns:
             An immutable, backend-independent aggregation expression.
         """
@@ -182,7 +186,12 @@ AggregateCallable: TypeAlias = Callable[..., object]
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
 class AggregateExpr(Expression):
-    """One result produced from expression sequences in an aggregate scope."""
+    """One result produced from expression sequences in an aggregate scope.
+
+    ``function`` receives one sequence for every item in ``expressions``.
+    ``default`` uses an internal sentinel so an explicit ``None`` remains
+    distinguishable from an omitted empty-scope result.
+    """
 
     function: AggregateCallable
     expressions: Sequence[Expression]

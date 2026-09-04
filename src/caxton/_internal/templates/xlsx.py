@@ -10,27 +10,41 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils.cell import range_boundaries
 from openpyxl.workbook.defined_name import DefinedName
 
-from caxton._internal.backends.openpyxl.extensions import PivotBinding
+from caxton._internal.block_paths import iter_blocks_with_paths
 from caxton._internal.compiler import SpreadsheetCompiler
+from caxton._internal.const import SPREADSHEET_MAX_COLUMNS, SPREADSHEET_MAX_ROWS
+from caxton._internal.layout import DocumentPlan, plan_document
+from caxton._internal.shape import table_needs_preparation
 from caxton.core.errors import (
     AmbiguousTemplateRefError,
     IncompatibleTemplateRefError,
     InvalidTemplateRefError,
     MissingTemplateRefError,
+    Notification,
     TemplateError,
+    UnsupportedFeatureError,
 )
-from caxton.core.ir import CellAddress, SpreadsheetIR
+from caxton.core.ir import (
+    CellAddress,
+    CellRange,
+    SpreadsheetBlockKind,
+    SpreadsheetIR,
+    SpreadsheetTableIR,
+    SpreadsheetWorksheetIR,
+)
 from caxton.core.models import (
-    ColumnRef,
+    Column,
     SpreadsheetBlock,
     SpreadsheetDocument,
     SpreadsheetTable,
     TemplateCompilationResult,
     TemplateContext,
+    TemplateRef,
     TemplateRepeat,
     TemplateSpecification,
     iter_tables,
 )
+from caxton.core.models.extensions import PivotBinding
 from caxton.core.protocols import DataSourceInfo
 
 if TYPE_CHECKING:
@@ -99,7 +113,7 @@ class XlsxTableTarget:
 
     reference: str
     worksheet_index: int
-    table_index: int
+    path: str
     range: XlsxNamedRange
     repeat: bool = False
     namespace: str = dataclasses.field(default="xlsx.table_target", init=False)
@@ -147,6 +161,7 @@ class XlsxTemplateCompiler:
         context: XlsxTemplateContext,
     ) -> TemplateCompilationResult[SpreadsheetIR]:
         anchors: dict[SpreadsheetBlock, CellAddress] = {}
+        measurements: dict[SpreadsheetBlock, tuple[int, int]] = {}
         targets: list[XlsxTableTarget] = []
         for worksheet_index, worksheet in enumerate(document.worksheets):
             if worksheet.name not in context.worksheets:
@@ -155,11 +170,15 @@ class XlsxTemplateCompiler:
                     message,
                     context={"worksheet": worksheet.name},
                 )
-            for table_index, table in enumerate(iter_tables(worksheet.blocks)):
+            for block, block_path in iter_blocks_with_paths(worksheet.blocks):
+                if not isinstance(block, SpreadsheetTable):
+                    continue
+                table = block
                 if table.into is None:
                     continue
                 reference, repeated = _table_reference(table)
                 resolved = _resolve_named_range(context, reference, worksheet.name)
+                _validate_named_range_bounds(resolved)
                 if len(table.columns) > resolved.columns:
                     message = f"Template target {reference!r} is too narrow"
                     raise IncompatibleTemplateRefError(
@@ -170,31 +189,43 @@ class XlsxTemplateCompiler:
                             "reference": reference,
                         },
                     )
-                _validate_target_height(table, resolved, repeated)
+                _validate_target_semantics(table, reference)
+                if not table_needs_preparation(table):
+                    _validate_target_height(table, resolved, repeated)
                 anchors[table] = CellAddress(
                     row=resolved.min_row,
                     column=resolved.min_column,
                 )
+                measurements[table] = (max(resolved.rows - 1, 0), resolved.columns)
                 targets.append(
                     XlsxTableTarget(
                         reference=reference,
                         worksheet_index=worksheet_index,
-                        table_index=table_index,
+                        path=block_path,
                         range=resolved,
                         repeat=repeated,
                     ),
                 )
         _validate_target_overlaps(targets)
-        compiled = SpreadsheetCompiler().compile_validated(
-            document,
-            anchor_overrides=anchors,
-            check_overlaps=False,
+        _validate_template_plan(
+            plan_document(
+                document,
+                measurements=measurements,
+                anchor_overrides=anchors,
+            ),
         )
         template = document.template
         if template is None:
             message = "Template compilation requires a template"
             raise RuntimeError(message)
         _validate_extensions(document, context, template.extensions)
+        compiled = SpreadsheetCompiler().compile_validated(
+            document,
+            anchor_overrides=anchors,
+            check_overlaps=False,
+        )
+        compiled = _materialize_target_rows(compiled, targets)
+        _validate_compiled_targets(compiled, targets)
         return TemplateCompilationResult(
             document=compiled,
             context=context,
@@ -239,9 +270,9 @@ def _defined_name(name: DefinedName, scope: str | None) -> XlsxDefinedName:
 def _table_reference(table: SpreadsheetTable) -> tuple[str, bool]:
     target = table.into
     if isinstance(target, TemplateRepeat):
-        return target.reference.column_id, True
-    if isinstance(target, ColumnRef):
-        return target.column_id, False
+        return target.reference.name, True
+    if isinstance(target, TemplateRef):
+        return target.name, False
     message = "Table target was not normalized"
     raise RuntimeError(message)
 
@@ -353,8 +384,7 @@ def _has_pivot_source(
 
 
 def _pivot_source_name(binding: PivotBinding) -> str:
-    source = binding.source
-    return source.column_id if isinstance(source, ColumnRef) else source.name
+    return binding.source.name
 
 
 def _validate_target_height(
@@ -374,6 +404,203 @@ def _validate_target_height(
             "reference": target.reference,
             "required_rows": row_count,
         },
+    )
+
+
+def _validate_target_semantics(table: SpreadsheetTable, reference: str) -> None:
+    unsupported: list[str] = []
+    for name, enabled in (
+        ("autofilter", table.autofilter),
+        ("auto_width", table.auto_width is not None),
+        ("footer", table.footer is not None),
+        ("freeze_header", table.freeze_header),
+        ("header_style", table.header_style is not None),
+        ("native_table", table.name is not None),
+        ("rules", bool(table.rules)),
+        ("style", table.style is not None),
+    ):
+        if enabled:
+            unsupported.append(name)
+    if any(_has_target_column_presentation(column) for column in table.columns):
+        unsupported.append("column_presentation")
+    if not unsupported:
+        return
+    message = "XLSX target tables do not materialize presentation intent"
+    raise UnsupportedFeatureError(
+        message,
+        context={"features": tuple(unsupported), "reference": reference},
+    )
+
+
+def _has_target_column_presentation(column: Column) -> bool:
+    grouping_merge = column.grouping is not None and column.grouping.merge
+    return any(
+        (
+            column.alignment is not None,
+            column.auto_width is not None,
+            column.display_format is not None,
+            column.style_ref is not None,
+            column.width_hint is not None,
+            grouping_merge,
+        ),
+    )
+
+
+def _validate_named_range_bounds(target: XlsxNamedRange) -> None:
+    if (
+        target.max_row <= SPREADSHEET_MAX_ROWS
+        and target.max_column <= SPREADSHEET_MAX_COLUMNS
+    ):
+        return
+    message = f"Template target {target.reference!r} exceeds XLSX sheet bounds"
+    raise IncompatibleTemplateRefError(
+        message,
+        context={
+            "max_columns": SPREADSHEET_MAX_COLUMNS,
+            "max_rows": SPREADSHEET_MAX_ROWS,
+            "reference": target.reference,
+        },
+    )
+
+
+def _validate_template_plan(plan: DocumentPlan) -> None:
+    notification = Notification()
+    for worksheet in plan.worksheets:
+        for overlap in worksheet.overlaps:
+            notification.add(
+                f"Blocks {overlap.first} and {overlap.second} overlap",
+                path=f'worksheet["{worksheet.name}"].{overlap.first}',
+                code="block_overlap",
+                context={
+                    "first": overlap.first,
+                    "second": overlap.second,
+                    "worksheet": worksheet.name,
+                },
+            )
+    notification.raise_if_errors("Spreadsheet structural validation failed")
+
+
+def _validate_compiled_targets(  # noqa: C901
+    compiled: SpreadsheetIR,
+    targets: Sequence[XlsxTableTarget],
+) -> None:
+    notification = Notification()
+    target_paths = {(item.worksheet_index, item.path) for item in targets}
+    for target in targets:
+        worksheet = compiled.worksheets[target.worksheet_index]
+        table = _compiled_table(worksheet, target.path)
+        row_count = table.rows.row_count
+        target_too_short = (
+            row_count is not None
+            and not target.repeat
+            and row_count > target.range.rows
+        )
+        if target_too_short:
+            message = f"Template target {target.reference!r} has too few rows"
+            raise IncompatibleTemplateRefError(
+                message,
+                context={
+                    "available_rows": target.range.rows,
+                    "reference": target.reference,
+                    "required_rows": row_count,
+                },
+            )
+        occupied = _target_range(target, row_count)
+        exceeded = tuple(
+            dimension
+            for dimension, actual, limit in (
+                ("rows", occupied.end.row, SPREADSHEET_MAX_ROWS),
+                ("columns", occupied.end.column, SPREADSHEET_MAX_COLUMNS),
+            )
+            if actual > limit
+        )
+        if exceeded:
+            notification.add(
+                "Template target exceeds spreadsheet sheet bounds",
+                path=f'worksheet["{worksheet.name}"].{target.path}',
+                code="sheet_bounds_exceeded",
+                context={"dimensions": exceeded, "reference": target.reference},
+            )
+        for placement in worksheet.placements:
+            if (
+                target.worksheet_index,
+                placement.path,
+            ) in target_paths or placement.occupied is None:
+                continue
+            if placement.kind in {
+                SpreadsheetBlockKind.SPACER,
+                SpreadsheetBlockKind.STACK,
+            }:
+                continue
+            if occupied.intersects(placement.occupied):
+                notification.add(
+                    f"Blocks {target.path} and {placement.path} overlap",
+                    path=f'worksheet["{worksheet.name}"].{target.path}',
+                    code="block_overlap",
+                    context={
+                        "first": target.path,
+                        "second": placement.path,
+                        "worksheet": worksheet.name,
+                    },
+                )
+    notification.raise_if_errors("Spreadsheet structural validation failed")
+
+
+def _materialize_target_rows(
+    compiled: SpreadsheetIR,
+    targets: Sequence[XlsxTableTarget],
+) -> SpreadsheetIR:
+    paths_by_worksheet: dict[int, set[str]] = {}
+    for target in targets:
+        paths_by_worksheet.setdefault(target.worksheet_index, set()).add(target.path)
+    worksheets = tuple(
+        _materialize_worksheet_targets(
+            worksheet,
+            paths_by_worksheet.get(worksheet_index, set()),
+        )
+        for worksheet_index, worksheet in enumerate(compiled.worksheets)
+    )
+    return dataclasses.replace(compiled, worksheets=worksheets)
+
+
+def _materialize_worksheet_targets(
+    worksheet: SpreadsheetWorksheetIR,
+    target_paths: set[str],
+) -> SpreadsheetWorksheetIR:
+    tabular_paths = (
+        placement.path
+        for placement in worksheet.placements
+        if placement.kind in {SpreadsheetBlockKind.TABLE, SpreadsheetBlockKind.MATRIX}
+    )
+    tables = tuple(
+        dataclasses.replace(table, rows=table.rows.materialized())
+        if path in target_paths
+        else table
+        for path, table in zip(tabular_paths, worksheet.tables, strict=True)
+    )
+    return dataclasses.replace(worksheet, tables=tables)
+
+
+def _compiled_table(worksheet: SpreadsheetWorksheetIR, path: str) -> SpreadsheetTableIR:
+    placements = tuple(
+        placement
+        for placement in worksheet.placements
+        if placement.kind in {SpreadsheetBlockKind.TABLE, SpreadsheetBlockKind.MATRIX}
+    )
+    for placement, table in zip(placements, worksheet.tables, strict=True):
+        if placement.path == path:
+            return table
+    message = f"Compiled template target path {path!r} was not found"
+    raise TemplateError(message)
+
+
+def _target_range(target: XlsxTableTarget, row_count: int | None) -> CellRange:
+    max_row = target.range.max_row
+    if target.repeat and row_count is not None:
+        max_row = target.range.min_row + max(row_count, 1) * target.range.rows - 1
+    return CellRange(
+        start=CellAddress(target.range.min_row, target.range.min_column),
+        end=CellAddress(max_row, target.range.max_column),
     )
 
 

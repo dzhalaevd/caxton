@@ -2,6 +2,76 @@
 
 <!-- towncrier release notes start -->
 
+## [0.2.3] - 2026-09-04
+
+### Breaking changes
+
+- Spreadsheet tables now use the single keyword-only
+  `table(source=..., cols=(...))` form. Typed column factories are available only
+  through the explicit `column.<type>(id=..., source=..., title=...)` namespace;
+  the positional table form and flat typed-factory exports have been removed.
+
+  Matrix dimensions also accept raw field names, and all declarations continue to
+  produce the same immutable semantic nodes before compilation. ([#24](https://github.com/dzhalaevd/caxton/issues/24))
+- Harden `caxton.testing` comparisons, callable identities, layout preflight, and
+  XLSX inspection against false positives. Canonical snapshots now use schema v2,
+  with fully qualified dataclass names and escaped `$` mapping keys.
+- Remove the shallow ``CorporateTheme`` subclass. Compose branded defaults with
+  ``DocumentTheme`` directly or return one from an application-owned function;
+  concrete presentation value objects are now marked as final for type checkers.
+- Template targets are now their own type. `into=` and `xlsx.pivot(source=...)`
+  take `slot("name")`, which names a region of the template document; `ref()` is
+  again only a row expression naming a semantic column.
+
+  Table rows in the spreadsheet IR are a `RowStream` consumed exactly once. A
+  second pass raises `InvalidOperationError` instead of silently yielding nothing,
+  and a renderer that needs two passes calls `materialized()` for a re-readable
+  copy. Resolved formulas form the closed `ResolvedFormulaNode` union, and the
+  `ResolvedFormula` base can no longer be instantiated.
+
+  Two silent resolutions became errors: a column that sets both an explicit width
+  and an auto-width policy, and a `money(currency=...)` column formatted with a
+  display format that cannot show a currency.
+
+### Features
+
+- Semantic types are an open set. A user-defined `SemanticType` declares its
+  `name`, its `numeric` flag and the display format it asks for, and any renderer
+  reporting the `semantic:extension` capability — both bundled XLSX backends —
+  renders it without recognizing the type.
+
+  The public surface gained what typed code needs: the return types of every
+  public factory, the `RowSourceInput` alias for `table(source=...)`, and the
+  `DefaultRowAccessor`, `MappingRowAccessor` and `AttributeRowAccessor` helpers,
+  so a third-party `DataSource` only implements `iter_rows`. XLSX extension
+  intents moved out of `caxton._internal` and `caxton.api.xlsx` now re-exports
+  them from the model. `Notification.raise_if_errors` takes the error class to
+  raise.
+
+  `RenderResult.content` and the per-axis flags of `relative()` are deprecated.
+  Error context is now printed with the error, and image sources that cannot be
+  read report their path.
+
+### Bug fixes
+
+- Make public construction errors consistently catchable through ``CaxtonError``,
+  restore copy and pickle support for errors, and correct immutable value semantics
+  for styles, themes, capabilities, and spreadsheet IR validation.
+  Presentation value types now also report ``__final__`` on Python 3.10, because
+  ``final`` comes from ``typing_extensions`` there.
+- Preserve literal XLSX text and portable numeric fidelity, make path and buffer
+  writes transactional without redundant XlsxWriter staging, and validate the
+  actual prepared extent of template targets before mutating a workbook. Template
+  targets now clear stale literal values and hyperlinks throughout their named
+  range while preserving template-owned formulas outside the semantic columns.
+  Empty native tables keep an optional totals footer outside the table range.
+
+  Template tables now raise ``UnsupportedFeatureError`` for presentation options
+  that the data-only target route previously ignored. Repeated template blocks
+  also reject formulas and workbook structures that OpenPyXL cannot shift safely,
+  instead of producing a silently corrupted workbook.
+
+
 ## [0.2.1] - 2026-09-02
 
 ### Features

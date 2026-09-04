@@ -8,8 +8,10 @@ import xlsxwriter  # type: ignore[import-untyped]
 from xlsxwriter.image import Image as XlsxImage  # type: ignore[import-untyped]
 from xlsxwriter.worksheet import Worksheet  # type: ignore[import-untyped]
 
+from caxton._internal.backends._xlsx_values import validate_xlsx_text
 from caxton._internal.backends.xlsxwriter.styles import style_format
 from caxton._internal.const import _CHART_TYPES
+from caxton.core.errors import RenderError
 from caxton.core.ir import (
     CellRange,
     SpreadsheetChartIR,
@@ -27,21 +29,29 @@ def render_text(
     row = text.anchor.row - 1
     column = text.anchor.column - 1
     cell_format = style_format(workbook, text.style)
+    literal = validate_xlsx_text(text.text, role="title")
     if text.span > 1:
         worksheet.merge_range(
             row,
             column,
             row,
             column + text.span - 1,
-            text.text,
+            literal,
             cell_format,
         )
         return
-    worksheet.write(row, column, text.text, cell_format)
+    worksheet.write_string(row, column, literal, cell_format)
 
 
 def render_image(worksheet: Worksheet, picture: SpreadsheetImageIR) -> None:
-    """Render an image block into a worksheet."""
+    """Render an image block into a worksheet.
+
+    Image sources are read here, at rendering time, so a path that has moved
+    since the document was described fails with the path in the error context.
+
+    Raises:
+        RenderError: If the image source cannot be read.
+    """
     source = picture.source
     filename = source if isinstance(source, str) else f"{picture.name or 'image'}.png"
     options: dict[str, object] = {}
@@ -49,16 +59,35 @@ def render_image(worksheet: Worksheet, picture: SpreadsheetImageIR) -> None:
         options["image_data"] = BytesIO(source)
     if picture.description is not None:
         options["description"] = picture.description
-    natural = _natural_size(source)
-    if natural is not None:
-        options["x_scale"] = picture.width / natural[0]
-        options["y_scale"] = picture.height / natural[1]
-    worksheet.insert_image(
-        picture.anchor.row - 1,
-        picture.anchor.column - 1,
-        filename,
-        options,
-    )
+    try:
+        natural = _natural_size(source)
+        if natural is not None:
+            options["x_scale"] = picture.width / natural[0]
+            options["y_scale"] = picture.height / natural[1]
+        worksheet.insert_image(
+            picture.anchor.row - 1,
+            picture.anchor.column - 1,
+            filename,
+            options,
+        )
+    except OSError as error:
+        message = "Image source could not be read"
+        raise RenderError(
+            message,
+            context=_unreadable_image_context(picture, error),
+        ) from error
+
+
+def _unreadable_image_context(
+    picture: SpreadsheetImageIR,
+    error: OSError,
+) -> dict[str, object]:
+    context: dict[str, object] = {"exception_type": type(error).__name__}
+    if isinstance(picture.source, str):
+        context["source"] = picture.source
+    if picture.name is not None:
+        context["image"] = picture.name
+    return context
 
 
 def _natural_size(source: str | bytes) -> tuple[float, float] | None:

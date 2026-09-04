@@ -3,9 +3,11 @@ from __future__ import annotations
 import dataclasses
 import math
 
+from caxton.core._compat import final
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
 
 
+@final
 @dataclasses.dataclass(frozen=True, slots=True)
 class AutoWidth:
     """Backend-neutral bounds for a content-derived column width."""
@@ -53,4 +55,7 @@ def _positive_width(value: object, *, label: str) -> float:
     return normalized
 
 
-__all__ = ("AutoWidth",)
+__all__ = (
+    "AutoWidth",
+    "resolve_auto_width",
+)

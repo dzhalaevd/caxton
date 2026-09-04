@@ -15,7 +15,11 @@ from ._errors import ArtifactInspectionError
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ArtifactCell:
-    """One cell observed in a materialized spreadsheet artifact."""
+    """One cell observed in a materialized spreadsheet artifact.
+
+    Formula cells expose formula text in both ``value`` and ``formula`` because
+    inspection preserves formulas instead of loading calculated cached values.
+    """
 
     address: str
     value: object
@@ -48,7 +52,10 @@ class ArtifactColumn:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ArtifactTable:
-    """One native table observed in an XLSX worksheet."""
+    """One native table observed in an XLSX worksheet.
+
+    ``row_count`` excludes the single native header row.
+    """
 
     name: str
     cell_range: str
@@ -113,6 +120,27 @@ class ArtifactWorksheet:
                 return cell
         message = f"Cell {canonical!r} was not observed in worksheet {self.name!r}"
         raise LookupError(message)
+
+    @property
+    def addresses(self) -> tuple[str, ...]:
+        """Observed cell addresses in physical row-major order."""
+        return tuple(cell.address for cell in self.cells)
+
+    @property
+    def used_range(self) -> str | None:
+        """Bounding range of observed cells, if any exist."""
+        if not self.cells:
+            return None
+        coordinates = tuple(parse_cell_address(cell.address) for cell in self.cells)
+        start = format_cell_address(
+            min(item.row for item in coordinates),
+            min(item.column for item in coordinates),
+        )
+        end = format_cell_address(
+            max(item.row for item in coordinates),
+            max(item.column for item in coordinates),
+        )
+        return f"{start}:{end}"
 
     def column(self, letter: str) -> ArtifactColumn:
         """Select an observed column dimension by letter.
@@ -202,6 +230,9 @@ def inspect_artifact(
     format: str | None = None,  # noqa: A002
 ) -> SpreadsheetArtifact:
     """Inspect an XLSX artifact without exposing backend-native objects.
+
+    Unsupported source objects raise ``TypeError``. An unreadable or malformed
+    XLSX package raises ``ArtifactInspectionError`` with source context.
 
     Returns:
         An immutable observation of workbook contents and presentation.

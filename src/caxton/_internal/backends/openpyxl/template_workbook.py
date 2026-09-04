@@ -1,28 +1,26 @@
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Sequence
 from copy import copy
 from io import BytesIO
 from typing import Any, cast
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import Cell
 from openpyxl.formula.translate import Translator
 from openpyxl.utils import get_column_letter, quote_sheetname, range_boundaries
 from openpyxl.worksheet.cell_range import CellRange as NativeCellRange
 from openpyxl.worksheet.worksheet import Worksheet
 
-from caxton._internal.backends.openpyxl.extensions import (
-    OpenpyxlHookContext,
-    OpenpyxlHookExtension,
-    PivotBinding,
-)
+from caxton._internal.backends._xlsx_values import validate_xlsx_value
 from caxton._internal.backends.openpyxl.package import (
     PivotPatch,
     PivotPostProcessor,
     XlsxPackage,
     run_postprocessors,
 )
+from caxton._internal.backends.openpyxl.rows import set_literal_cell
 from caxton._internal.backends.openpyxl.tables import render_table
 from caxton._internal.backends.openpyxl.workbook import _render_text
 from caxton._internal.formulas import lower_excel_formula
@@ -32,9 +30,20 @@ from caxton._internal.templates import (
     XlsxTemplateContext,
 )
 from caxton.core.errors import IncompatibleTemplateRefError, TemplateError
-from caxton.core.ir import SpreadsheetIR, SpreadsheetTableIR
+from caxton.core.ir import (
+    SpreadsheetBlockKind,
+    SpreadsheetIR,
+    SpreadsheetTableIR,
+    SpreadsheetWorksheetIR,
+)
 from caxton.core.models import ColumnRef, TemplateCompilationResult
+from caxton.core.models.extensions import (
+    OpenpyxlHookContext,
+    OpenpyxlHookExtension,
+    PivotBinding,
+)
 from caxton.core.types import Link
+from caxton.core.values import CellValue
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -76,11 +85,15 @@ def render_template_workbook(
         message = "OpenPyXL template renderer requires an XLSX template context"
         raise TemplateError(message)
     workbook = load_workbook(BytesIO(context.payload), data_only=False)
-    targets = {
-        (target.worksheet_index, target.table_index): target
-        for item in compilation.targets
-        for target in (cast("XlsxTableTarget", item),)
-    }
+    targets: dict[tuple[int, str], XlsxTableTarget] = {}
+    for item in compilation.targets:
+        if not isinstance(item, XlsxTableTarget):
+            message = "OpenPyXL received an incompatible template target"
+            raise TemplateError(
+                message,
+                context={"namespace": getattr(item, "namespace", None)},
+            )
+        targets[item.worksheet_index, item.path] = item
     insertions: dict[str, list[_Insertion]] = {}
     generated_ranges: dict[str, _GeneratedRange] = {}
     for worksheet_index, worksheet_ir in enumerate(compilation.document.worksheets):
@@ -102,11 +115,11 @@ def render_template_workbook(
 
 
 def _render_worksheet(  # noqa: C901, WPS211
-    workbook: Any,
+    workbook: Workbook,
     worksheet: Worksheet,
-    worksheet_ir: Any,
+    worksheet_ir: SpreadsheetWorksheetIR,
     worksheet_index: int,
-    targets: dict[tuple[int, int], XlsxTableTarget],
+    targets: dict[tuple[int, str], XlsxTableTarget],
     insertions: dict[str, list[_Insertion]],
     generated_ranges: dict[str, _GeneratedRange],
 ) -> None:
@@ -118,8 +131,13 @@ def _render_worksheet(  # noqa: C901, WPS211
     for text in worksheet_ir.texts:
         _render_text(worksheet, text)
     sheet_insertions = insertions.setdefault(worksheet.title, [])
-    for table_index, table in enumerate(worksheet_ir.tables):
-        target = targets.get((worksheet_index, table_index))
+    tabular_paths = (
+        placement.path
+        for placement in worksheet_ir.placements
+        if placement.kind in {SpreadsheetBlockKind.TABLE, SpreadsheetBlockKind.MATRIX}
+    )
+    for table, table_path in zip(worksheet_ir.tables, tabular_paths, strict=True):
+        target = targets.get((worksheet_index, table_path))
         if target is None:
             render_table(worksheet, table)
             if table.name is not None and table.name in worksheet.tables:
@@ -162,6 +180,22 @@ def _render_named_table(
     table: SpreadsheetTableIR,
     target: XlsxNamedRange,
 ) -> int:
+    _clear_target_values(
+        worksheet,
+        start_row=target.min_row,
+        end_row=target.max_row,
+        start_column=target.min_column,
+        columns=len(table.columns),
+    )
+    unused_columns = target.columns - len(table.columns)
+    if unused_columns:
+        _clear_literal_target_values(
+            worksheet,
+            start_row=target.min_row,
+            end_row=target.max_row,
+            start_column=target.min_column + len(table.columns),
+            columns=unused_columns,
+        )
     last_row = target.min_row - 1
     for row in table.rows:
         physical_row = target.min_row + row.index
@@ -177,6 +211,7 @@ def _render_named_table(
             row.values,
             physical_row,
             target.min_column,
+            row_index=row.index,
         )
         last_row = physical_row
     return max(last_row, target.min_row)
@@ -193,6 +228,7 @@ def _render_repeated_table(
     cells = tuple(_snapshot_cells(worksheet, target))
     merges = tuple(_contained_merges(worksheet, target))
     if amount:
+        _reject_downstream_repeat_dependencies(worksheet, target)
         _shift_downstream_merges(worksheet, target.max_row, amount)
         worksheet.insert_rows(target.max_row + 1, amount)
     for copy_index in range(1, copies):
@@ -213,6 +249,15 @@ def _render_repeated_table(
             row.values,
             physical_row,
             target.min_column,
+            row_index=row.index,
+        )
+    if not rows:
+        _clear_target_values(
+            worksheet,
+            start_row=target.min_row,
+            end_row=target.max_row,
+            start_column=target.min_column,
+            columns=target.columns,
         )
     last_row = target.min_row + max(len(rows) - 1, 0) * target.rows
     return _Insertion(after_row=target.max_row, amount=amount), last_row
@@ -309,7 +354,7 @@ def _shift_downstream_merges(
 
 
 def _shift_defined_names(
-    workbook: Any,
+    workbook: Workbook,
     sheet_name: str,
     after_row: int,
     amount: int,
@@ -353,21 +398,43 @@ def _shift_destination(
 def _write_template_values(  # noqa: WPS211
     worksheet: Worksheet,
     table: SpreadsheetTableIR,
-    values: Any,
+    values: Sequence[CellValue],
     physical_row: int,
     start_column: int,
+    *,
+    row_index: int,
 ) -> None:
     for column, value in zip(table.columns, values, strict=True):
         cell_value = value
         if column.formula is not None:
             cell_value = lower_excel_formula(column.formula, current_row=physical_row)
-        cell = cast("Cell", worksheet.cell(physical_row, start_column + column.offset))
-        cell.value = cell_value
+        cell = cast(
+            "Cell",
+            worksheet.cell(physical_row, start_column + column.offset),
+        )
+        if column.formula is not None:
+            cell.value = cell_value
+        else:
+            set_literal_cell(
+                cell,
+                validate_xlsx_value(
+                    cell_value,
+                    worksheet=worksheet.title,
+                    table=table.name,
+                    row=row_index,
+                    column=column.id,
+                ),
+            )
         if isinstance(column.semantic_type, Link) and cell_value is not None:
             cell.hyperlink = str(cell_value)
+        else:
+            cell.hyperlink = None
 
 
-def _shift_target(target: XlsxTableTarget, insertions: list[_Insertion]) -> Any:
+def _shift_target(
+    target: XlsxTableTarget,
+    insertions: list[_Insertion],
+) -> XlsxNamedRange:
     shift = sum(
         insertion.amount
         for insertion in insertions
@@ -377,6 +444,73 @@ def _shift_target(target: XlsxTableTarget, insertions: list[_Insertion]) -> Any:
         target.range,
         min_row=target.range.min_row + shift,
         max_row=target.range.max_row + shift,
+    )
+
+
+def _clear_target_values(
+    worksheet: Worksheet,
+    *,
+    start_row: int,
+    end_row: int,
+    start_column: int,
+    columns: int,
+) -> None:
+    for row in range(start_row, end_row + 1):
+        for column in range(start_column, start_column + columns):
+            cell = worksheet.cell(row, column)
+            cell.value = None
+            cell.hyperlink = None
+
+
+def _clear_literal_target_values(
+    worksheet: Worksheet,
+    *,
+    start_row: int,
+    end_row: int,
+    start_column: int,
+    columns: int,
+) -> None:
+    for row in range(start_row, end_row + 1):
+        for column in range(start_column, start_column + columns):
+            cell = worksheet.cell(row, column)
+            if cell.data_type != "f":
+                cell.value = None
+                cell.hyperlink = None
+
+
+def _reject_downstream_repeat_dependencies(
+    worksheet: Worksheet,
+    target: XlsxNamedRange,
+) -> None:
+    external_formula = any(
+        cell.data_type == "f"
+        and isinstance(cell.row, int)
+        and isinstance(cell.column, int)
+        and not (
+            target.min_row <= cell.row <= target.max_row
+            and target.min_column <= cell.column <= target.max_column
+        )
+        for row in worksheet.iter_rows()
+        for cell in row
+    )
+    dependent_structures = any(
+        (
+            bool(worksheet._charts),  # type: ignore[attr-defined]  # noqa: SLF001
+            bool(worksheet.conditional_formatting),
+            bool(worksheet.data_validations.dataValidation),
+            bool(worksheet.print_area),
+            bool(worksheet.tables),
+        ),
+    )
+    if not external_formula and not dependent_structures:
+        return
+    message = (
+        f"Repeated template target {target.reference!r} has downstream "
+        "dependencies that OpenPyXL cannot shift safely"
+    )
+    raise IncompatibleTemplateRefError(
+        message,
+        context={"reference": target.reference, "reason": "downstream_dependency"},
     )
 
 
@@ -391,7 +525,10 @@ def _range_text(
     return f"{start}:{end}"
 
 
-def _run_hooks(workbook: Any, compilation: Any) -> None:
+def _run_hooks(
+    workbook: Workbook,
+    compilation: TemplateCompilationResult[SpreadsheetIR],
+) -> None:
     default_sheet = compilation.document.worksheets[0].name
     for extension in compilation.extensions:
         if not isinstance(extension, OpenpyxlHookExtension):
@@ -410,7 +547,7 @@ def _run_hooks(workbook: Any, compilation: Any) -> None:
 
 def _postprocess_pivots(
     payload: bytes,
-    compilation: Any,
+    compilation: TemplateCompilationResult[SpreadsheetIR],
     generated_ranges: dict[str, _GeneratedRange],
 ) -> bytes:
     context = cast("XlsxTemplateContext", compilation.context)

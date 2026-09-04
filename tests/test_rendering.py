@@ -171,12 +171,15 @@ def test_render_produces_readable_xlsx() -> None:  # noqa: WPS218
     assert worksheet.table("sales").row_count == 1
 
 
-def test_result_content_alias() -> None:
+def test_result_content_alias_is_deprecated() -> None:
     result = render(_sales_document())
 
-    assert result.content == result.data
-    assert result.content is not None
-    assert result.content.startswith(b"PK")
+    with pytest.deprecated_call():
+        content = result.content
+
+    assert content == result.data
+    assert content is not None
+    assert content.startswith(b"PK")
 
 
 def test_mime_type_selects_xlsx_renderer() -> None:
@@ -321,6 +324,14 @@ def test_explicit_custom_renderer_is_selected() -> None:
 
     assert result.renderer == "stub"
     assert result.data == StubRenderer.payload
+
+
+def test_renderer_descriptor_hash_uses_values() -> None:
+    first = StubRenderer().descriptor
+    second = StubRenderer().descriptor
+
+    assert first == second
+    assert hash(first) == hash(second)
 
 
 @pytest.mark.parametrize("backend", ["xlsxwriter", "openpyxl"])

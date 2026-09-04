@@ -3,16 +3,16 @@ from typing_extensions import assert_type
 from caxton import (
     TemplateRepeat,
     TemplateSpecification,
-    ref,
     repeat,
+    slot,
     template,
 )
 from caxton.api import xlsx
 
 specification = template("report.xlsx")
-repetition = repeat(ref("report_row"))
+repetition = repeat(slot("report_row"))
 hook = xlsx.openpyxl_hook(lambda _context: None, sheet="Report")
-pivot = xlsx.pivot("SalesPivot", source=ref("report_data"))
+pivot = xlsx.pivot("SalesPivot", source=slot("report_data"))
 
 assert_type(specification, TemplateSpecification)
 assert_type(repetition, TemplateRepeat)

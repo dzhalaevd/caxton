@@ -4,9 +4,11 @@ from openpyxl.formatting.rule import Rule
 from openpyxl.styles.differential import (
     DifferentialStyle,
 )
+from openpyxl.styles.numbers import BUILTIN_FORMATS_MAX_SIZE, NumberFormat
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from caxton._internal.backends._xlsx_formats import display_number_format
 from caxton._internal.backends.openpyxl.styles import native_style
 from caxton._internal.formulas import lower_excel_formula
 from caxton.core.ir import SpreadsheetTableIR
@@ -26,9 +28,22 @@ def add_conditional_formats(  # noqa: WPS211
     end = f"{get_column_letter(start_column + len(table.columns) - 1)}{last_row}"
     for item in table.rules:
         font, fill, border, _ = native_style(item.style)
+        number = (
+            None
+            if item.style.display_format is None
+            else NumberFormat(
+                numFmtId=BUILTIN_FORMATS_MAX_SIZE,
+                formatCode=display_number_format(item.style.display_format),
+            )
+        )
         rule = Rule(
             type="expression",
-            dxf=DifferentialStyle(font=font, fill=fill, border=border),
+            dxf=DifferentialStyle(
+                font=font,
+                fill=fill,
+                border=border,
+                numFmt=number,
+            ),
             formula=[
                 lower_excel_formula(
                     item.condition,

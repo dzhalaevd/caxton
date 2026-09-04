@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Iterator, Sequence
-from typing import Any, TypeAlias
+from typing import Any, TypeAlias, get_args
 
 from caxton.core._compat import StrEnum
 from caxton.core.errors import CaxtonTypeError, CaxtonValueError
@@ -24,9 +24,9 @@ from ._validation import (
 )
 from .columns import Column
 from .common import DocumentKind, DocumentMetadata, freeze_metadata
-from .expressions import ColumnRef, Expression, contains_aggregate
+from .expressions import Expression, contains_aggregate
 from .formulas import Formula, FormulaInput, TableReference, as_formula
-from .templates import TemplateRepeat, TemplateSpecification
+from .templates import TemplateRef, TemplateRepeat, TemplateSpecification
 
 DEFAULT_OBJECT_WIDTH = 480
 DEFAULT_OBJECT_HEIGHT = 288
@@ -103,6 +103,7 @@ class Totals:
     def __post_init__(self) -> None:
         require_name(self.label, "Totals label")
         require_optional_name(self.label_column, "Totals label column")
+        _validate_style(self.style, "Totals style")
         items = tuple(self.items)
         for item in items:
             if not isinstance(item, Total):
@@ -177,20 +178,22 @@ class SpreadsheetTable:
     autofilter: bool = False
     freeze_header: bool = False
     auto_width: AutoWidth | bool | None = None
-    into: ColumnRef | TemplateRepeat | None = None
+    into: TemplateRef | TemplateRepeat | None = None
 
     def __post_init__(self) -> None:  # noqa: WPS238
         _require_table_data(self.data)
         require_optional_name(self.name, "Table name")
         require_optional_name(self.anchor, "Table anchor")
+        _validate_style(self.style, "Table style")
+        _validate_style(self.header_style, "Table header style")
         if self.anchor is not None and self.into is not None:
             message = "Table anchor and template target are mutually exclusive"
             raise CaxtonValueError(message)
         if self.into is not None and not isinstance(
             self.into,
-            (ColumnRef, TemplateRepeat),
+            (TemplateRef, TemplateRepeat),
         ):
-            message = "Table template target must be created with ref() or repeat()"
+            message = "Table template target must be created with slot() or repeat()"
             raise CaxtonTypeError(message)
         if self.footer is not None and not isinstance(self.footer, Totals):
             message = "Table footer must be a Totals value"
@@ -253,6 +256,8 @@ class Matrix:
             message = "Matrix dimensions and value must have unique column ids"
             raise CaxtonValueError(message)
         require_optional_name(self.anchor, "Matrix anchor")
+        _validate_style(self.style, "Matrix style")
+        _validate_style(self.header_style, "Matrix header style")
         object.__setattr__(self, "row_dimensions", rows)
         object.__setattr__(self, "column_dimensions", columns)
 
@@ -272,6 +277,7 @@ class Title:
         require_positive(self.level, "Title level")
         require_positive(self.span, "Title span")
         require_optional_name(self.anchor, "Title anchor")
+        _validate_style(self.style, "Title style")
 
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
@@ -290,7 +296,11 @@ class Spacer:
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
 class Image:
-    """Picture placed by declared pixel size instead of engine coordinates."""
+    """Picture placed by declared pixel size instead of engine coordinates.
+
+    String sources are resolved during rendering; byte sources are retained
+    directly as immutable content.
+    """
 
     source: str | bytes
     width: int = DEFAULT_OBJECT_WIDTH
@@ -417,6 +427,7 @@ class Stack:
 SpreadsheetBlock: TypeAlias = (
     SpreadsheetTable | Matrix | Title | Spacer | Image | Chart | Stack
 )
+_SPREADSHEET_BLOCKS = get_args(SpreadsheetBlock)
 
 
 def _require_spreadsheet_blocks(
@@ -424,10 +435,7 @@ def _require_spreadsheet_blocks(
     label: str,
 ) -> None:
     for block in blocks:
-        if not isinstance(
-            block,
-            (SpreadsheetTable, Matrix, Title, Spacer, Image, Chart, Stack),
-        ):
+        if not isinstance(block, _SPREADSHEET_BLOCKS):
             message = f"{label} must be spreadsheet blocks"
             raise CaxtonTypeError(message)
 
@@ -466,12 +474,18 @@ class SpreadsheetDocument:
         init=False,
     )
 
-    def __post_init__(self) -> None:
+    def __post_init__(self) -> None:  # noqa: WPS238
         if self.template is not None and not isinstance(
             self.template,
             TemplateSpecification,
         ):
             message = "Spreadsheet template must be created with template()"
+            raise CaxtonTypeError(message)
+        if not isinstance(self.styles, StyleSheet):
+            message = "Spreadsheet styles must be a StyleSheet"
+            raise CaxtonTypeError(message)
+        if not isinstance(self.theme, DocumentTheme):
+            message = "Spreadsheet theme must be a DocumentTheme"
             raise CaxtonTypeError(message)
         worksheets = tuple(self.worksheets)
         for worksheet in worksheets:
@@ -482,7 +496,9 @@ class SpreadsheetDocument:
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 
 
-def _validate_style(value: StyleInput, label: str) -> None:
+def _validate_style(value: StyleInput | None, label: str) -> None:
+    if value is None:
+        return
     if not isinstance(value, (Style, str)):
         message = f"{label} must be a Style or a style name"
         raise CaxtonTypeError(message)

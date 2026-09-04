@@ -1,4 +1,5 @@
-from .accessors import AttributeRowAccessor, MappingRowAccessor
+from caxton.core.accessors import AttributeRowAccessor, MappingRowAccessor
+
 from .sources import coerce_data_source, data_source
 
 __all__ = (

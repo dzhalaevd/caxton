@@ -70,3 +70,10 @@ def _field_access(
         row_type=type(row).__name__,
         context={"exception_type": type(error).__name__},
     )
+
+
+__all__ = (
+    "AttributeRowAccessor",
+    "DefaultRowAccessor",
+    "MappingRowAccessor",
+)

@@ -6,8 +6,8 @@ from types import MappingProxyType
 from typing import Any, cast
 
 from caxton._internal.const import _BINARY_OPERATIONS, _NOT_EVALUATED, _SOURCE_END
-from caxton._internal.data.accessors import DefaultRowAccessor
 from caxton.core._values import normalize_cell_value
+from caxton.core.accessors import DefaultRowAccessor
 from caxton.core.errors import (
     CaxtonError,
     ColumnNotFoundError,

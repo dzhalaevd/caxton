@@ -88,9 +88,9 @@ class FormulaCatalog:
             UnsupportedFeatureError: If the referenced table does not exist.
         """
         key = reference.sheet_name or current_worksheet.name
-        location = self.by_sheet_and_name.get(
-            (key, reference.name),
-        ) or self.by_name.get(reference.name)
+        location = self.by_sheet_and_name.get((key, reference.name))
+        if location is None and reference.sheet_name is None:
+            location = self.by_name.get(reference.name)
         if location is None:
             message = f"Table {reference.name!r} was not found"
             raise UnsupportedFeatureError(

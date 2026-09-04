@@ -6,7 +6,13 @@ import dataclasses
 from io import BytesIO
 from pathlib import Path
 
-from caxton._internal.sinks import BufferSink, FileSink, MemorySink
+from caxton._internal.sinks import (
+    BufferSink,
+    BufferTransactionSink,
+    FileSink,
+    FileTransactionSink,
+    MemorySink,
+)
 from caxton.core.protocols import OutputSink
 
 
@@ -21,7 +27,7 @@ class WorkbookDestination:
     staged_file: Path | None = None
 
     @classmethod
-    def for_sink(cls, sink: OutputSink) -> WorkbookDestination:
+    def for_sink(cls, sink: OutputSink) -> WorkbookDestination:  # noqa: WPS212
         """Create the most direct destination supported by the sink.
 
         Returns:
@@ -29,6 +35,14 @@ class WorkbookDestination:
         """
         if isinstance(sink, FileSink):
             return cls._for_file(sink)
+        if isinstance(sink, FileTransactionSink):
+            return cls(target=str(sink.staging_path), sink=sink)
+        if isinstance(sink, BufferTransactionSink):
+            return cls(
+                target=sink.buffer,
+                sink=sink,
+                start_position=sink.buffer.tell(),
+            )
         if isinstance(sink, MemorySink):
             return cls(
                 target=sink.buffer,
@@ -60,10 +74,12 @@ class WorkbookDestination:
             return self.sink.commit_staged(self.staged_file)
         if self.staged_buffer is not None:
             return self.sink.write(self.staged_buffer.getvalue())
+        if isinstance(self.sink, FileTransactionSink):
+            return self.sink.staging_path.stat().st_size
         return self._direct_size()
 
     def _direct_size(self) -> int:
-        if isinstance(self.sink, MemorySink):
+        if isinstance(self.sink, (MemorySink, BufferTransactionSink)):
             return len(self.sink.getvalue()) - self.start_position
         if isinstance(self.sink, BufferSink):
             target = self.sink.seekable_buffer

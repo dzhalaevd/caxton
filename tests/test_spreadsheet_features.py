@@ -1,3 +1,4 @@
+import dataclasses
 import datetime as dt
 from collections.abc import Iterator
 from itertools import starmap
@@ -9,7 +10,7 @@ from caxton import (
     AutoWidth,
     CaxtonTypeError,
     CaxtonValueError,
-    CorporateTheme,
+    DocumentTheme,
     FillStyle,
     FontStyle,
     Freeze,
@@ -56,6 +57,17 @@ from caxton.testing import (
     inspect_layout,
     inspect_spec,
 )
+
+
+def _branded_theme() -> DocumentTheme:
+    return DocumentTheme(
+        default=Style(font=FontStyle(name="Arial")),
+        header=Style(
+            font=FontStyle(name="Arial", bold=True, color="#FFFFFF"),
+            fill="#004B8D",
+        ),
+        total=Style(font=FontStyle(name="Arial", bold=True)),
+    )
 
 
 def test_spreadsheet_features_are_immutable_lazy_semantic_intent() -> None:
@@ -106,11 +118,7 @@ def test_spreadsheet_features_are_immutable_lazy_semantic_intent() -> None:
             freeze=Freeze(rows=0, columns=1),
         ),
         styles=styles,
-        theme=CorporateTheme(
-            font="Arial",
-            header_fill="#004B8D",
-            header_font_color="#FFFFFF",
-        ),
+        theme=_branded_theme(),
     )
 
     spec = inspect_spec(document)
@@ -132,6 +140,51 @@ def test_spreadsheet_features_are_immutable_lazy_semantic_intent() -> None:
     assert sales.rules[0].condition is not None
     assert sales.column("amount").style == "money"
     assert sales.column("amount").auto_width
+
+
+def test_style_shorthands_normalize_to_semantic_value() -> None:
+    shorthand = Style(
+        font_color="#ff0000",
+        align="center",
+        border_bottom="thin",
+    )
+    structured = Style(
+        font=FontStyle(color="#FF0000"),
+        alignment=shorthand.alignment,
+        border=shorthand.border,
+    )
+
+    assert shorthand == structured
+    assert hash(shorthand) == hash(structured)
+    assert shorthand.merged_over(Style()) == shorthand
+
+
+def test_style_shorthands_remain_replaceable() -> None:
+    style = Style(font_color="#FF0000")
+
+    replaced = dataclasses.replace(style, font_color="#0000FF")
+
+    assert replaced.font == FontStyle(color="#0000FF")
+
+
+def test_stylesheet_hash_is_based_on_mapping_value() -> None:
+    first = StyleSheet({"a": Style(fill="#FFFFFF"), "b": Style()})
+    second = StyleSheet({"b": Style(), "a": Style(fill="#FFFFFF")})
+
+    assert first == second
+    assert hash(first) == hash(second)
+
+
+def test_document_theme_supports_dataclass_replace() -> None:
+    theme = _branded_theme()
+    total = Style(font=FontStyle(bold=False))
+
+    replaced = dataclasses.replace(theme, total=total)
+
+    assert isinstance(replaced, DocumentTheme)
+    assert replaced.default == theme.default
+    assert replaced.header == theme.header
+    assert replaced.total == total
 
 
 def test_spreadsheet_features_compile_to_resolved_layout() -> None:
@@ -171,11 +224,7 @@ def test_spreadsheet_features_compile_to_resolved_layout() -> None:
                 "positive": Style(fill="#C6EFCE", font_color="#006100"),
             },
         ),
-        theme=CorporateTheme(
-            font="Arial",
-            header_fill="#004B8D",
-            header_font_color="#FFFFFF",
-        ),
+        theme=_branded_theme(),
     )
 
     layout = inspect_layout(document, rows=Rows.all())
@@ -411,7 +460,7 @@ def test_testing_diff_and_snapshot_include_stage_three_properties() -> None:
 
     assert captured.value.differences[0].path.endswith(".header_style")
     snapshot = canonical_snapshot(inspect_spec(actual))
-    assert '"$type": "AutoWidth"' in snapshot
+    assert '"$type": "caxton.core.formatting.widths.AutoWidth"' in snapshot
     assert '"autofilter": true' in snapshot
 
     shared_style = Style(fill="#C6EFCE")
