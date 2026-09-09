@@ -269,9 +269,8 @@ def test_column_requires_source_or_formula() -> None:
     ("replace_with", "message"),
     [
         ({"semantic_type": "decimal"}, "semantic type"),
-        ({"alignment": "right"}, "alignment"),
         ({"display_format": object()}, "display format"),
-        ({"style_ref": object()}, "style"),
+        ({"style": object()}, "style"),
         ({"width_hint": 0}, "width"),
     ],
 )

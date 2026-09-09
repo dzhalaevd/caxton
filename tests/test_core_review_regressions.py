@@ -47,7 +47,6 @@ from caxton.core.ir import (
     SpreadsheetTableIR,
 )
 from caxton.core.models import Column
-from caxton.core.models.columns import make_column
 from caxton.core.types import Integer, Money
 from caxton.errors import (
     InvalidOperationError,
@@ -135,7 +134,7 @@ def test_user_semantic_type_renders_through_its_declared_format() -> None:
             "Ratings",
             table(
                 source=({"score": 4.5},),
-                columns=(make_column("score", Rating(), "score"),),
+                columns=(Column(semantic_type=Rating(), id="score", source="score"),),
             ),
         ),
     )
@@ -149,7 +148,7 @@ def test_numeric_flag_selects_total_columns() -> None:
     numeric = Column(
         id="score",
         semantic_type=Rating(),
-        source=make_column("score", Rating(), "score").source,
+        source=Column(semantic_type=Rating(), id="score", source="score").source,
     )
 
     assert numeric.semantic_type.numeric is True
@@ -175,7 +174,11 @@ def test_width_and_auto_width_conflict_is_reported() -> None:
     assert declared.width("auto").width_hint is None
 
     with pytest.raises(CaxtonValueError, match="both an explicit width"):
-        dataclasses.replace(declared, width_hint=10, auto_width=True)
+        dataclasses.replace(
+            declared,
+            width_hint=10,
+            auto_width=True,  # type: ignore[arg-type]
+        )
 
 
 def test_currency_that_a_format_cannot_show_is_reported() -> None:

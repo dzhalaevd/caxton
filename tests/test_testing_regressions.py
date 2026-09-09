@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import datetime as dt
 import decimal as decimal_module
+import operator
 from collections.abc import Callable
 from functools import partial
 from io import BytesIO
@@ -15,6 +16,7 @@ from openpyxl.worksheet.table import Table, TableColumn
 from openpyxl.worksheet.worksheet import Worksheet
 
 from caxton import (
+    CaxtonTypeError,
     col,
     decimal,
     image,
@@ -72,6 +74,23 @@ def _return_argument(value: object, _row: object) -> object:
     return value
 
 
+def _return_class_factor(instance: object, _row: object) -> object:
+    return cast("Any", instance).factor
+
+
+def _class_state_callable(factor: int) -> Callable[[object], object]:
+    callable_type = type(
+        "ConfiguredCallable",
+        (),
+        {"factor": factor, "__call__": _return_class_factor},
+    )
+    callable_type.__module__ = "configured"
+    callable_type.__qualname__ = "ConfiguredCallable"
+    instance = callable_type()
+    instance.unrelated = 0
+    return cast("Callable[[object], object]", instance)
+
+
 @dataclasses.dataclass(frozen=True)
 class _Multiplier:
     factor: int
@@ -111,6 +130,23 @@ class _CyclicCallable:
         return 1
 
 
+class _SlotCallable:
+    __slots__ = ("value",)
+
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+    def __call__(self, _row: object) -> int:
+        return self.value
+
+
+class _ClassConfiguredCallable:
+    configured: ClassVar[int] = 1
+
+    def __call__(self, _row: object) -> int:
+        return self.configured
+
+
 @pytest.mark.parametrize(
     ("first", "second"),
     [
@@ -143,6 +179,40 @@ def test_explicit_callable_identity_overrides_state() -> None:
     second.__caxton_id__ = "shared"
 
     assert _callable_source(first) == _callable_source(second)
+
+
+def test_callable_identity_fails_loudly_for_unobservable_slot_state() -> None:
+    with pytest.raises(CaxtonTypeError, match="explicit __caxton_id__"):
+        _callable_source(_SlotCallable(1))
+
+
+@pytest.mark.parametrize(
+    "function",
+    [operator.attrgetter("value"), _ClassConfiguredCallable()],
+)
+def test_callable_identity_fails_loudly_for_opaque_behavior(
+    function: Callable[[object], object],
+) -> None:
+    with pytest.raises(CaxtonTypeError, match="explicit __caxton_id__"):
+        _callable_source(function)
+
+
+def test_builtin_callable_identity_is_stable() -> None:
+    builtin = cast("Callable[[object], object]", sum)
+    assert _callable_source(builtin) == _callable_source(builtin)
+
+
+def test_bound_builtin_identity_includes_bound_value() -> None:
+    first = cast("Callable[[object], object]", "first".startswith)
+    second = cast("Callable[[object], object]", "second".startswith)
+
+    assert _callable_source(first) != _callable_source(second)
+
+
+def test_callable_identity_includes_observable_class_state() -> None:
+    assert _callable_source(_class_state_callable(1)) != _callable_source(
+        _class_state_callable(2),
+    )
 
 
 def test_block_difference_has_nested_semantic_path() -> None:

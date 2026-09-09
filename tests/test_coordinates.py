@@ -3,6 +3,7 @@ from collections.abc import Callable
 import pytest
 
 from caxton import CaxtonError
+from caxton._internal.layout import table_data_row  # noqa: PLC2701
 from caxton._internal.normalization import (  # noqa: PLC2701
     format_cell_address,
     parse_cell_address,
@@ -61,3 +62,15 @@ def test_resolved_range_rejects_reversed_bounds() -> None:
 def test_spreadsheet_ir_rejects_unknown_version() -> None:
     with pytest.raises(CaxtonError, match="version"):
         SpreadsheetIR(worksheets=(), version=SPREADSHEET_IR_VERSION + 1)
+
+
+@pytest.mark.parametrize(
+    ("header_row", "row_index", "expected"),
+    [(1, 0, 2), (4, 3, 8), (0, 0, 1)],
+)
+def test_table_data_row_preserves_row_numbering(
+    header_row: int,
+    row_index: int,
+    expected: int,
+) -> None:
+    assert table_data_row(header_row, row_index) == expected
