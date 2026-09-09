@@ -7,6 +7,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from caxton._internal.aggregation.keys import dimension_token
 from caxton._internal.compiler import SpreadsheetCompiler
 from caxton._internal.formulas import lower_excel_formula
+from caxton._internal.layout import table_data_row
 from caxton._internal.normalization import format_cell_address, parse_cell_address
 from caxton._internal.requirements import analyze_spreadsheet_requirements
 from caxton._internal.resolver import BuiltinRendererResolver
@@ -396,7 +397,7 @@ class WorksheetLayout:
                     column_id=column.id,
                 )
             for row in table.rows:
-                physical_row = anchor.row + row.index + 1
+                physical_row = table_data_row(anchor.row, row.index)
                 for column in table.columns:
                     yield CellLayout(
                         address=format_cell_address(
@@ -613,7 +614,7 @@ def _inspect_table(table: SpreadsheetTableIR, rows: Rows) -> TableLayout:
             ConditionalRuleLayout(
                 formula=lower_excel_formula(
                     rule.condition,
-                    current_row=table.anchor.row + 1,
+                    current_row=table_data_row(table.anchor.row, 0),
                 ),
                 style=rule.style,
             )

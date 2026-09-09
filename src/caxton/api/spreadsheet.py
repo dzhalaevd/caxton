@@ -41,9 +41,10 @@ from caxton.core.models import (
     Totals,
     Worksheet,
 )
-from caxton.core.models.columns import make_column
 from caxton.core.protocols import RowSourceInput
 from caxton.core.types import Text
+
+from .schemas import ColumnSchema
 
 _MatrixAxisItem = str | Column | Expression
 MatrixAxisInput = str | Column | Expression | Sequence[str | Column | Expression]
@@ -146,6 +147,12 @@ def matrix(  # noqa: WPS211
 
 
 def _table_columns(value: Sequence[Column]) -> tuple[Column, ...]:
+    if isinstance(value, type) and issubclass(value, ColumnSchema):
+        message = (
+            f"Pass {value.__qualname__}.columns to table(), "
+            "not the column schema class itself"
+        )
+        raise CaxtonTypeError(message)
     if not isinstance(value, Sequence):
         raise CaxtonTypeError(_TABLE_COLUMNS_TYPE_ERROR)
     output: list[Column] = []
@@ -168,16 +175,16 @@ def _matrix_dimensions(
         if isinstance(item, Column):
             column = item
         elif isinstance(item, str):
-            column = make_column(
-                _unique_id(item, used_ids),
-                Text(),
-                item,
+            column = Column(
+                id=_unique_id(item, used_ids),
+                semantic_type=Text(),
+                source=item,
             )
         elif isinstance(item, Expression):
-            column = make_column(
-                _unique_id(_expression_id(item, prefix, index), used_ids),
-                Text(),
-                item,
+            column = Column(
+                id=_unique_id(_expression_id(item, prefix, index), used_ids),
+                semantic_type=Text(),
+                source=item,
             )
         else:
             raise CaxtonTypeError(_MATRIX_DIMENSIONS_TYPE_ERROR)
@@ -197,7 +204,11 @@ def _matrix_axis_items(value: MatrixAxisInput) -> tuple[_MatrixAxisItem, ...]:
 def _matrix_value(value: MatrixValueInput, used_ids: set[str]) -> Column:
     if isinstance(value, Column):
         return value
-    return make_column(_unique_id("value", used_ids), Text(), value)
+    return Column(
+        id=_unique_id("value", used_ids),
+        semantic_type=Text(),
+        source=value,
+    )
 
 
 def _expression_id(expression: Expression, prefix: str, index: int) -> str:

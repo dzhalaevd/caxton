@@ -11,6 +11,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from caxton._internal.backends._xlsx_formats import display_number_format
 from caxton._internal.backends.openpyxl.styles import native_style
 from caxton._internal.formulas import lower_excel_formula
+from caxton._internal.layout import table_data_row
 from caxton.core.ir import SpreadsheetTableIR
 
 
@@ -24,7 +25,8 @@ def add_conditional_formats(  # noqa: WPS211
     """Materialize compiled conditional-format rules."""
     if last_row == header_row:
         return
-    start = f"{get_column_letter(start_column)}{header_row + 1}"
+    first_data_row = table_data_row(header_row, 0)
+    start = f"{get_column_letter(start_column)}{first_data_row}"
     end = f"{get_column_letter(start_column + len(table.columns) - 1)}{last_row}"
     for item in table.rules:
         font, fill, border, _ = native_style(item.style)
@@ -47,7 +49,7 @@ def add_conditional_formats(  # noqa: WPS211
             formula=[
                 lower_excel_formula(
                     item.condition,
-                    current_row=header_row + 1,
+                    current_row=first_data_row,
                 ).removeprefix("="),
             ],
         )

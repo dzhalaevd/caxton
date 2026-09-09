@@ -14,6 +14,7 @@ from caxton._internal.backends._xlsx_values import (
 )
 from caxton._internal.backends.openpyxl.styles import apply_style, style_cell
 from caxton._internal.formulas import lower_excel_formula
+from caxton._internal.layout import table_data_row
 from caxton.core.ir import SpreadsheetTableIR
 from caxton.core.values import CellValue
 
@@ -54,7 +55,7 @@ def write_rows(
     last_row = header_row
     widths = [len(column.title) for column in table.columns]
     for row in table.rows:
-        physical_row = header_row + row.index + 1
+        physical_row = table_data_row(header_row, row.index)
         last_row = physical_row
         _write_row(
             worksheet,

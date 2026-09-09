@@ -7,16 +7,36 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 from caxton import (  # noqa: WPS347
-    date,
-    field,
-    money,
+    Column,
+    ColumnSchema,
+    Date,
+    Money,
+    Text,
+    literal,
     sheet,
     spreadsheet,
     table,
-    text,
     write,
 )
 from caxton.core.models import SpreadsheetDocument
+
+
+class SalesColumns(ColumnSchema):
+    """Canonical named order shared by every sales report."""
+
+    date = Column(semantic_type=Date(), source="date", title="Date")
+    product = Column(semantic_type=Text(), source="product", title="Product")
+    revenue = Column(
+        semantic_type=Money(currency="USD"),
+        source="revenue",
+        title="Revenue",
+    )
+    channel = Column(
+        semantic_type=Text(),
+        id="channel",
+        source=literal("direct"),
+        title="Channel",
+    )
 
 
 def sales_report(
@@ -34,24 +54,7 @@ def sales_report(
             "Sales",
             table(
                 source=rows,
-                columns=(
-                    date(
-                        id="date",
-                        source=field("date"),
-                        title="Date",
-                    ),
-                    text(
-                        id="product",
-                        source=field("product"),
-                        title="Product",
-                    ),
-                    money(
-                        id="revenue",
-                        source=field("revenue"),
-                        title="Revenue",
-                        currency="USD",
-                    ),
-                ),
+                columns=SalesColumns.columns,
                 name="sales",
             ),
         ),

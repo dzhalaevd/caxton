@@ -20,9 +20,11 @@ capability diagnostic when it cannot preserve the semantics.
 | `Duration`   | Elapsed time.                                  |
 | `Link`       | Hyperlink target.                              |
 
-You rarely construct these directly — the column factories in
-[`caxton.api`](../reference/api.md) do it for you. They live in
-[`caxton.core.types`](../reference/types.md) for custom renderers.
+Type-specific column factories construct these for concise one-off declarations.
+`Column(semantic_type=...)` accepts the same values directly for uniform schemas,
+custom semantic types and application-resolved configuration. All built-in
+types and `SemanticType` are available from both `caxton` and `caxton.api`; their
+definitions remain in [`caxton.core.types`](../reference/types.md).
 
 Currency belongs to the value: `money(currency="EUR")` states it once, and the
 column renders with it even when no display format is given. `money_format(
@@ -36,8 +38,8 @@ than waiting to be recognized by name:
 ```python
 from typing import ClassVar
 
+from caxton import Column, SemanticType
 from caxton.core.formatting import CustomFormat
-from caxton.core.types import SemanticType
 
 
 class Rating(SemanticType):
@@ -46,6 +48,9 @@ class Rating(SemanticType):
 
     def default_format(self) -> CustomFormat:
         return CustomFormat(name="rating", pattern="0.0")
+
+
+rating = Column(semantic_type=Rating(), source="rating")
 ```
 
 Any renderer reporting the `semantic:extension` capability — both bundled XLSX

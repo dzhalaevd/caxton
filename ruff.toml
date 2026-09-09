@@ -118,3 +118,7 @@ combine-as-imports = true
 "**/tests/**/*.py" = [
     "S101",
 ]
+"src/caxton/core/models/expressions.py" = [
+    # The runtime contract distinguishes int from float in literal annotations.
+    "PYI041",
+]

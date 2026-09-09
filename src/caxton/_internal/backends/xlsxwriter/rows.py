@@ -13,6 +13,7 @@ from caxton._internal.backends._xlsx_values import (
     validate_xlsx_value,
 )
 from caxton._internal.formulas import lower_excel_formula
+from caxton._internal.layout import table_data_row
 from caxton.core.ir import SpreadsheetTableIR
 from caxton.core.types import Link
 from caxton.core.values import CellValue
@@ -67,7 +68,7 @@ def write_rows(
     }
     merge_values: dict[tuple[int, int], object] = {}
     for row in table.rows:
-        physical_row = header_row + row.index + 1
+        physical_row = table_data_row(header_row, row.index)
         last_row = physical_row
         _write_row(
             worksheet,

@@ -88,6 +88,11 @@ class DocumentPlan:
         object.__setattr__(self, "worksheets", tuple(self.worksheets))
 
 
+def table_data_row(header_row: int, row_index: int) -> int:
+    """Return a table data row in the caller's row-numbering convention."""
+    return header_row + row_index + 1
+
+
 def plan_document(
     document: SpreadsheetDocument,
     *,

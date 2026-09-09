@@ -73,7 +73,7 @@ def _require_currency_is_displayable(
         raise CaxtonValueError(message)
 
 
-@dataclasses.dataclass(frozen=True, slots=True, eq=False)
+@dataclasses.dataclass(frozen=True, slots=True, eq=False, init=False)
 class Column:
     """Immutable semantic column specification.
 
@@ -91,45 +91,66 @@ class Column:
     alignment: Alignment | None = None
     width_hint: float | None = None
     display_format: DisplayFormat | None = None
-    style_ref: StyleInput | None = None
-    auto_width: AutoWidth | bool | None = None
+    style: StyleInput | None = None
+    auto_width: AutoWidth | None = None
     grouping: Grouping | None = None
 
-    def __post_init__(self) -> None:  # noqa: C901, WPS238
-        require_name(self.id, "Column id")
-        require_optional_name(self.title, "Column title")
-        if not isinstance(self.semantic_type, SemanticType):
+    def __init__(  # noqa: WPS211, WPS213, WPS238
+        self,
+        *,
+        semantic_type: SemanticType,
+        id: str | None = None,
+        source: ColumnSourceInput = None,
+        excel_formula: FormulaInput | None = None,
+        title: str | None = None,
+        alignment: Alignment | str | None = None,
+        width_hint: float | None = None,
+        display_format: DisplayFormat | None = None,
+        style: StyleInput | None = None,
+        auto_width: AutoWidth | bool | None = None,
+        grouping: Grouping | None = None,
+    ) -> None:
+        """Construct and normalize one final semantic column.
+
+        Exactly one of ``source`` and ``excel_formula`` is required.
+        ``width_hint`` and ``auto_width`` are likewise mutually exclusive.
+        String sources provide the default semantic ID; every other source
+        shape and every Excel formula requires an explicit ``id``.
+
+        Raises:
+            CaxtonTypeError: If a value has an invalid runtime type.
+            CaxtonValueError: If declared values violate a column invariant.
+        """
+        if not isinstance(semantic_type, SemanticType):
             message = "Column semantic type must be a SemanticType"
             raise CaxtonTypeError(message)
-        if self.source is not None and not isinstance(self.source, ColumnSource):
-            message = "Column source must be a normalized column source"
-            raise CaxtonTypeError(message)
-        if self.excel_formula is not None and not isinstance(
-            self.excel_formula,
-            Formula,
-        ):
-            message = "Column Excel formula must be a Formula"
-            raise CaxtonTypeError(message)
-        if (self.source is None) == (self.excel_formula is None):
-            message = (
-                f"Column {self.id!r} requires either a Python source "
-                "or an Excel formula"
-            )
+        label = _column_label(id, source)
+        if source is not None and excel_formula is not None:
+            message = f"{label} cannot define both a Python source and an Excel formula"
             raise CaxtonValueError(message)
-        if self.alignment is not None and not isinstance(self.alignment, Alignment):
-            message = "Column alignment must be an Alignment"
-            raise CaxtonTypeError(message)
-        if self.width_hint is not None:
-            if isinstance(self.width_hint, bool) or not isinstance(
-                self.width_hint,
-                (int, float),
-            ):
-                message = "Column width must be numeric"
-                raise CaxtonTypeError(message)
-            if not math.isfinite(self.width_hint) or self.width_hint <= 0:
-                message = "Column width must be positive"
-                raise CaxtonValueError(message)
-            object.__setattr__(self, "width_hint", float(self.width_hint))
+        if source is None and excel_formula is None:
+            message = f"{label} requires either a Python source or an Excel formula"
+            raise CaxtonValueError(message)
+        object.__setattr__(self, "id", _resolve_id(id, source))
+        object.__setattr__(self, "semantic_type", semantic_type)
+        object.__setattr__(self, "source", normalize_source(source))
+        object.__setattr__(
+            self,
+            "excel_formula",
+            None if excel_formula is None else as_formula(excel_formula),
+        )
+        object.__setattr__(self, "title", title)
+        object.__setattr__(self, "alignment", _normalize_alignment(alignment))
+        object.__setattr__(self, "width_hint", _normalize_width_hint(width_hint))
+        object.__setattr__(self, "display_format", display_format)
+        object.__setattr__(self, "style", style)
+        object.__setattr__(self, "auto_width", resolve_auto_width(auto_width))
+        object.__setattr__(self, "grouping", grouping)
+        self._validate()
+
+    def _validate(self) -> None:  # noqa: WPS238
+        require_name(self.id, "Column id")
+        require_optional_name(self.title, "Column title")
         if self.display_format is not None and not isinstance(
             self.display_format,
             _DISPLAY_FORMATS,
@@ -141,20 +162,18 @@ class Column:
             self.semantic_type,
             self.display_format,
         )
-        if self.style_ref is not None and not isinstance(self.style_ref, (Style, str)):
+        if self.style is not None and not isinstance(self.style, (Style, str)):
             message = "Column style must be a Style or a style name"
             raise CaxtonTypeError(message)
         if self.grouping is not None and not isinstance(self.grouping, Grouping):
             message = "Column grouping must be a Grouping"
             raise CaxtonTypeError(message)
-        auto_width = resolve_auto_width(self.auto_width)
-        if self.width_hint is not None and auto_width is not None:
+        if self.width_hint is not None and self.auto_width is not None:
             message = (
                 f"Column {self.id!r} cannot set both an explicit width "
                 "and an auto-width policy"
             )
             raise CaxtonValueError(message)
-        object.__setattr__(self, "auto_width", auto_width)
 
     @property
     def display_title(self) -> str:
@@ -174,22 +193,13 @@ class Column:
     def align(self, value: Alignment | str) -> Self:
         """Return a column with a horizontal alignment hint.
 
+        An unsupported alignment name is rejected the same way the constructor
+        rejects it.
+
         Returns:
             A column carrying the new alignment.
-
-        Raises:
-            CaxtonTypeError: If the alignment has an invalid type.
-            CaxtonValueError: If the alignment name is unsupported.
         """
-        if not isinstance(value, (Alignment, str)):
-            message = "Column alignment must be a string or Alignment"
-            raise CaxtonTypeError(message)
-        try:
-            alignment = Alignment(value)
-        except ValueError as error:
-            message = f"Unsupported column alignment {value!r}"
-            raise CaxtonValueError(message) from error
-        return dataclasses.replace(self, alignment=alignment)
+        return dataclasses.replace(self, alignment=_normalize_alignment(value))
 
     def width(self, value: float | Literal["auto"] | AutoWidth) -> Self:
         """Return a column with fixed or content-derived width intent.
@@ -258,7 +268,7 @@ class Column:
         if not isinstance(value, (Style, str)):
             message = "Column style must be a Style or a style name"
             raise CaxtonTypeError(message)
-        return dataclasses.replace(self, style_ref=value)
+        return dataclasses.replace(self, style=value)
 
     def grouped(
         self,
@@ -277,40 +287,48 @@ class Column:
         return dataclasses.replace(self, grouping=Grouping(merge=merge, order=order))
 
 
-def make_column(  # noqa: WPS211
-    column_id: str,
-    semantic_type: SemanticType,
-    source: ColumnSourceInput,
-    *,
-    formula: FormulaInput | None = None,
-    style: StyleInput | None = None,
-    title: str | None = None,
-) -> Column:
-    """Build a semantic column from declared factory arguments.
+def _column_label(column_id: str | None, source: ColumnSourceInput) -> str:
+    name = column_id if isinstance(column_id, str) else source
+    if isinstance(name, str) and name.strip():
+        return f"Column {name!r}"
+    return "A column"
 
-    Returns:
-        An immutable column specification.
 
-    Raises:
-        CaxtonTypeError: If the column id or title has an invalid type.
-        CaxtonValueError: If the id or title is empty, or if source and formula
-            are both supplied.
-    """
-    if not isinstance(column_id, str):
-        message = "Column id must be a string"
+def _normalize_width_hint(value: float | None) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        message = "Column width must be numeric"
         raise CaxtonTypeError(message)
-    if formula is not None and source is not None:
-        message = "A column cannot define both a Python source and an Excel formula"
+    if not math.isfinite(value) or value <= 0:
+        message = "Column width must be positive"
         raise CaxtonValueError(message)
-    require_name(column_id, "Column id")
-    return Column(
-        id=column_id,
-        semantic_type=semantic_type,
-        source=None if formula is not None else normalize_source(source),
-        excel_formula=None if formula is None else as_formula(formula),
-        title=title,
-        style_ref=style,
+    return float(value)
+
+
+def _resolve_id(column_id: str | None, source: ColumnSourceInput) -> str:
+    if column_id is not None:
+        return column_id
+    if isinstance(source, str):
+        return source
+    message = (
+        "An explicit column ID is required because the declaration "
+        "does not provide an exact field name"
     )
+    raise CaxtonValueError(message)
+
+
+def _normalize_alignment(value: Alignment | str | None) -> Alignment | None:
+    if value is None or isinstance(value, Alignment):
+        return value
+    if not isinstance(value, str):
+        message = "Column alignment must be a string or Alignment"
+        raise CaxtonTypeError(message)
+    try:
+        return Alignment(value)
+    except ValueError as error:
+        message = f"Unsupported column alignment {value!r}"
+        raise CaxtonValueError(message) from error
 
 
 __all__ = ("Column", "GroupOrder", "Grouping")

@@ -1,6 +1,7 @@
 """Small renderer-neutral helpers shared by built-in spreadsheet backends."""
 
 from caxton._internal.const import _AUTO_WIDTH_PADDING, _DEFAULT_AUTO_WIDTH
+from caxton._internal.layout import table_data_row
 from caxton.core.formatting import AutoWidth
 from caxton.core.ir import SpreadsheetTableIR
 
@@ -37,7 +38,7 @@ def reserved_last_row(
         The last physical row owned by the header and data area.
     """
     if table.name is not None and last_row == header_row:
-        return header_row + 1
+        return table_data_row(header_row, 0)
     return last_row
 
 

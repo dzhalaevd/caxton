@@ -32,13 +32,14 @@ Caxton keeps three ways of producing a value strictly separate.
 
 | Namespace            | Built with                            | Evaluated by    | Ends up in the artifact as |
 |----------------------|---------------------------------------|-----------------|----------------------------|
-| Row fields           | `field()`, `path()`                   | Caxton          | A literal value            |
+| Row values           | `field()`, `path()`, `literal()`      | Caxton          | A literal value            |
 | Semantic columns     | `ref()`                               | Caxton          | A literal value            |
 | Spreadsheet formulas | `col()`, `table_ref()`, `sheet_ref()` | The spreadsheet | A live formula             |
 
 `field()` never resolves a column id and `ref()` never reads a row field, so the
 two cannot be confused. A Python expression cannot depend on a formula-backed
 column, because that column's value only exists once the file is opened.
+`literal()` supplies a constant Python row value and never reads the current row.
 
 See [Formulas and references](../guides/formulas-and-references.md).
 
@@ -55,6 +56,10 @@ from caxton import field, money
 
 money(id="net", source=field("net_amount"), title="Net revenue")
 ```
+
+Reusable `ColumnSchema` classes preserve this identity and expose ordinary
+columns through named attributes. Their `columns` tuple is the canonical table
+order; the schema itself never enters the semantic model.
 
 ## Data is lazy and its repeatability matters
 

@@ -439,7 +439,7 @@ def _has_target_column_presentation(column: Column) -> bool:
             column.alignment is not None,
             column.auto_width is not None,
             column.display_format is not None,
-            column.style_ref is not None,
+            column.style is not None,
             column.width_hint is not None,
             grouping_merge,
         ),

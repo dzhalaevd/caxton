@@ -136,7 +136,7 @@ def test_string_source_defaults_semantic_id() -> None:
 def test_non_string_source_requires_explicit_id(kwargs: dict[str, object]) -> None:
     with pytest.raises(
         CaxtonValueError,
-        match="Column id is required unless source is a field name",
+        match="explicit column ID is required",
     ):
         text(**kwargs)  # type: ignore[arg-type]
 
