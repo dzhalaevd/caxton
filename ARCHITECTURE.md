@@ -117,6 +117,18 @@ hints) is stored separately from value semantics. The renderer controls the
 physical representation and emits a capability diagnostic when it cannot
 preserve the semantics.
 
+`Column(...)` is the normalized generic constructor for both built-in and
+application-defined semantic types. It constructs the final immutable Core
+node directly, normalizes friendly source and presentation inputs, and keeps
+`id`, `source`, and `title` distinct. Type-specific factories remain concise,
+backward-compatible conveniences which delegate to the same constructor.
+`ColumnSchema` is API-layer organization over ordinary `Column` values: a
+class body gives named declarations one canonical order, and inheritance may
+replace columns in place or append them. The schema disappears when consumers
+read its immutable `columns` tuple; it does not validate row data and Core does
+not know about it. Python literal expressions use `literal()` beside
+`field()`, `path()`, and `ref()` and remain separate from spreadsheet formulas.
+
 ## Pipeline
 
 ```text
@@ -420,6 +432,9 @@ parsers, or diff algorithms.
 - Direct custom objects use small structural protocols without a registry.
 - A new backend implements the public renderer contract and accepts the existing IR.
 - A new family adds its own model/compiler/IR without extending the other families.
+- Reusable column schemas may supply ordinary columns to a future family only
+  where that family explicitly supports their semantic and presentation intent;
+  schema reuse does not imply universal family portability.
 - Conversion between families uses an explicit `DocumentConverter` and returns a
   loss report; changing the backend within a family remains a render operation.
 - Registries, discovery, pass managers, and universal hook systems appear only

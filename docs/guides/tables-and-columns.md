@@ -136,7 +136,17 @@ text(
 
 `.transform()` receives the evaluated `field()`, `path()`, or `ref()` value for
 each row. The input remains visible to validation and semantic testing. A
-literal is only a constant value and has no implicit current-row context.
+literal is only a constant value and has no implicit current-row context:
+
+```python
+from caxton import Column, Text, literal
+
+Column(
+    semantic_type=Text(),
+    id="monitoring_method",
+    source=literal("automatic"),
+)
+```
 
 ## Column factories
 
@@ -161,6 +171,113 @@ A column defines **either** a Python `source` **or** an Excel `formula` — neve
 both and never neither. A string source also becomes the id when `id` is omitted;
 callables, expressions, paths and formulas require an explicit semantic id.
 Passing both source and formula raises `CaxtonValueError`.
+
+## Generic columns
+
+Use `Column(...)` when the semantic type is application-defined or has already
+been resolved as data. It is also the uniform declaration style used in a
+`ColumnSchema`:
+
+```python
+from typing import ClassVar
+
+from caxton import Column, Money, SemanticType
+
+
+class Rating(SemanticType):
+    name: ClassVar[str] = "rating"
+
+
+rating = Column(semantic_type=Rating(), source="rating", title="Rating")
+amount = Column(
+    semantic_type=Money(currency="RUB"),
+    source="amount",
+    title="Amount",
+)
+```
+
+The constructor accepts only keyword arguments. Its state-oriented spelling is
+`excel_formula=`, while type-specific factories keep the friendly `formula=`
+name. Stored `Column.excel_formula` therefore does not collide with the fluent
+`.formula(...)` method. Likewise, `width_hint=` is stored state, while
+`.width(...)` is the fluent operation and `caxton.testing.ColumnSpec.width` is
+the inspection field.
+
+Exactly one of `source` and `excel_formula` is required. `width_hint` and
+`auto_width` are also mutually exclusive: `width_hint` accepts a positive
+number only and is authoritative — it fixes the column width and disables
+automatic sizing for it, including the table-level policy — while
+`auto_width=True` and `.width("auto")` select automatic sizing. The constructor normalizes an alignment string, an auto-width boolean,
+style input, string source, callable source and formula into the same narrow
+immutable state produced by the factories.
+
+Column `source=` describes one cell value; table `source=` supplies the rows.
+The semantic type must be a `SemanticType` instance, never a factory, class,
+Python type or registry name.
+
+## Reusable column schemas
+
+`ColumnSchema` names, orders and reuses ordinary immutable columns. It does not
+infer columns or validate row data:
+
+```python
+from caxton import Column, ColumnSchema, DateTime, Money, Text, table
+
+
+class SalesColumns(ColumnSchema):
+    product = Column(semantic_type=Text(), source="product", title="Product")
+    amount = Column(
+        semantic_type=Money(currency="USD"),
+        source="amount",
+        title="Amount",
+    )
+    created_at = Column(
+        semantic_type=DateTime(),
+        source="created_at",
+        title="Created",
+    )
+
+
+sales = table(source=rows, columns=SalesColumns.columns)
+```
+
+The class-body declaration order is canonical. A subclass override keeps the
+inherited position, and a new column is appended:
+
+```python
+class CompactSalesColumns(SalesColumns):
+    amount = SalesColumns.amount.titled("Total")
+    status = Column(semantic_type=Text(), source="status")
+```
+
+Pass `Schema.columns`, never the schema class itself. A declaration's public
+attribute name must equal its column ID. Therefore formulas, paths, transforms,
+aggregates, callables and literal expressions repeat that attribute name in an
+explicit `id=`; the schema validates the already-built column and never changes
+its identity. Factory-created columns are accepted too—uniform `Column(...)`
+inside schemas is a documentation convention, not a collector restriction.
+
+Changing the defining class-body order updates every `Schema.columns` consumer.
+When only one consumer needs another order, compose an explicit tuple from the
+named attributes. Compose independent schemas with
+`(*IdentityColumns.columns, *AuditColumns.columns)` and remove columns through
+explicit tuple filtering; mixins and multiple inheritance are rejected.
+Rebinding a class attribute after creation does not rebuild the canonical
+tuple, so use a subclass or tuple for variants.
+
+Refer to a schema column by its attribute rather than by a repeated string, so
+a rename fails at import instead of at validation:
+
+```python
+footer = Totals(items=(Total(SalesColumns.revenue.id),))
+rule = when(col(SalesColumns.revenue.id) > 1000, style="highlight")
+```
+
+Physical order is semantic for grouped tables: grouped columns define hierarchy
+in that order. It can also move an implicit totals label, which uses the first
+non-aggregated column; set `Totals(label_column=...)` when that position must be
+stable. A schema is reusable organization, not a promise that every future
+document family supports every column feature.
 
 ## Fluent refinement
 

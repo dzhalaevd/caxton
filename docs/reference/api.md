@@ -9,8 +9,26 @@ Identical to the [`caxton`](caxton.md) facade — `caxton.api` is where they are
 defined.
 
 ```python
-from caxton.api import render, sheet, spreadsheet, table, text, validate, write
+from caxton.api import (
+    Column,
+    ColumnSchema,
+    SemanticType,
+    Text,
+    literal,
+    render,
+    sheet,
+    spreadsheet,
+    table,
+    text,
+    validate,
+    write,
+)
 ```
+
+`Column(...)` is the normalized generic constructor. `ColumnSchema` provides
+named reusable column tuples, and `literal()` creates a constant Python row
+expression. Built-in semantic types and `SemanticType` are exported here and
+from the short `caxton` facade.
 
 ## Formatting and format helpers
 

@@ -26,6 +26,12 @@ assert sales.column_ids == ("product", "revenue", "cost", "profit")
 
 Structural, cheap, and safe for one-shot sources.
 
+Callable sources receive a deterministic identity from their code, defaults,
+closure and observable instance/class state. If that state cannot be inspected,
+`inspect_spec()` fails instead of treating unrelated callables as equal. Such a
+callable can expose a stable string `__caxton_id__` attribute when the
+application owns a more appropriate identity.
+
 ## Layout inspection
 
 ```python
