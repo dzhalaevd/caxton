@@ -2,6 +2,22 @@
 
 <!-- towncrier release notes start -->
 
+## [0.2.4] - 2026-09-09
+
+### Features
+
+- Add declarative columns with the normalized generic `Column(...)` constructor,
+  reusable inheritable `ColumnSchema` declarations, short-facade exports for
+  `SemanticType` and all built-in semantic types, and the public `literal()`
+  helper for constant Python row expressions, including `None` and the existing
+  renderer-safe scalar value domain.
+
+  `Column` arguments are now keyword-only and its public `style_ref` field is
+  renamed to `style`; type-specific column factories remain backward compatible.
+  Semantic inspection now fails loudly when callable state cannot be identified,
+  and table-row placement is shared between layout inspection and XLSX backends. ([#40](https://github.com/dzhalaevd/caxton/issues/40))
+
+
 ## [0.2.3] - 2026-09-04
 
 ### Breaking changes
