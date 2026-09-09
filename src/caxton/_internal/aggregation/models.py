@@ -48,7 +48,7 @@ class PreparedColumn:
             alignment=column.alignment,
             width_hint=column.width_hint,
             display_format=column.display_format,
-            style_ref=column.style_ref,
+            style_ref=column.style,
             auto_width=resolve_auto_width(column.auto_width),
         )
 

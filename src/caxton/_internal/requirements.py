@@ -232,9 +232,9 @@ def _column_features(  # noqa: C901
         features.add("display_format")
     if column.excel_formula is not None:
         features.add("formula")
-    if column.style_ref is not None:
+    if column.style is not None:
         features.add("style")
-        features.update(_style_features(column.style_ref, document))
+        features.update(_style_features(column.style, document))
     if column.auto_width:
         features.add("auto_width")
     return features

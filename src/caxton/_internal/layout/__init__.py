@@ -7,6 +7,7 @@ from .spreadsheet import (
     WorksheetPlan,
     plan_document,
     plan_worksheet,
+    table_data_row,
 )
 
 __all__ = (
@@ -18,4 +19,5 @@ __all__ = (
     "WorksheetPlan",
     "plan_document",
     "plan_worksheet",
+    "table_data_row",
 )

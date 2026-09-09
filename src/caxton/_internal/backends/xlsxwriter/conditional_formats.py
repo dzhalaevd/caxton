@@ -5,6 +5,7 @@ from xlsxwriter.worksheet import Worksheet  # type: ignore[import-untyped]
 
 from caxton._internal.backends.xlsxwriter.styles import style_format
 from caxton._internal.formulas import lower_excel_formula
+from caxton._internal.layout import table_data_row
 from caxton.core.ir import SpreadsheetTableIR
 
 
@@ -19,14 +20,15 @@ def add_conditional_formats(  # noqa: WPS211
     """Materialize compiled conditional-format rules."""
     if last_row == header_row:
         return
+    first_data_row = table_data_row(header_row, 0)
     end_column = start_column + len(table.columns) - 1
     for rule in table.rules:
         formula = lower_excel_formula(
             rule.condition,
-            current_row=header_row + 2,
+            current_row=first_data_row + 1,
         ).removeprefix("=")
         worksheet.conditional_format(
-            header_row + 1,
+            first_data_row,
             start_column,
             last_row,
             end_column,

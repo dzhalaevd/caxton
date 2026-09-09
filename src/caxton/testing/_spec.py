@@ -10,9 +10,11 @@ import json
 import types
 import uuid
 from collections.abc import Mapping, Sequence, Set as AbstractSet
+from typing import NoReturn
 
 from caxton.core._compat import StrEnum
 from caxton.core._values import freeze_mapping, freeze_value
+from caxton.core.errors import CaxtonTypeError
 from caxton.core.formatting import (
     Alignment,
     AutoWidth,
@@ -423,7 +425,7 @@ def _inspect_column_spec(column: Column) -> ColumnSpec:
         alignment=column.alignment,
         width=column.width_hint,
         display_format=column.display_format,
-        style=column.style_ref,
+        style=column.style,
         auto_width=resolve_auto_width(column.auto_width),
         grouping=column.grouping,
     )
@@ -540,19 +542,14 @@ def _callable_identity(function: object) -> str:
 
 
 def _callable_token(function: object) -> object:
-    explicit = getattr(function, "__caxton_id__", None)
-    if isinstance(explicit, str):
-        return f"explicit:{explicit}"
-    if isinstance(function, functools.partial):
-        return {
-            "kind": "partial",
-            "function": _callable_token(function.func),
-            "args": _stable_token(function.args),
-            "keywords": _stable_token(function.keywords),
-        }
+    declared = _declared_callable_token(function)
+    if declared is not None:
+        return declared
     code = getattr(function, "__code__", None)
     if code is None and callable(function):
         code = getattr(function.__call__, "__code__", None)
+    if code is None:
+        _raise_unobservable_callable(function)
     closure = getattr(function, "__closure__", None) or ()
     payload = {
         "module": getattr(function, "__module__", None),
@@ -565,9 +562,68 @@ def _callable_token(function: object) -> object:
     bound_self = getattr(function, "__self__", None)
     if bound_self is not None and not isinstance(bound_self, type):
         payload["bound_self"] = _instance_token(bound_self)
+        payload["bound_type_state"] = _callable_class_token(bound_self)
     elif code is not getattr(function, "__code__", None) and callable(function):
         payload["callable_state"] = _instance_token(function)
+        payload["callable_type_state"] = _callable_class_token(function)
     return payload
+
+
+def _declared_callable_token(function: object) -> object | None:
+    explicit = getattr(function, "__caxton_id__", None)
+    if isinstance(explicit, str):
+        return f"explicit:{explicit}"
+    if isinstance(function, functools.partial):
+        return {
+            "kind": "partial",
+            "function": _callable_token(function.func),
+            "args": _stable_token(function.args),
+            "keywords": _stable_token(function.keywords),
+        }
+    if isinstance(function, types.BuiltinFunctionType):
+        return _builtin_callable_token(function)
+    return None
+
+
+def _builtin_callable_token(function: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "kind": "builtin",
+        "module": getattr(function, "__module__", None),
+        "qualname": getattr(function, "__qualname__", _type_name(function)),
+    }
+    bound_self = getattr(function, "__self__", None)
+    if bound_self is not None and not isinstance(bound_self, types.ModuleType):
+        payload["bound_self"] = _instance_token(bound_self)
+    return payload
+
+
+def _callable_class_token(instance: object) -> object:
+    members = [
+        [
+            f"{owner.__module__}.{owner.__qualname__}.{name}",
+            _callable_class_member_token(member),
+        ]
+        for owner in reversed(type(instance).__mro__)
+        for name, member in vars(owner).items()  # noqa: WPS421
+        if not name.startswith("__")
+    ]
+    return ["class-state", members]
+
+
+def _callable_class_member_token(member: object) -> object:
+    if isinstance(member, (classmethod, staticmethod)):
+        return _callable_token(member.__func__)
+    if isinstance(member, property):
+        return [
+            "property",
+            *(
+                None if function is None else _callable_token(function)
+                for function in (member.fget, member.fset, member.fdel)
+            ),
+        ]
+    if isinstance(member, types.FunctionType):
+        return _callable_token(member)
+    return _stable_token(member)
 
 
 def _closure_value(cell: types.CellType) -> object:
@@ -628,13 +684,13 @@ def _stable_token_inner(  # noqa: C901, WPS212
                 ],
             ]
         state = getattr(value, "__dict__", None)
-        if isinstance(state, Mapping):
+        if isinstance(state, Mapping) and state:
             return [
                 "object",
                 _type_name(value),
                 _stable_token_inner(state, active),
             ]
-        return ["object", _type_name(value)]
+        _raise_unobservable_callable(value)
     finally:
         active.remove(identity)
 
@@ -668,6 +724,14 @@ def _scalar_token(value: object) -> object:  # noqa: C901, WPS212
 
 def _instance_token(value: object) -> object:
     return _stable_token(value)
+
+
+def _raise_unobservable_callable(value: object) -> NoReturn:
+    message = (
+        f"Callable identity cannot be computed for {_type_name(value)}; "
+        "give the callable an explicit __caxton_id__"
+    )
+    raise CaxtonTypeError(message)
 
 
 def _special_token(value: enum.Enum) -> object:

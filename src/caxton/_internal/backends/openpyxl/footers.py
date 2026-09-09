@@ -12,6 +12,7 @@ from caxton._internal.backends._xlsx_values import validate_xlsx_text
 from caxton._internal.backends.openpyxl.rows import set_literal_cell
 from caxton._internal.backends.openpyxl.styles import apply_style
 from caxton._internal.const import _AGGREGATES
+from caxton._internal.layout import table_data_row
 from caxton.core.ir import SpreadsheetTableIR
 
 
@@ -45,7 +46,8 @@ def write_footer(  # noqa: WPS211
         if last_row > header_row:
             letter = get_column_letter(column)
             function = _AGGREGATES[item.function]
-            value = f"={function}({letter}{header_row + 1}:{letter}{last_row})"
+            first_data_row = table_data_row(header_row, 0)
+            value = f"={function}({letter}{first_data_row}:{letter}{last_row})"
         cell = worksheet.cell(row=footer_row, column=column, value=value)
         apply_style(cell, footer.style)
         effective = dataclasses.replace(

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from caxton.core.errors import CaxtonValueError
 from caxton.core.formatting import StyleInput
-from caxton.core.models.columns import Column, make_column
+from caxton.core.models.columns import Column
 from caxton.core.models.expressions import ColumnSourceInput
 from caxton.core.models.formulas import FormulaInput
 from caxton.core.types import (
@@ -30,24 +29,14 @@ def _make(
     formula: FormulaInput | None,
     style: StyleInput | None,
 ) -> Column:
-    column_id = _resolve_id(id, source)
-    return make_column(
-        column_id,
-        semantic_type,
-        source,
+    return Column(
+        id=id,
+        semantic_type=semantic_type,
+        source=source,
         title=title,
-        formula=formula,
+        excel_formula=formula,
         style=style,
     )
-
-
-def _resolve_id(id: str | None, source: ColumnSourceInput) -> str:
-    if id is not None:
-        return id
-    if isinstance(source, str):
-        return source
-    message = "Column id is required unless source is a field name"
-    raise CaxtonValueError(message)
 
 
 def text(

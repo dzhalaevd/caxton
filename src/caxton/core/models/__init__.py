@@ -18,6 +18,7 @@ from .expressions import (
     TransformExpression,
     contains_aggregate,
     field,
+    literal,
     path,
     ref,
 )
@@ -138,6 +139,7 @@ __all__ = (
     "field",
     "iter_blocks",
     "iter_tables",
+    "literal",
     "path",
     "ref",
     "sheet_ref",

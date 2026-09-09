@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 from collections.abc import Iterator
 
-from caxton._internal.layout import DocumentPlan, WorksheetPlan
+from caxton._internal.layout import DocumentPlan, WorksheetPlan, table_data_row
 from caxton.core.errors import UnsupportedFeatureError
 from caxton.core.ir import (
     CellAddress,
@@ -138,7 +138,7 @@ class FormulaCatalog:
                 row=(
                     None
                     if formula.row_index is None
-                    else location.anchor.row + formula.row_index + 1
+                    else table_data_row(location.anchor.row, formula.row_index)
                 ),
                 sheet_name=(
                     location.worksheet.name
@@ -161,8 +161,14 @@ class FormulaCatalog:
             physical_column = location.anchor.column + column.offset
             return ResolvedRangeReference(
                 sheet_name=location.worksheet.name,
-                start=CellAddress(location.anchor.row + 1, physical_column),
-                end=CellAddress(location.anchor.row + row_count, physical_column),
+                start=CellAddress(
+                    table_data_row(location.anchor.row, 0),
+                    physical_column,
+                ),
+                end=CellAddress(
+                    table_data_row(location.anchor.row, row_count - 1),
+                    physical_column,
+                ),
                 table_name=formula.table_name,
                 column_title=column.column.display_title,
                 column_absolute=formula.column_absolute,
@@ -207,8 +213,11 @@ def resolve_data_range(location: TableLocation, column_id: str) -> CellRange:
     physical_column = location.anchor.column + offset
     row_count = _known_row_count(location.table)
     return CellRange(
-        start=CellAddress(location.anchor.row + 1, physical_column),
-        end=CellAddress(location.anchor.row + row_count, physical_column),
+        start=CellAddress(table_data_row(location.anchor.row, 0), physical_column),
+        end=CellAddress(
+            table_data_row(location.anchor.row, row_count - 1),
+            physical_column,
+        ),
     )
 
 

@@ -8,6 +8,7 @@ from xlsxwriter.worksheet import Worksheet  # type: ignore[import-untyped]
 from caxton._internal.backends._xlsx_values import validate_xlsx_text
 from caxton._internal.backends.xlsxwriter.styles import footer_format, style_format
 from caxton._internal.const import _AGGREGATES
+from caxton._internal.layout import table_data_row
 from caxton.core.ir import SpreadsheetTableIR
 from caxton.core.models import AggregateFunction
 
@@ -25,6 +26,7 @@ def write_footer(  # noqa: WPS211
     if footer is None:
         return
     footer_row = last_row + 1
+    first_data_row = table_data_row(header_row, 0)
     cell_format = style_format(workbook, footer.style)
     worksheet.write_string(
         footer_row,
@@ -44,7 +46,7 @@ def write_footer(  # noqa: WPS211
             continue
         formula = _aggregate_formula(
             item.function,
-            first_row=header_row + 2,
+            first_row=first_data_row + 1,
             last_row=last_row + 1,
             column=column + 1,
         )

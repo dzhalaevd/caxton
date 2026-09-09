@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime as dt
+import decimal
 import enum
 from collections.abc import Callable, Sequence
 from typing import Any, TypeAlias
@@ -20,6 +22,9 @@ class _MissingAggregateDefault(enum.Enum):
 _MISSING_AGGREGATE_DEFAULT = _MissingAggregateDefault.VALUE
 
 TransformCallable: TypeAlias = Callable[..., object]
+_TemporalLiteral: TypeAlias = dt.date | dt.datetime | dt.time | dt.timedelta
+_NumericLiteral: TypeAlias = decimal.Decimal | float | int
+_LiteralInput: TypeAlias = bool | _TemporalLiteral | _NumericLiteral | str | None
 
 
 class BinaryOperator(StrEnum):
@@ -270,6 +275,15 @@ def path(*segments: str) -> PathRef:
     return PathRef(tuple(segments))
 
 
+def literal(value: _LiteralInput) -> LiteralExpression:
+    """Create a constant Python row expression.
+
+    Returns:
+        An immutable literal expression containing a normalized cell value.
+    """
+    return LiteralExpression(value)
+
+
 def as_expression(value: object) -> Expression:
     """Wrap a plain operand into an expression node.
 
@@ -320,6 +334,7 @@ __all__ = (
     "TransformExpression",
     "contains_aggregate",
     "field",
+    "literal",
     "path",
     "ref",
 )

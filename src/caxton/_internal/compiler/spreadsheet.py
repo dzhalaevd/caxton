@@ -474,7 +474,7 @@ def _compile_column(  # noqa: WPS211
     base_style: Style,
     table_auto_width: AutoWidth | bool | None,
 ) -> SpreadsheetColumnIR:
-    resolved_style = _resolve_style(column.style_ref, styles, base=base_style)
+    resolved_style = _resolve_style(column.style, styles, base=base_style)
     legacy = Style(
         alignment=(
             None

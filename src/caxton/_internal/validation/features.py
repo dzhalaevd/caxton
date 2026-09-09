@@ -51,7 +51,7 @@ def _validate_table(
     )
     for column in table.columns:
         _validate_style_ref(
-            column.style_ref,
+            column.style,
             document,
             f'{path}.column["{column.id}"].style',
             notification,
@@ -244,7 +244,7 @@ def _validate_matrix(
     _validate_matrix_value(matrix, path, notification)
     for column in columns:
         _validate_style_ref(
-            column.style_ref,
+            column.style,
             document,
             f'{path}.column["{column.id}"].style',
             notification,
