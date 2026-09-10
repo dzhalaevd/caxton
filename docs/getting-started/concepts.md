@@ -2,8 +2,8 @@
 
 ## The document is a value
 
-Every public factory returns a frozen node, and every fluent method returns a
-*new* node rather than mutating the receiver:
+Every public factory returns a frozen node. Each fluent method returns a *new*
+node rather than mutating the receiver:
 
 ```python
 from caxton import text
@@ -14,8 +14,8 @@ titled = base.titled("Product")
 assert base is not titled
 ```
 
-Because nothing is mutable, one factory function can produce many documents from
-different row sets without copying a shared graph.
+Because the nodes are immutable, one factory function can produce many documents
+from different row sets without copying a shared graph.
 
 ## Intent, not coordinates
 
@@ -28,7 +28,7 @@ This is why `table(...)` has an optional `anchor` (declared intent) but no
 
 ## The three namespaces
 
-Caxton keeps three ways of producing a value strictly separate.
+Caxton keeps three value namespaces separate.
 
 | Namespace            | Built with                            | Evaluated by    | Ends up in the artifact as |
 |----------------------|---------------------------------------|-----------------|----------------------------|
@@ -66,7 +66,7 @@ order; the schema itself never enters the semantic model.
 `table()` coerces its input into a `DataSource` once. Construction, structural
 validation and semantic inspection never read a row.
 
-A source declares itself as one of:
+A source declares one of:
 
 - `REITERABLE` — can be iterated again (e.g. a tuple or list);
 - `ONE_SHOT` — a generator or cursor that can be consumed exactly once;
@@ -93,9 +93,9 @@ Versioned read-only spreadsheet IR
 Renderer → OutputSink → RenderResult
 ```
 
-Requirement analysis does not depend on the renderer, and renderer selection
-happens *before* the target file is opened. `render()` uses a memory sink;
-`write()` normalizes a path or buffer into a sink and, for paths, replaces the
+Requirement analysis does not depend on the renderer. Renderer selection
+happens *before* the target file is opened. `render()` uses a memory sink.
+`write()` normalizes a path or buffer into a sink; for paths, it replaces the
 destination atomically only after the backend succeeds.
 
 ## Public boundaries

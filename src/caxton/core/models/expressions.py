@@ -191,7 +191,7 @@ AggregateCallable: TypeAlias = Callable[..., object]
 
 @dataclasses.dataclass(frozen=True, slots=True, eq=False)
 class AggregateExpr(Expression):
-    """One result produced from expression sequences in an aggregate scope.
+    """Aggregate computed from one or more expression value sequences.
 
     ``function`` receives one sequence for every item in ``expressions``.
     ``default`` uses an internal sentinel so an explicit ``None`` remains

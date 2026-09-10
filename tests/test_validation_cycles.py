@@ -1,5 +1,3 @@
-"""Focused contracts for the shared structural cycle detector."""
-
 from collections.abc import Iterable, Mapping
 
 from caxton._internal.validation.cycles import (  # noqa: PLC2701

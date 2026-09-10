@@ -3,8 +3,8 @@
 **Declarative document generation for Python.**
 
 Caxton lets you describe *what* a document contains and *what its values mean*.
-The compiler and the selected renderer decide *where* everything goes and how the
-target format represents it.
+The compiler and selected renderer decide *where* everything goes and how to
+represent it in the target format.
 
 !!! warning "Pre-alpha"
 
@@ -45,8 +45,8 @@ write(report, "people.xlsx")
 
 -   __Immutable specifications__
 
-    Every factory returns a frozen node and every fluent method returns a new
-    one, so a report factory can be reused for different row sets without
+    Every factory returns a frozen node; each fluent method returns a new one.
+    A report factory can therefore be reused for different row sets without
     copying or mutation.
 
 -   __Lazy data__
@@ -66,6 +66,6 @@ write(report, "people.xlsx")
 
 - [Installation](getting-started/installation.md) — add Caxton to a project.
 - [Quickstart](getting-started/quickstart.md) — build, verify and write a report.
-- [Core concepts](getting-started/concepts.md) — the model, the pipeline, the vocabulary.
+- [Core concepts](getting-started/concepts.md) — the model, pipeline, and vocabulary.
 - [Guides](guides/tables-and-columns.md) — task-oriented walkthroughs.
 - [API reference](reference/index.md) — generated from the source.

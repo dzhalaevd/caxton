@@ -44,21 +44,22 @@ table(
 
 `auto_width=True` uses the default range from 1 through 80. A column-level
 policy overrides the table policy, while `.width(number)` keeps that column at
-an explicit width. The two are mutually exclusive on one column: `.width()` and
-`.width("auto")` each clear the other, and setting both at once on a directly
-constructed `Column` is an error rather than a silent precedence.
+an explicit width. The two policies are mutually exclusive on one column.
+`.width()` and `.width("auto")` each clear the other; setting both on a directly
+constructed `Column` raises an error rather than applying silent precedence.
 
 ## Row sources
 
 Built-in ingestion supports, without importing your framework:
 
 - mappings — read with `row[field]`;
-- objects with attributes, dataclasses and `NamedTuple` — read with the exact attribute;
+- objects with attributes, dataclasses and `NamedTuple` — read with the exact
+  attribute;
 - any lazy iterable of those;
 - your own `DataSource` / `RowAccessor` implementation.
 
-Your own source only has to know how to iterate. Field access is already
-solved — take it from the public accessors:
+A custom source only needs to know how to iterate. The public accessors already
+handle field access:
 
 ```python
 from caxton import DefaultRowAccessor
@@ -75,9 +76,8 @@ class CursorSource:
 ```
 
 `MappingRowAccessor` and `AttributeRowAccessor` pin the semantics explicitly
-when rows are known to be one shape. The accepted input is spelled out by the
-`RowSourceInput` alias, so a scalar or `None` is a type error rather than a
-runtime one.
+when rows have a known shape. The `RowSourceInput` alias spells out the accepted
+input, so a scalar or `None` is a type error rather than a runtime one.
 
 ```python
 import dataclasses
@@ -96,8 +96,8 @@ table(
 ```
 
 Caxton never calls `asdict`, `model_dump`, `vars` or `dir`, and never infers a
-schema. DataFrame- and Arrow-like inputs are rejected with a focused error
-rather than silently materialized; ORM session lifecycle, eager loading and
+schema. It rejects DataFrame- and Arrow-like inputs with a focused error rather
+than silently materializing them. ORM session lifecycle, eager loading and
 projection stay your responsibility.
 
 Nested structures need an explicit path:
@@ -136,7 +136,7 @@ text(
 
 `.transform()` receives the evaluated `field()`, `path()`, or `ref()` value for
 each row. The input remains visible to validation and semantic testing. A
-literal is only a constant value and has no implicit current-row context:
+literal is constant and has no implicit current-row context:
 
 ```python
 from caxton import Column, Text, literal
@@ -167,10 +167,10 @@ One factory per semantic type, all with the same keyword-only shape:
 | `duration`   | `Duration`    | `datetime.timedelta`           |
 | `link`       | `Link`        | `str`                          |
 
-A column defines **either** a Python `source` **or** an Excel `formula` — never
-both and never neither. A string source also becomes the id when `id` is omitted;
-callables, expressions, paths and formulas require an explicit semantic id.
-Passing both source and formula raises `CaxtonValueError`.
+A column requires exactly one of a Python `source` and an Excel `formula`. A
+string source also becomes the id when `id` is omitted; callables, expressions,
+paths and formulas require an explicit semantic id. Passing both source and
+formula raises `CaxtonValueError`.
 
 ## Generic columns
 
@@ -196,20 +196,19 @@ amount = Column(
 )
 ```
 
-The constructor accepts only keyword arguments. Its state-oriented spelling is
-`excel_formula=`, while type-specific factories keep the friendly `formula=`
-name. Stored `Column.excel_formula` therefore does not collide with the fluent
-`.formula(...)` method. Likewise, `width_hint=` is stored state, while
-`.width(...)` is the fluent operation and `caxton.testing.ColumnSpec.width` is
-the inspection field.
+The constructor accepts only keyword arguments. Its stored formula field is
+`excel_formula=`, while type-specific factories use the friendlier `formula=`.
+This keeps `Column.excel_formula` distinct from the fluent `.formula(...)`
+method. Likewise, `width_hint=` is stored state, `.width(...)` is the fluent
+operation, and `caxton.testing.ColumnSpec.width` is the inspection field.
 
 Exactly one of `source` and `excel_formula` is required. `width_hint` and
 `auto_width` are also mutually exclusive: `width_hint` accepts a positive
 number only and is authoritative — it fixes the column width and disables
 automatic sizing for it, including the table-level policy — while
-`auto_width=True` and `.width("auto")` select automatic sizing. The constructor normalizes an alignment string, an auto-width boolean,
-style input, string source, callable source and formula into the same narrow
-immutable state produced by the factories.
+`auto_width=True` and `.width("auto")` select automatic sizing. The constructor
+normalizes alignment strings, auto-width booleans, styles, string and callable
+sources, and formulas into the same narrow immutable state as the factories.
 
 Column `source=` describes one cell value; table `source=` supplies the rows.
 The semantic type must be a `SemanticType` instance, never a factory, class,
@@ -251,19 +250,19 @@ class CompactSalesColumns(SalesColumns):
 ```
 
 Pass `Schema.columns`, never the schema class itself. A declaration's public
-attribute name must equal its column ID. Therefore formulas, paths, transforms,
-aggregates, callables and literal expressions repeat that attribute name in an
-explicit `id=`; the schema validates the already-built column and never changes
-its identity. Factory-created columns are accepted too—uniform `Column(...)`
+attribute name must equal its column ID. Formulas, paths, transforms, aggregates,
+callables and literal expressions therefore repeat that attribute name in an
+explicit `id=`. The schema validates the completed column without changing its
+identity. Factory-created columns are also accepted; uniform `Column(...)`
 inside schemas is a documentation convention, not a collector restriction.
 
 Changing the defining class-body order updates every `Schema.columns` consumer.
-When only one consumer needs another order, compose an explicit tuple from the
-named attributes. Compose independent schemas with
-`(*IdentityColumns.columns, *AuditColumns.columns)` and remove columns through
-explicit tuple filtering; mixins and multiple inheritance are rejected.
-Rebinding a class attribute after creation does not rebuild the canonical
-tuple, so use a subclass or tuple for variants.
+If one consumer needs a different order, compose an explicit tuple from the
+named attributes. Combine independent schemas with
+`(*IdentityColumns.columns, *AuditColumns.columns)` and remove columns by
+filtering the tuple; mixins and multiple inheritance are rejected. Rebinding a
+class attribute after creation does not rebuild the canonical tuple, so use a
+subclass or tuple for variants.
 
 Refer to a schema column by its attribute rather than by a repeated string, so
 a rename fails at import instead of at validation:
@@ -273,11 +272,11 @@ footer = Totals(items=(Total(SalesColumns.revenue.id),))
 rule = when(col(SalesColumns.revenue.id) > 1000, style="highlight")
 ```
 
-Physical order is semantic for grouped tables: grouped columns define hierarchy
-in that order. It can also move an implicit totals label, which uses the first
-non-aggregated column; set `Totals(label_column=...)` when that position must be
-stable. A schema is reusable organization, not a promise that every future
-document family supports every column feature.
+Physical order is semantic for grouped tables: grouped columns define the
+hierarchy in that order. It can also move an implicit totals label, which uses
+the first non-aggregated column. Set `Totals(label_column=...)` when that position
+must be stable. A schema organizes reusable columns; it does not promise that
+every future document family supports every column feature.
 
 ## Fluent refinement
 
@@ -320,10 +319,10 @@ table(
 )
 ```
 
-`Total(column, function="sum")` names the column it is placed in and aggregates
-that column. Supported functions are `sum`, `avg`, `min`, `max` and `count`.
-A bare sequence works too — `footer=(Total("price"),)` — and is wrapped into a
-`Totals` row with the default label.
+`Total(column, function="sum")` names its destination column and aggregates that
+column. Supported functions are `sum`, `avg`, `min`, `max` and `count`. A bare
+sequence also works — `footer=(Total("price"),)` — and becomes a `Totals` row with
+the default label.
 
 `Totals.label_column` chooses where the label is written; without it, the first
 column that carries no aggregate is used.

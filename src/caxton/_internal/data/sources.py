@@ -148,7 +148,7 @@ def _is_attribute_object(data: object) -> bool:
 
 
 def _is_non_builtin_object(data: object) -> bool:
-    return hasattr(data, "__class__") and type(data).__module__ != "builtins"
+    return type(data).__module__ != "builtins"
 
 
 def _public_slots(data_type: type[object]) -> tuple[str, ...]:

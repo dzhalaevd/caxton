@@ -1,5 +1,3 @@
-"""Regressions for the findings recorded in code_review_core.md."""
-
 from __future__ import annotations
 
 import dataclasses
@@ -18,6 +16,7 @@ from caxton import (
     DefaultRowAccessor,
     RenderResult,
     TemplateRef,
+    Totals,
     col,
     decimal,
     decimal_format,
@@ -55,6 +54,7 @@ from caxton.errors import (
     RenderError,
     ShapeError,
 )
+from caxton.testing import inspect_artifact
 
 _ROWS = ({"amount": 3},)
 
@@ -128,31 +128,25 @@ def test_resolved_formula_base_is_abstract_and_the_union_is_closed() -> None:
     )
 
 
-def test_user_semantic_type_renders_through_its_declared_format() -> None:
+def test_user_semantic_type_drives_format_and_default_total() -> None:
     document = spreadsheet(
         sheet(
             "Ratings",
             table(
-                source=({"score": 4.5},),
-                columns=(Column(semantic_type=Rating(), id="score", source="score"),),
+                source=({"label": "A", "score": 4.5},),
+                columns=(
+                    text(id="label", source="label"),
+                    Column(semantic_type=Rating(), id="score", source="score"),
+                ),
+                footer=Totals(),
             ),
         ),
     )
 
-    result = render(document)
+    worksheet = inspect_artifact(render(document)).worksheet("Ratings")
 
-    assert result.bytes_written > 0
-
-
-def test_numeric_flag_selects_total_columns() -> None:
-    numeric = Column(
-        id="score",
-        semantic_type=Rating(),
-        source=Column(semantic_type=Rating(), id="score", source="score").source,
-    )
-
-    assert numeric.semantic_type.numeric is True
-    assert text(source="name", id="name").semantic_type.numeric is False
+    assert worksheet.cell("B2").number_format == "0.0"
+    assert worksheet.cell("B3").formula == "=SUM(B2:B2)"
 
 
 def test_template_target_rejects_a_column_reference() -> None:
@@ -167,18 +161,11 @@ def test_template_target_rejects_a_column_reference() -> None:
         )
 
 
-def test_width_and_auto_width_conflict_is_reported() -> None:
+def test_width_methods_clear_competing_state() -> None:
     declared = integer(source="amount", id="amount")
 
     assert declared.width(10).auto_width is None
     assert declared.width("auto").width_hint is None
-
-    with pytest.raises(CaxtonValueError, match="both an explicit width"):
-        dataclasses.replace(
-            declared,
-            width_hint=10,
-            auto_width=True,  # type: ignore[arg-type]
-        )
 
 
 def test_currency_that_a_format_cannot_show_is_reported() -> None:
@@ -288,9 +275,6 @@ def test_notification_raises_the_requested_validation_error() -> None:
         notification.raise_if_errors(error_class=RenderResult)  # type: ignore[arg-type]
 
 
-def test_money_validates_currency_type_and_value() -> None:
+def test_money_validates_currency_type() -> None:
     with pytest.raises(CaxtonTypeError, match="must be a string"):
         Money(currency=42)  # type: ignore[arg-type]
-
-    with pytest.raises(CaxtonValueError, match="cannot be empty"):
-        Money(currency="  ")

@@ -247,8 +247,7 @@ def _style_features(
     if value is None:
         return set()
     if isinstance(value, str):
-        resolved = document.styles.styles.get(value)
-        return set() if resolved is None else _resolved_style_features(resolved)
+        return _resolved_style_features(document.styles[value])
     return _resolved_style_features(value)
 
 

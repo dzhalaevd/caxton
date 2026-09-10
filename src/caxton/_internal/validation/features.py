@@ -1,5 +1,3 @@
-"""Validate styles, footers, grouping, aggregation, and matrix features."""
-
 from __future__ import annotations
 
 from caxton._internal.block_paths import iter_blocks_with_paths

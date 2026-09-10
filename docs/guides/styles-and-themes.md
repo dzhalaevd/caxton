@@ -1,7 +1,7 @@
 # Styles and themes
 
-Presentation vocabulary is backend-neutral: you describe fonts, fills, borders
-and alignment, and the renderer materializes them.
+Presentation vocabulary is backend-neutral. You describe fonts, fills, borders
+and alignment; the renderer materializes them.
 
 ## Inline styles
 
@@ -78,8 +78,8 @@ DocumentTheme(
 ```
 
 Applications can package a reusable branded theme in an ordinary function. The
-function still returns the exact value type understood by Caxton instead of
-introducing a theme subclass whose additional state would be ignored:
+function returns the exact value type Caxton understands. A theme subclass would
+add state that Caxton ignores:
 
 ```python
 from caxton import DocumentTheme, FontStyle, Style
@@ -107,8 +107,8 @@ Styles are layered, most general first:
 theme default → theme role (header / total) → table style → column style → conditional rule
 ```
 
-Later layers override individual fields rather than replacing the whole style,
-so a column that only sets a display format keeps the theme's font.
+Later layers override individual fields rather than the whole style. A column
+that sets only a display format therefore keeps the theme's font.
 
 ## Conditional styles
 

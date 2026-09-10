@@ -20,7 +20,10 @@ from caxton import (  # noqa: WPS347
     text,
     write,
 )  # noqa: WPS347
-from caxton._internal import requirements as requirements_module  # noqa: PLC2701
+from caxton._internal import (  # noqa: PLC2701
+    requirements as requirements_module,
+    sinks as sinks_module,
+)
 from caxton._internal.backends.xlsxwriter import (  # noqa: PLC2701
     destination,
 )
@@ -222,6 +225,28 @@ def test_path_commit_happens_after_success(tmp_path: Path) -> None:
 
     assert captured.value.__cause__ is failure
     assert target.read_bytes() == original
+
+
+def test_cleanup_error_does_not_mask_render_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    failure = RuntimeError("database cursor failed")
+
+    def rows() -> Iterator[dict[str, str]]:
+        yield {"value": "Ada"}
+        raise failure
+
+    def fail_cleanup(_sink: object, _staged: Path) -> None:
+        message = "cleanup failed"
+        raise OSError(message)
+
+    monkeypatch.setattr(sinks_module.FileSink, "discard_staged", fail_cleanup)
+
+    with pytest.raises(DataSourceIterationError) as captured:
+        write(_document(rows()), tmp_path / "report.xlsx")
+
+    assert captured.value.__cause__ is failure
 
 
 def test_seekable_output_uses_transaction_buffer(

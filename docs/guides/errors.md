@@ -8,10 +8,9 @@
 | Structural rules | `validate()`, and before rendering | No          |
 | Data validation  | Only when you explicitly ask       | Yes         |
 
-Construction-time checks catch a bad width or an empty title immediately, at the
-call site where you made the mistake. Structural checks catch cross-node problems
-— unknown column references, duplicate ids, overlapping blocks — before any
-source is touched.
+Construction-time checks catch a bad width or empty title at the call site.
+Structural checks catch cross-node problems — unknown column references,
+duplicate ids, overlapping blocks — before touching a source.
 
 ```python
 from caxton import ValidationError, validate
@@ -29,9 +28,9 @@ inspected programmatically rather than string-matched.
 
 ## The exception hierarchy
 
-Everything inherits from `CaxtonError`, which carries `message`, `path` and an
-immutable `context` snapshot, and preserves the original cause through
-exception chaining.
+Every exception inherits from `CaxtonError`. It carries `message`, `path`, an
+immutable `context` snapshot, and preserves the original cause through exception
+chaining.
 
 ```text
 CaxtonError
@@ -68,9 +67,9 @@ CaxtonError
             └── InvalidTemplateRefError
 ```
 
-Because `CaxtonTypeError` and `CaxtonValueError` also subclass the Python
-built-ins, existing `except TypeError` / `except ValueError` handlers keep
-working, and you can still catch everything with `except CaxtonError`.
+`CaxtonTypeError` and `CaxtonValueError` also subclass the Python built-ins, so
+existing `except TypeError` and `except ValueError` handlers keep working. Catch
+all Caxton exceptions with `except CaxtonError`.
 
 ## Errors worth knowing
 
@@ -88,15 +87,16 @@ working, and you can still catch everything with `except CaxtonError`.
 | `TemplateRefError`         | A named template target is missing, ambiguous or of the wrong shape.                                            |
 
 An error while retrieving the next row is a `DataSourceIterationError`, not a
-backend failure — an important distinction when a database cursor dies mid-write.
-Likewise, an error raised by an existing property never appears as a
+backend failure. This distinction matters when a database cursor dies mid-write.
+An error raised by an existing property likewise never appears as a
 "missing field" error.
 
-Reference cycles are reported as aggregated `CyclicReferenceError` issues during
-`validate()`. Their context retains the first semantic `column` and adds the
-complete closed `cycle` path, allowing callers to diagnose the dependency without
-parsing the human-readable message. `CyclicColumnError` remains a defensive
-runtime error for direct evaluator use outside the normal validated pipeline.
+During `validate()`, reference cycles are reported as aggregated
+`CyclicReferenceError` issues. Their context retains the first semantic `column`
+and adds the complete closed `cycle` path. Callers can diagnose the dependency
+without parsing the human-readable message. `CyclicColumnError` remains a
+defensive runtime error for direct evaluator use outside the normal validated
+pipeline.
 
 ## Warnings
 
@@ -125,8 +125,8 @@ also re-exported from the short `caxton` facade.
 
 Caxton resolves requirements, workbook operation, capabilities and renderer
 compatibility **before** opening or writing the target. A capability or template
-failure therefore happens while the destination is still untouched, and a failed
-path write leaves the previous file intact.
+failure leaves the destination untouched. A failed path write leaves the
+previous file intact.
 
 Once delivery starts, path and buffer failures are reported as `OutputError`
 with an `operation`, target information and the original I/O exception as

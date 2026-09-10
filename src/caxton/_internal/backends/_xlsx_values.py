@@ -1,5 +1,3 @@
-"""Validate semantic values at the shared XLSX materialization boundary."""
-
 from __future__ import annotations
 
 import datetime as dt

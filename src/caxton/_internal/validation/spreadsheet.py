@@ -1,5 +1,3 @@
-"""Coordinate spreadsheet structural validation in diagnostic order."""
-
 from __future__ import annotations
 
 from caxton._internal.validation.features import validate_spreadsheet_features

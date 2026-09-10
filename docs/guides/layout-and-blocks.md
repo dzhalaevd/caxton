@@ -34,8 +34,8 @@ spreadsheet(
 )
 ```
 
-A dedicated layout pass walks the blocks, measures each one and assigns a
-physical anchor and occupied range before any IR node is built. You never do row
+Before building any IR node, a dedicated layout pass walks the blocks, measures
+each one and assigns its physical anchor and occupied range. You never do row
 arithmetic yourself.
 
 ## Stacks
@@ -56,7 +56,7 @@ stack(
 ## Explicit anchors
 
 `anchor="A3"` is the escape hatch. An anchored block keeps its declared position
-*and* still advances the flow cursor, so a following implicit block never lands
+*and* advances the flow cursor, preventing the next implicit block from landing
 inside it.
 
 ```python
@@ -111,9 +111,9 @@ chart(
 )
 ```
 
-The compiler resolves the reference into physical ranges of the placed table, so
-a chart — like a range reference — requires a known row count. An independent
-inline `data=` source for charts is a deliberate deferral.
+The compiler resolves the reference into physical ranges of the placed table. A
+chart therefore requires a known row count, just like a range reference. An
+independent inline `data=` source for charts is a deliberate deferral.
 
 ## Images
 

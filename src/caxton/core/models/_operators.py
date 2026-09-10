@@ -11,8 +11,8 @@ class BinaryOperatorMixin(Generic[NodeT]):
     """Operator surface shared by the expression and formula hierarchies.
 
     A hierarchy supplies its own operator enum and node type by implementing
-    ``_binary`` and ``_reverse``; every dunder below is declared once here so
-    the two hierarchies cannot drift apart.
+    ``_binary`` and ``_reverse``. This mixin declares each operator dunder once,
+    keeping the two hierarchies consistent.
     """
 
     __slots__ = ()

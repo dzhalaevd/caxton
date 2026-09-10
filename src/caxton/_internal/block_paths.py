@@ -1,5 +1,3 @@
-"""Walk declared spreadsheet blocks with stable semantic diagnostic paths."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence

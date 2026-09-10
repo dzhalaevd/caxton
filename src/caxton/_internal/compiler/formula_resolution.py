@@ -1,5 +1,3 @@
-"""Resolve semantic formula references against placed spreadsheet tables."""
-
 from __future__ import annotations
 
 import dataclasses

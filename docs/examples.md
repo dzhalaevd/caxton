@@ -1,9 +1,9 @@
 # Examples
 
 The repository ships runnable example projects under
-[`example/`](https://github.com/dzhalaevd/caxton/tree/main/example). Each one is a
-self-verifying script: it builds a document, asserts what the compiler and the
-renderer produced, and writes its artifact into an ignored `output/` directory.
+[`example/`](https://github.com/dzhalaevd/caxton/tree/main/example). Each is a
+self-verifying script. It builds a document, asserts what the compiler and
+renderer produced, and writes the artifact to an ignored `output/` directory.
 
 Run one with the repository environment:
 
@@ -13,7 +13,7 @@ uv run python example/basic/report.py
 
 ## `basic` — multi-sheet report, end to end
 
-Composes columns dynamically, derives a `profit` column with `ref()`, and then
+Composes columns dynamically, derives a `profit` column with `ref()`, and
 walks every public boundary in turn: `validate()`, `inspect_spec()`,
 `inspect_layout()` with a bounded row scope, `render()` into memory,
 `inspect_artifact()`, and finally a buffer write.
@@ -57,8 +57,8 @@ byte-identical afterwards.
 
 A small FastAPI application with its own environment under `example/backend`. It
 reads dataclass DTOs out of SQLite, uses `path()` for a nested owner value and
-`ref()` for derived columns, and returns `render(...).data` straight into an HTTP
-response with the XLSX media type — no temporary file involved.
+`ref()` for derived columns. It returns `render(...).data` in an HTTP response
+with the XLSX media type — no temporary file involved.
 
 ```bash
 cd example/backend

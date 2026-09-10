@@ -1,5 +1,3 @@
-"""Build and verify a small multi-sheet XLSX report with the current public API."""
-
 # ruff: noqa: S101
 
 from __future__ import annotations
@@ -111,7 +109,7 @@ def build_report(rows: Iterable[Mapping[str, object]]) -> SpreadsheetDocument:
 
 
 def verify_report(document: SpreadsheetDocument) -> None:  # noqa: WPS218
-    """Exercise semantic, layout, memory, buffer and artifact boundaries."""
+    """Verify semantic, layout, in-memory, buffer, and artifact views."""
     validate(document)
 
     spec = inspect_spec(document)

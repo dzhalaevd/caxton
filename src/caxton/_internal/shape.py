@@ -1,5 +1,3 @@
-"""Shape predicates shared by spreadsheet planning and execution."""
-
 from caxton.core.models import AggregateExpr, SpreadsheetTable
 
 

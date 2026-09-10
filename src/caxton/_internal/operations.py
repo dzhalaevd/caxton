@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import os
 from pathlib import Path
@@ -18,9 +19,8 @@ from caxton._internal.sinks import (
 )
 from caxton._internal.templates import XlsxTemplateCompiler, XlsxTemplateInspector
 from caxton._internal.validation import validate_spreadsheet
-from caxton.core.errors import CaxtonTypeError
 from caxton.core.ir import SpreadsheetIR
-from caxton.core.models import SpreadsheetDocument
+from caxton.core.models import SpreadsheetDocument, TemplateSpecification
 from caxton.core.protocols import OutputSink, OutputTarget, Renderer, TemplateRenderer
 from caxton.core.rendering import (
     ExecutionMode,
@@ -85,7 +85,8 @@ def write_document(  # noqa: WPS211
         )
         transaction.commit()
     except BaseException:
-        transaction.abort()
+        with contextlib.suppress(OSError):
+            transaction.abort()
         raise
     return dataclasses.replace(
         result,
@@ -99,17 +100,11 @@ def write_document(  # noqa: WPS211
 
 
 def _output_transaction(
-    sink: OutputSink,
+    sink: FileSink | BufferSink,
 ) -> FileTransactionSink | BufferTransactionSink:
     if isinstance(sink, FileSink):
         return FileTransactionSink(sink)
-    if isinstance(sink, BufferSink):
-        return BufferTransactionSink(sink)
-    message = f"Unsupported transactional sink: {type(sink).__name__}"
-    raise CaxtonTypeError(
-        message,
-        context={"sink_type": type(sink).__name__},
-    )
+    return BufferTransactionSink(sink)
 
 
 def _execute(  # noqa: WPS211
@@ -160,10 +155,7 @@ def _execute_template(  # noqa: WPS211
     backend: str | None,
     renderer: RendererOption | None,
 ) -> RenderResult:
-    template = document.template
-    if template is None:
-        message = "Template execution requires a template"
-        raise RuntimeError(message)
+    template = cast("TemplateSpecification", document.template)
     if not _template_format_matches(format_name, template.format):
         message = "Render format conflicts with the template format"
         from caxton.core.errors import TemplateFormatError  # noqa: PLC0415

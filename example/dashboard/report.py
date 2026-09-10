@@ -28,7 +28,7 @@ LOGO = base64.b64decode(
 
 
 def build_report() -> SpreadsheetDocument:
-    """Compose one worksheet from blocks without any manual row arithmetic.
+    """Compose a worksheet from blocks using compiler-resolved placement.
 
     Returns:
         A reusable immutable spreadsheet specification.

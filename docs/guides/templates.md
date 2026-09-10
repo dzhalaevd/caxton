@@ -1,8 +1,8 @@
 # XLSX templates
 
 Instead of creating a workbook from scratch, Caxton can fill an existing one.
-Your designers keep owning the styling, print setup and formulas; Caxton only
-supplies data into named regions.
+Your designers retain control of the styling, print setup and formulas. Caxton
+supplies data to named regions.
 
 ## Declaring a template
 
@@ -15,10 +15,10 @@ report = spreadsheet(
 )
 ```
 
-`template()` describes intent — it does **not** open the file. The format is
-detected from the path suffix, or from the package content types when you pass
-bytes. Pass `format="xlsx"` to state it explicitly; a conflict between the
-declared and detected format raises `TemplateFormatError`.
+`template()` describes intent — it does **not** open the file. The path suffix
+determines the format; for bytes, Caxton reads the package content types. Pass
+`format="xlsx"` to state it explicitly. A conflict between the declared and
+detected format raises `TemplateFormatError`.
 
 ```python
 template(uploaded_bytes, format="xlsx")
@@ -80,9 +80,9 @@ Unresolvable targets raise focused errors: `MissingTemplateRefError`,
 
 ## XLSX escape hatches
 
-Backend-specific extensions live in `caxton.api.xlsx` and are namespaced. They
-are declarations — a target name plus the capabilities a renderer must report —
-so they carry no renderer objects and re-export nothing from `caxton._internal`.
+Backend-specific extensions live in the `caxton.api.xlsx` namespace. They are
+declarations: a target name plus the capabilities a renderer must report. They
+carry no renderer objects and re-export nothing from `caxton._internal`.
 
 ### OpenPyXL hooks
 
@@ -119,8 +119,8 @@ xlsx.pivot("SalesPivot", source=slot("report_data"), refresh_on_open=True)
 
 This rebinds an existing pivot cache in the template to generated data. The
 source is a template region (`slot(...)`) or a named caxton table
-(`table_ref(...)`). Pivot
-package paths and relationships stay backend-local descriptor data.
+(`table_ref(...)`). Pivot package paths and relationships stay in backend-local
+descriptor data.
 
 !!! note
 

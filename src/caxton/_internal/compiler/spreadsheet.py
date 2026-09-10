@@ -1,5 +1,3 @@
-"""Coordinate validation, preparation, layout, and Spreadsheet IR lowering."""
-
 from __future__ import annotations
 
 import dataclasses

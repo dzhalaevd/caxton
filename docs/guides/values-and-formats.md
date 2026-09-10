@@ -22,18 +22,17 @@ capability diagnostic when it cannot preserve the semantics.
 
 Type-specific column factories construct these for concise one-off declarations.
 `Column(semantic_type=...)` accepts the same values directly for uniform schemas,
-custom semantic types and application-resolved configuration. All built-in
-types and `SemanticType` are available from both `caxton` and `caxton.api`; their
-definitions remain in [`caxton.core.types`](../reference/types.md).
+custom semantic types and application-resolved configuration. All built-in types
+and `SemanticType` are available from `caxton` and `caxton.api`. Their definitions
+remain in [`caxton.core.types`](../reference/types.md).
 
 Currency belongs to the value: `money(currency="EUR")` states it once, and the
-column renders with it even when no display format is given. `money_format(
-currency=...)` overrides that for presentation; a format that cannot show a
-currency at all — `decimal_format()`, say — is rejected when the column declares
-one, instead of dropping it silently.
+column renders with it even when no display format is given.
+`money_format(currency=...)` overrides that for presentation. A format that
+cannot show a currency — `decimal_format()`, for example — is rejected when the
+column declares one instead of dropping it silently.
 
-The set is open. A semantic type of your own declares how it behaves rather
-than waiting to be recognized by name:
+The set is open. A custom semantic type declares its behavior directly:
 
 ```python
 from typing import ClassVar
@@ -53,9 +52,9 @@ class Rating(SemanticType):
 rating = Column(semantic_type=Rating(), source="rating")
 ```
 
-Any renderer reporting the `semantic:extension` capability — both bundled XLSX
-backends do — renders it through that declared format, so no renderer change is
-needed to introduce one.
+Any renderer reporting the `semantic:extension` capability renders the type
+through its declared format; both bundled XLSX backends do. Adding one therefore
+requires no renderer change.
 
 `Decimal` scale is preserved: `Decimal("1")` and `Decimal("1.0")` are distinct
 values, which matters when they become grouping or matrix dimension keys.

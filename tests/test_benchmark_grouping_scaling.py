@@ -1,15 +1,3 @@
-"""Scaling benchmarks for matrix sparsity and aggregate expression evaluation.
-
-``test_benchmark_grouping`` measures dense matrices, where the produced cell
-count grows linearly with the record count. These benchmarks isolate the two
-workloads it cannot see: a sparse matrix, whose cost grows with the product of
-its dimension cardinalities, and aggregate evaluation, whose cost grows with
-the number of aggregate columns and filters rather than with the row count.
-
-Every helper rebuilds its own row source, because a benchmark round consumes
-the source and Caxton refuses to iterate a one-shot source twice.
-"""
-
 from __future__ import annotations
 
 import tracemalloc
@@ -183,9 +171,9 @@ def test_shared_filter_scaling(
 def test_sparse_matrix_cost_is_not_quadratic() -> None:
     """Doubling sparse dimension cardinality must not quadruple the cost.
 
-    This is a red scaling regression. A sparse matrix currently materializes
-    the full cartesian product of its dimensions, so peak memory grows with
-    ``rows * columns`` instead of with the record count.
+    This regression is intentionally red. A sparse matrix currently
+    materializes the full cartesian product of its dimensions, so peak memory
+    grows with ``rows * columns`` instead of with the record count.
     """
     small = _sparse_peak_bytes(_SPARSE_SIDES[1])
     large = _sparse_peak_bytes(_SPARSE_SIDES[2])

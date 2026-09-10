@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import dataclasses
 import os
 import tempfile
@@ -38,28 +37,9 @@ class MemorySink:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class FileSink:
-    """Atomically commit one completed binary artifact to a path."""
+    """Manage transaction staging for one output path."""
 
     path: Path
-
-    def write(self, data: bytes) -> int:
-        staged = self.create_staging_path()
-        try:
-            with staged.open("wb") as stream:
-                _write_all(stream, data)
-            return self.commit_staged(staged)
-        except OSError as error:
-            with contextlib.suppress(OSError):
-                self.discard_staged(staged)
-            _raise_output_error(
-                "Could not write the output artifact",
-                error=error,
-                operation="write",
-                target=str(self.path),
-            )
-        except BaseException:
-            self.discard_staged(staged)
-            raise
 
     def create_staging_path(self) -> Path:
         """Reserve a sibling path for direct backend output.
@@ -108,20 +88,9 @@ class FileSink:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class BufferSink:
-    """Adapt a writable binary file-like object to OutputSink."""
+    """Manage transaction delivery to a writable binary buffer."""
 
     buffer: BinaryWritable
-
-    def write(self, data: bytes) -> int:
-        try:
-            return _write_all(self.buffer, data)
-        except (OSError, ValueError) as error:
-            _raise_output_error(
-                "Could not write the output artifact",
-                error=error,
-                operation="write",
-                target_type=type(self.buffer).__name__,
-            )
 
     def replace(self, data: bytes) -> int:
         """Overwrite a seekable target, or deliver to a forward-only stream.
@@ -157,18 +126,6 @@ class BufferSink:
         if isinstance(self.buffer, BinarySeekable):
             return self.buffer
         return None
-
-    def getvalue(self) -> bytes | None:
-        """Read an optional in-memory snapshot without changing position.
-
-        Returns:
-            Bytes exposed by an in-memory buffer, when available.
-        """
-        getvalue = getattr(self.buffer, "getvalue", None)
-        if getvalue is None or not callable(getvalue):
-            return None
-        value = getvalue()
-        return bytes(value) if isinstance(value, (bytes, bytearray)) else None
 
 
 @dataclasses.dataclass(slots=True)
@@ -243,7 +200,9 @@ class BufferTransactionSink:
         return self._buffer.getvalue()
 
 
-def coerce_output_sink(target: OutputTarget) -> tuple[OutputSink, str | None]:
+def coerce_output_sink(
+    target: OutputTarget,
+) -> tuple[FileSink | BufferSink, str | None]:
     """Normalize a path or binary buffer into an output sink.
 
     Returns:

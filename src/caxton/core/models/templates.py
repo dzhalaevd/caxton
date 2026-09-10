@@ -13,11 +13,10 @@ from ._validation import require_name
 class TemplateRef:
     """Logical name of a region inside a template.
 
-    A template reference names a region of the template document, such as
-    an XLSX named range. It is deliberately not a
-    :class:`~caxton.core.models.expressions.ColumnRef`: a column reference
-    names a semantic column of a table, and the two live in different
-    namespaces even when they share a spelling.
+    In an XLSX template, the region may be a named range. A template reference
+    and :class:`~caxton.core.models.expressions.ColumnRef` belong to different
+    namespaces even when they share a spelling. ``ColumnRef`` names a semantic
+    table column.
     """
 
     name: str
@@ -31,7 +30,7 @@ TemplateReference: TypeAlias = TemplateRef
 
 @runtime_checkable
 class Extension(Protocol):
-    """Namespaced capability-aware backend extension envelope."""
+    """Backend extension scoped by namespace and required capabilities."""
 
     @property
     def namespace(self) -> str: ...

@@ -5,7 +5,6 @@ from collections.abc import Iterable, Sequence
 
 from caxton.core._compat import Self
 from caxton.core.formatting import Alignment, AutoWidth, DisplayFormat, StyleInput
-from caxton.core.formatting.widths import resolve_auto_width
 from caxton.core.models import Column
 from caxton.core.types import SemanticType
 from caxton.core.values import CellValue
@@ -49,7 +48,7 @@ class PreparedColumn:
             width_hint=column.width_hint,
             display_format=column.display_format,
             style_ref=column.style,
-            auto_width=resolve_auto_width(column.auto_width),
+            auto_width=column.auto_width,
         )
 
 

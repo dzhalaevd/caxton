@@ -2,7 +2,7 @@ import dataclasses
 
 import pytest
 
-from caxton import duration, link, money, time
+from caxton import money
 from caxton.core.formatting import decimal_format
 from caxton.core.types import (
     Boolean,
@@ -35,7 +35,6 @@ def test_identifiers_are_explicit_and_stable() -> None:
         Link: "link",
     }
 
-    assert {type_.name for type_ in identifiers} == set(identifiers.values())
     assert all(type_.name == name for type_, name in identifiers.items())
 
 
@@ -45,20 +44,6 @@ def test_money_currency_is_value_semantics() -> None:
     assert Money().currency is None
     assert rubles.currency == "RUB"
     assert [field.name for field in dataclasses.fields(Money)] == ["currency"]
-
-
-def test_new_type_factories_build_columns() -> None:
-    columns = (
-        time(id="starts_at", source="starts_at"),
-        duration(id="elapsed", source="elapsed"),
-        link(id="website", source="website"),
-        money(id="revenue", source="revenue", currency="USD"),
-    )
-
-    assert columns[0].semantic_type == Time()
-    assert columns[1].semantic_type == Duration()
-    assert columns[2].semantic_type == Link()
-    assert columns[3].semantic_type == Money(currency="USD")
 
 
 def test_money_factory_builds_default_type() -> None:

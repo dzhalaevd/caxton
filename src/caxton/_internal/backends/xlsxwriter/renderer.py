@@ -97,14 +97,10 @@ class XlsxWriterRenderer:
     ) -> RenderResult:
         plan = select_execution_plan(context.execution)
         destination = WorkbookDestination.for_sink(sink)
-        try:
-            workbook = xlsxwriter.Workbook(destination.target, plan.workbook_options)
-            populate_workbook(workbook, document)
-            workbook.close()
-            bytes_written = destination.finish()
-        except BaseException:
-            destination.abort()
-            raise
+        workbook = xlsxwriter.Workbook(destination.target, plan.workbook_options)
+        populate_workbook(workbook, document)
+        workbook.close()
+        bytes_written = destination.finish()
         return RenderResult(
             format=context.format,
             mime_type=_MIME_TYPE,

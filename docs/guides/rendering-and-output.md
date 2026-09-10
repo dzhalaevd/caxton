@@ -36,14 +36,14 @@ result = write(document, buffer, format="xlsx")
 assert result.data == buffer.getvalue()
 ```
 
-For a path target, the built-in sink writes to a sibling staging file and
-atomically replaces the destination only after the backend finishes — a failed
-render never leaves a half-written file. For a binary target, the adapter retries
-short writes until the whole artifact is delivered or a stable render error is
-raised.
+For a path target, the built-in sink writes to a sibling staging file. It
+atomically replaces the destination only after the backend finishes, so a failed
+render cannot leave a half-written file. For a binary target, the adapter retries
+short writes until it delivers the whole artifact or raises a stable render
+error.
 
-Note that a path target has no extension-independent magic: give the file the
-extension you want, or pass `format=` explicitly.
+A path target does not infer its format independently of the extension. Give the
+file the extension you want, or pass `format=` explicitly.
 
 ## Choosing a backend
 
@@ -59,7 +59,7 @@ Resolution considers, in order:
 8. compatible IR versions.
 
 The default is chosen only when exactly one bundled route remains. Requirement
-analysis is renderer-independent and never reads rows just to make this choice.
+analysis is renderer-independent; choosing a route never requires reading rows.
 
 For XLSX the workbook operation decides the adapter:
 
@@ -96,22 +96,22 @@ mode, that is reported before the target is touched.
 ## Custom renderers
 
 A renderer implements the public contract in
-[`caxton.core.protocols`](../reference/protocols.md): it accepts a versioned
-family IR, an `OutputSink` and a `RenderContext`, and publishes a
-`RendererDescriptor` declaring family/IR versions, formats, MIME types and
-extensions, workbook operations, capabilities and execution modes.
+[`caxton.core.protocols`](../reference/protocols.md). It accepts a versioned
+family IR, an `OutputSink` and a `RenderContext`. Its `RendererDescriptor`
+declares family and IR versions, formats, MIME types and extensions, workbook
+operations, capabilities and execution modes.
 
 ```python
 result = write(document, "out.custom", renderer=MyRenderer())
 ```
 
-There is no global registry and no entry-point discovery at this stage — pass the
-renderer directly. It never needs to import `caxton._internal`.
+Pass the renderer directly. This release has no global registry or entry-point
+discovery, and a renderer never needs to import `caxton._internal`.
 
 ### Reading table rows
 
-`SpreadsheetTableIR.rows` is a `RowStream`, not a sequence: rows stay lazy and
-may come from a generator or a one-shot data source, so the stream is consumed
+`SpreadsheetTableIR.rows` is a `RowStream`, not a sequence. Rows stay lazy and
+may come from a generator or one-shot data source, so the stream is consumed
 exactly once.
 
 ```python
@@ -120,10 +120,10 @@ for row in table.rows.consume():  # or just: for row in table.rows
 ```
 
 A second pass raises `InvalidOperationError` rather than silently yielding
-nothing. A renderer that genuinely needs two passes pays for it explicitly with
-`rows = table.rows.materialized()`, which reads the rows into memory and hands
-back a fresh stream; `rows.row_count` is the row count when the source knows it
-without reading.
+nothing. A renderer that needs two passes must call
+`rows = table.rows.materialized()`. This reads the rows into memory and returns a
+fresh stream. `rows.row_count` gives the count when the source knows it without
+reading.
 
 Formula nodes are a closed set: match `ResolvedFormulaNode` exhaustively and a
 type checker reports the forgotten branch when the IR grows a node.

@@ -1,5 +1,3 @@
-"""Render Spreadsheet IR images and charts with XlsxWriter."""
-
 from __future__ import annotations
 
 from io import BytesIO
@@ -50,8 +48,8 @@ def render_text(
 def render_image(worksheet: Worksheet, picture: SpreadsheetImageIR) -> None:
     """Render an image block into a worksheet.
 
-    Image sources are read here, at rendering time, so a path that has moved
-    since the document was described fails with the path in the error context.
+    Image sources are read at rendering time. If a path has moved since the
+    document was created, the error context identifies it.
 
     Raises:
         RenderError: If the image source cannot be read.
