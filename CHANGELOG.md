@@ -2,6 +2,13 @@
 
 <!-- towncrier release notes start -->
 
+## [0.2.5] - 2026-09-10
+
+### Bug fixes
+
+- Preserve the original rendering error when cleanup of a temporary output file also fails.
+
+
 ## [0.2.4] - 2026-09-09
 
 ### Features
