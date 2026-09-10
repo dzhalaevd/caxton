@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     types: [opened, synchronize, reopened, labeled, unlabeled]
   merge_group:
   workflow_dispatch:
@@ -211,7 +211,7 @@ jobs:
       - name: Require a valid changelog fragment
         if: >-
           github.event_name == 'pull_request' &&
-          github.base_ref == 'develop' &&
+          github.base_ref == 'main' &&
           github.event.pull_request.user.login != 'dependabot[bot]' &&
           !contains(github.event.pull_request.labels.*.name, 'skip-changelog')
         env:
