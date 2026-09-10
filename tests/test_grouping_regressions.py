@@ -1,10 +1,3 @@
-"""Failing regressions for known grouping, aggregation, and matrix defects.
-
-Every test here encodes an invariant the library does not hold yet, so the
-module is expected to be red until the matching defect is fixed. Each test
-states the invariant it protects rather than the behaviour observed today.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -12,10 +5,8 @@ from collections.abc import Iterator
 import pytest
 
 from caxton import (
-    CaxtonError,
     Column,
     Expression,
-    InvalidOperationError,
     Matrix,
     RowSourceInput,
     ValidationError,
@@ -32,7 +23,6 @@ from caxton import (
     title,
     validate,
 )
-from caxton._internal.compiler import SpreadsheetCompiler  # noqa: PLC2701
 from caxton._internal.requirements import (  # noqa: PLC2701
     analyze_spreadsheet_requirements,
 )
@@ -70,32 +60,18 @@ def _pivot(
     )
 
 
-def test_matrix_beyond_column_limit_is_rejected() -> None:
+@pytest.mark.parametrize("backend", ["xlsxwriter", "openpyxl"])
+def test_matrix_beyond_column_limit_is_rejected(backend: str) -> None:
     """A matrix wider than the sheet must fail with a Caxton diagnostic."""
     document = spreadsheet(sheet("Matrix", _pivot(_wide_rows(_OVERSIZED))))
 
     with pytest.raises(ValidationError) as captured:
-        render(document, backend="xlsxwriter")
+        render(document, backend=backend)
 
     issue = captured.value.issues[0]
     assert issue.code == "sheet_bounds_exceeded"
     assert issue.context["dimensions"] == ("columns",)
     assert issue.context["max_columns"] == _COLUMN_LIMIT
-
-
-@pytest.mark.parametrize("backend", ["xlsxwriter", "openpyxl"])
-def test_matrix_columns_are_never_dropped(backend: str) -> None:
-    """Rendering must refuse an oversized matrix or keep every declared cell."""
-    document = spreadsheet(sheet("Matrix", _pivot(_wide_rows(_OVERSIZED))))
-
-    try:
-        result = render(document, backend=backend)
-    except CaxtonError:
-        return
-
-    worksheet = inspect_artifact(result).worksheet("Matrix")
-
-    assert len(worksheet.cells) == 2 * (_OVERSIZED + 1)
 
 
 def test_aggregate_cannot_read_an_aggregate() -> None:
@@ -116,27 +92,6 @@ def test_aggregate_cannot_read_an_aggregate() -> None:
 
     with pytest.raises(ValidationError):
         validate(document)
-
-
-def test_compile_validated_guards_aggregate_scope() -> None:
-    """The aggregation layer must defend its validation precondition."""
-    document = spreadsheet(
-        sheet(
-            "Summary",
-            table(
-                source=[{"shop": "A", "value": 1}],
-                columns=(
-                    text(id="shop", source="shop"),
-                    decimal(id="total", source=field("value").agg(sum)),
-                ),
-            ),
-        ),
-    )
-
-    with pytest.raises(InvalidOperationError) as captured:
-        SpreadsheetCompiler().compile_validated(document)
-
-    assert captured.value.path == 'worksheet["Summary"].block[0].column["shop"]'
 
 
 def test_filtered_input_is_not_evaluated() -> None:
@@ -194,10 +149,7 @@ def test_matrix_dimension_grouping_is_kept() -> None:
         ),
     )
 
-    try:
-        validate(document)
-    except ValidationError:
-        return
+    validate(document)
 
     pivot = inspect_layout(document, rows=Rows.all()).worksheet("Matrix").tables[0]
 

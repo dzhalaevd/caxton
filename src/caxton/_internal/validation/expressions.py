@@ -1,5 +1,3 @@
-"""Validate Python column references and dependency cycles."""
-
 from __future__ import annotations
 
 import dataclasses

@@ -1,10 +1,3 @@
-"""Coverage for grouping paths the existing suite left unexercised.
-
-Unlike ``test_grouping_regressions``, every test here passes today. They pin
-behaviour that was correct but untested, so a later fix to the known defects
-cannot silently change it.
-"""
-
 from __future__ import annotations
 
 from caxton import (

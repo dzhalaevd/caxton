@@ -39,7 +39,7 @@ def _report_theme() -> DocumentTheme:
 
 
 def build_report() -> SpreadsheetDocument:
-    """Create the working formula/reference part of the advanced flow.
+    """Build the advanced report with formulas, grouping, and a matrix.
 
     Returns:
         A reusable immutable spreadsheet specification.

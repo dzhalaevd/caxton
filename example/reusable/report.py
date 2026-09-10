@@ -1,5 +1,3 @@
-"""Reuse one report factory with different row sets until source_ref/bind exists."""
-
 from __future__ import annotations
 
 import datetime as dt
@@ -44,7 +42,7 @@ def sales_report(
     *,
     customer: str,
 ) -> SpreadsheetDocument:
-    """Bind rows by constructing a fresh immutable graph from one layout.
+    """Construct a fresh immutable report from the shared layout and rows.
 
     Returns:
         An immutable spreadsheet specification.

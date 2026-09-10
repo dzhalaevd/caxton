@@ -1,9 +1,8 @@
 # Testing documents
 
 `caxton.testing` is a stable, pytest-independent API. It returns immutable public
-values, including documented `caxton.core.ir` values where appropriate, but
-never exposes mutable IR storage, parsers, diff algorithms or backend-native
-objects.
+values, including documented `caxton.core.ir` values where appropriate. Mutable
+IR storage, parsers, diff algorithms and backend-native objects remain internal.
 
 Pick the narrowest level that observes the behaviour you care about.
 
@@ -27,10 +26,10 @@ assert sales.column_ids == ("product", "revenue", "cost", "profit")
 Structural, cheap, and safe for one-shot sources.
 
 Callable sources receive a deterministic identity from their code, defaults,
-closure and observable instance/class state. If that state cannot be inspected,
-`inspect_spec()` fails instead of treating unrelated callables as equal. Such a
-callable can expose a stable string `__caxton_id__` attribute when the
-application owns a more appropriate identity.
+closure and observable instance or class state. If that state cannot be
+inspected, `inspect_spec()` fails instead of treating unrelated callables as
+equal. An application with a more appropriate identity can expose it through a
+stable string `__caxton_id__` attribute.
 
 ## Layout inspection
 
@@ -52,9 +51,9 @@ The row scope is explicit:
 | `Rows.sample(n)` | At most `n` rows per table.                     |
 | `Rows.all()`     | Every row.                                      |
 
-Grouped tables and matrices are always compiled through their single preparation
-pass, because their shape depends on the complete source; the scope then controls
-which of the compiled rows the view exposes.
+Grouped tables and matrices always run their single preparation pass because
+their shape depends on the complete source. The scope then controls which
+compiled rows the view exposes.
 
 Layout inspection is renderer-agnostic by default. Pass `backend="xlsxwriter"`
 or `backend="openpyxl"` when the test must also prove that the selected backend
@@ -85,13 +84,14 @@ assert worksheet.freeze_panes == "B2"
 assert worksheet.merged_ranges == ("A2:A3",)
 ```
 
-`inspect_artifact()` accepts a `RenderResult`, a path or raw bytes. Internally it
-uses OpenPyXL, but the values it returns are plain immutable Caxton types.
-For formula cells, both `value` and `formula` contain the formula text; inspection
-preserves formulas instead of loading calculated cached values. When asserting
-that a cell is absent, also assert a positive boundary such as
-`worksheet.used_range` so a missing or displaced table cannot make the negative
-assertion pass accidentally.
+`inspect_artifact()` accepts a `RenderResult`, a path or raw bytes. It uses
+OpenPyXL internally but returns plain immutable Caxton types. For formula cells,
+both `value` and `formula` contain the formula text; inspection preserves the
+formula rather than loading a calculated cached value.
+
+When asserting that a cell is absent, also assert a positive boundary such as
+`worksheet.used_range`. Otherwise, a missing or displaced table could make the
+negative assertion pass accidentally.
 
 ## Comparison and snapshots
 
@@ -103,14 +103,15 @@ assert_spreadsheet_equal(actual_document, expected_document, check_metadata=Fals
 snapshot = canonical_snapshot(inspect_spec(document))
 ```
 
-`assert_spreadsheet_equal()` takes documents or already-inspected specs, compares
-them domain-aware, and reports differences instead of a raw object dump.
-Inspecting a document for the comparison is structural and consumes no rows.
+`assert_spreadsheet_equal()` accepts documents or already-inspected specs. It
+compares them using domain rules and reports differences instead of a raw object
+dump.
+Inspecting a document for comparison is structural and consumes no rows.
 
 `canonical_snapshot()` serializes any testing value as deterministic JSON ending
-in a single newline — suitable for committing next to a test.
-Snapshot schema v2 uses fully qualified dataclass names and escapes mapping keys
-that begin with `$`, preventing user data from colliding with snapshot tags.
+in a single newline, suitable for committing next to a test. Snapshot schema v2
+uses fully qualified dataclass names and escapes mapping keys that begin with
+`$`, preventing user data from colliding with snapshot tags.
 
 ## Property-based testing
 

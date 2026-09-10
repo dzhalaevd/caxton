@@ -1,5 +1,3 @@
-"""Find and report cycles in structural reference dependency graphs."""
-
 from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Iterator, Mapping

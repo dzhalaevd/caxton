@@ -78,9 +78,9 @@ class Column:
     """Immutable semantic column specification.
 
     A column defines its value either through a Python ``source`` evaluated
-    before rendering or through an ``excel_formula`` retained in the artifact,
-    never both and never neither. Width is declared the same way: an explicit
-    ``width_hint`` or an ``auto_width`` policy, never both at once.
+    before rendering or through an ``excel_formula`` retained in the artifact.
+    Exactly one is required. Width may use an explicit ``width_hint`` or an
+    ``auto_width`` policy, but not both.
     """
 
     id: str
@@ -187,7 +187,6 @@ class Column:
             A column carrying the new display title.
 
         """
-        require_name(value, "Column title")
         return dataclasses.replace(self, title=value)
 
     def align(self, value: Alignment | str) -> Self:
@@ -206,10 +205,6 @@ class Column:
 
         Returns:
             A column carrying the new width intent.
-
-        Raises:
-            CaxtonTypeError: If the width is not numeric.
-            CaxtonValueError: If the width is not positive and finite.
         """
         if value == "auto":
             return dataclasses.replace(
@@ -219,13 +214,7 @@ class Column:
             )
         if isinstance(value, AutoWidth):
             return dataclasses.replace(self, width_hint=None, auto_width=value)
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            message = "Column width must be numeric"
-            raise CaxtonTypeError(message)
-        if not math.isfinite(value) or value <= 0:
-            message = "Column width must be positive"
-            raise CaxtonValueError(message)
-        return dataclasses.replace(self, width_hint=float(value), auto_width=None)
+        return dataclasses.replace(self, width_hint=value, auto_width=None)
 
     def format(self, value: DisplayFormat) -> Self:
         """Return a column with a backend-independent display format.
@@ -261,13 +250,7 @@ class Column:
 
         Returns:
             A column carrying the new style reference.
-
-        Raises:
-            CaxtonTypeError: If the value is neither a style nor a style name.
         """
-        if not isinstance(value, (Style, str)):
-            message = "Column style must be a Style or a style name"
-            raise CaxtonTypeError(message)
         return dataclasses.replace(self, style=value)
 
     def grouped(

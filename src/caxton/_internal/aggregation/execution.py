@@ -327,7 +327,7 @@ def _normalize_aggregate_result(
 ) -> CellValue:
     try:
         return normalize_cell_value(result)
-    except Exception as error:
+    except TypeError as error:
         message = f"Aggregate {function_name!r} returned an unsupported result"
         raise AggregateEvaluationError(
             message,

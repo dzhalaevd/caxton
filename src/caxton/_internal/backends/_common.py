@@ -1,5 +1,3 @@
-"""Small renderer-neutral helpers shared by built-in spreadsheet backends."""
-
 from caxton._internal.const import _AUTO_WIDTH_PADDING, _DEFAULT_AUTO_WIDTH
 from caxton._internal.layout import table_data_row
 from caxton.core.formatting import AutoWidth

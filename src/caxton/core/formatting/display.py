@@ -16,12 +16,7 @@ class DecimalFormat:
     grouping: bool = False
 
     def __post_init__(self) -> None:
-        if isinstance(self.places, bool) or not isinstance(self.places, int):
-            message = "Decimal places must be an integer"
-            raise CaxtonTypeError(message)
-        if self.places < 0:
-            message = "Decimal places cannot be negative"
-            raise CaxtonValueError(message)
+        _validate_places(self.places, "Decimal")
 
 
 @final
@@ -29,10 +24,9 @@ class DecimalFormat:
 class MoneyFormat:
     """Display preferences for monetary values.
 
-    Currency belongs to the value, not to its presentation: a ``Money`` column
-    states it once through ``money(currency=...)``. ``currency`` here is an
-    explicit override for that value, and ``None`` keeps the column's own
-    currency.
+    Currency belongs to the value rather than its presentation. A ``Money``
+    column declares it through ``money(currency=...)``. The ``currency`` field
+    here overrides that value; ``None`` keeps the column's currency.
     """
 
     currency: str | None = None
@@ -40,12 +34,7 @@ class MoneyFormat:
     grouping: bool = True
 
     def __post_init__(self) -> None:
-        if isinstance(self.places, bool) or not isinstance(self.places, int):
-            message = "Money places must be an integer"
-            raise CaxtonTypeError(message)
-        if self.places < 0:
-            message = "Money places cannot be negative"
-            raise CaxtonValueError(message)
+        _validate_places(self.places, "Money")
         if self.currency is not None and (
             not isinstance(self.currency, str) or not self.currency.strip()
         ):

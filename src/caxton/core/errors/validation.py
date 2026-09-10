@@ -208,13 +208,10 @@ class Notification:
         *,
         error_class: type[ValidationError] = ValidationError,
     ) -> None:
-        """Raise one aggregate error when validation found any issues.
+        """Raise the configured aggregate error if validation found issues.
 
         ``error_class`` selects the raised validation error, so a caller that
         collects schema or shape problems reports them under their own type.
-
-        If issues have been collected, this method raises ``error_class`` with
-        those issues attached.
 
         Raises:
             CaxtonTypeError: If ``error_class`` is not a validation error type.

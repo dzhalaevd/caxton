@@ -1,7 +1,7 @@
 # Contributing
 
-Thanks for considering a contribution. This page is the short version; the
-normative documents in the repository are
+Thanks for considering a contribution. This page is the short version. The
+normative repository documents are
 [`ARCHITECTURE.md`](architecture.md) (what the contracts are) and `AGENTS.md`
 (how to work in the repository).
 
@@ -36,8 +36,8 @@ uv run --no-sync tox run -e build        # wheel and sdist validation
 uv run --no-sync tox run -e docs         # strict documentation build
 ```
 
-The full matrix is `py310`, `py311`, `py312`, `py313`, `py314`; CI additionally
-tests the built wheel and sdist on Linux, macOS and Windows.
+The full matrix is `py310`, `py311`, `py312`, `py313`, `py314`. CI also tests the
+built wheel and sdist on Linux, macOS and Windows.
 
 Two convenience targets exist:
 
@@ -70,7 +70,7 @@ list if you decide to publish them.
 
 ## Architectural guardrails
 
-A change is much easier to accept when it respects these:
+Keep these architecture guardrails:
 
 - Public factories create **immutable** nodes; fluent methods return new ones.
 - Semantic models hold intent only — no coordinates, resolved layout, caches or

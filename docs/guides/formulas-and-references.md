@@ -1,7 +1,7 @@
 # Formulas and references
 
-Caxton has two expression hierarchies that never mix. Choosing between them is
-choosing *who computes the value*.
+Caxton has two expression hierarchies that never mix. The choice decides *who
+computes the value*.
 
 | You want                                   | Use                                       | Result in the file |
 |--------------------------------------------|-------------------------------------------|--------------------|
@@ -16,8 +16,8 @@ formulas; use col()"*.
 
 `field(name)` reads one exact top-level field of the raw row. `path(*segments)`
 traverses a nested structure. `ref(column_id)` reads the already-evaluated value
-of another semantic column of the same table. `literal(value)` is the constant:
-it writes the same scalar into every row, which a bare string cannot express
+of another semantic column in the same table. `literal(value)` supplies a
+constant: it writes the same scalar into every row. A bare string cannot do that
 because a string source names a field.
 
 ```python
@@ -29,10 +29,10 @@ money(id="net", source=field("net_amount"))
 text(id="method", source=literal("automatic"))
 ```
 
-`literal()` accepts one scalar — `None`, `bool`, `int`, `float`,
+`literal()` accepts one scalar: `None`, `bool`, `int`, `float`,
 `decimal.Decimal`, `str`, or a date, time, datetime or timedelta. `literal(None)`
 is a valid empty cell; containers raise `CaxtonTypeError`. It is a Python row
-expression, so it belongs here and not with `col()`.
+expression, separate from `col()`.
 
 Expressions support the usual binary operators — `+ - * /`, comparisons, `&`
 and `|` — and compose into trees:

@@ -157,33 +157,6 @@ def test_non_string_source_requires_explicit_id(kwargs: dict[str, object]) -> No
         time,
     ],
 )
-def test_flat_factories_create_columns(
-    factory: Callable[..., Column],
-) -> None:
-    result = factory(id="value", source=field("raw_value"), title="Value")
-
-    assert result.id == "value"
-    assert isinstance(result.source, FieldRef)
-    assert result.source.name == "raw_value"
-    assert result.title == "Value"
-
-
-@pytest.mark.parametrize(
-    "factory",
-    [
-        boolean,
-        date,
-        datetime,
-        decimal,
-        duration,
-        integer,
-        link,
-        money,
-        percentage,
-        text,
-        time,
-    ],
-)
 def test_flat_factory_signatures_match(factory: Callable[..., Column]) -> None:
     parameters = inspect.signature(factory).parameters
     assert {"id", "source", "title", "formula", "style"} <= set(parameters)

@@ -235,7 +235,9 @@ class Style:
             display_format,
         )
         if font_color is not None:
-            font = _merge_font(font, FontStyle(color=_color(font_color, "Font color")))
+            font_override = FontStyle(color=font_color)
+            font = _merge_font(font, font_override)
+            font_color = font_override.color
         if align is not None:
             shorthand_alignment = (
                 align
@@ -260,11 +262,7 @@ class Style:
         object.__setattr__(self, "border", border)
         object.__setattr__(self, "alignment", alignment)
         object.__setattr__(self, "display_format", display_format)
-        object.__setattr__(
-            self,
-            "font_color",
-            None if font_color is None else _color(font_color, "Font color"),
-        )
+        object.__setattr__(self, "font_color", font_color)
         object.__setattr__(self, "align", align)
         object.__setattr__(self, "border_top", border_top)
         object.__setattr__(self, "border_right", border_right)

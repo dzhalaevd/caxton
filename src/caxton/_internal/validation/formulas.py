@@ -1,5 +1,3 @@
-"""Validate spreadsheet formula references, rows, and dependency cycles."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator

@@ -280,12 +280,12 @@ class RowStream:
         return len(self._rows) if isinstance(self._rows, Sized) else None
 
     def materialized(self) -> RowStream:
-        """Return an unconsumed stream over the same rows, read into memory.
+        """Materialize these rows and return a fresh, unconsumed stream.
 
-        Consumes this stream when its rows are still lazy, so the returned
-        stream is the one to keep. Calling it again on a materialized stream
-        hands out a fresh unconsumed stream over the same rows, which is how a
-        renderer that needs a second pass pays for it explicitly.
+        If the rows are lazy, this consumes the current stream. Keep the
+        returned stream instead. Calling this method on a materialized stream
+        returns another unconsumed stream over the same rows, so a renderer can
+        request a second pass explicitly.
 
         Returns:
             An unconsumed stream over a materialized row sequence.

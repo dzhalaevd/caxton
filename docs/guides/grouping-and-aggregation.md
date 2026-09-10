@@ -2,9 +2,9 @@
 
 ## Aggregate expressions
 
-Any row expression can be aggregated with `.agg()`. The function is an arbitrary
-Python callable — Caxton passes it one value sequence per input expression and
-does not normalize inputs or drop `None`.
+Any row expression can be aggregated with `.agg()`. It accepts an arbitrary
+Python callable. Caxton passes that callable one value sequence per input
+expression without normalizing inputs or dropping `None`.
 
 ```python
 from caxton import decimal, field
@@ -25,7 +25,7 @@ field("oil_rate").agg(sum, where=field("active"), default=0)
 
 When a filter empties a scope:
 
-- with an explicit `default`, that value is returned and the callable is never called;
+- with an explicit `default`, that value is returned without calling the callable;
 - without one, the callable keeps authority over the empty input, and any failure
   is reported as `AggregateEvaluationError`.
 
@@ -35,7 +35,7 @@ one leaf group per scope.
 ## Grouped tables
 
 Grouping is column intent, not a separate table type. Declare it with
-`.grouped()`; the hierarchy follows the physical declaration order of the
+`.grouped()`. The hierarchy follows the physical declaration order of the
 grouped columns.
 
 ```python
@@ -102,12 +102,12 @@ so assertions do not have to depend on compiler-generated ids.
 
 ## Data consumption
 
-Grouped tables and matrices need the complete source to know their output shape,
-so they buffer semantic input rows internally and consume a `ONE_SHOT` source
-**exactly once**. Aggregate inputs are evaluated during that pass, after their
-filters, so the original row object can be released early. Matrix output rows are
-emitted lazily once the dynamic axes are known, so a sparse input does not also
-retain a dense Cartesian output.
+Grouped tables and matrices need the complete source to determine their output
+shape. They buffer semantic input rows internally and consume a `ONE_SHOT`
+source **exactly once**. Aggregate inputs are evaluated during that pass, after
+their filters, so the original row object can be released early. Once the
+dynamic axes are known, matrix output rows are emitted lazily, so sparse input
+need not retain a dense Cartesian output.
 
 This is a documented single pass, not an append-only streaming plan.
 

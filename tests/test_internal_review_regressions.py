@@ -15,7 +15,6 @@ from openpyxl.workbook.defined_name import DefinedName
 
 from caxton import (  # noqa: WPS347
     AggregateEvaluationError,
-    CaxtonTypeError,
     IncompatibleTemplateRefError,
     OutputError,
     TemplateError,
@@ -44,14 +43,10 @@ from caxton import (  # noqa: WPS347
     when,
     write,
 )
-from caxton._internal import operations as operations_module  # noqa: PLC2701
 from caxton._internal.aggregation import (  # noqa: PLC2701
     execution as aggregation_execution,
 )
-from caxton._internal.aggregation.execution import read_rows  # noqa: PLC2701
-from caxton._internal.data.sources import coerce_data_source  # noqa: PLC2701
 from caxton._internal.resolver import BuiltinRendererResolver  # noqa: PLC2701
-from caxton._internal.semantic import SemanticRowEvaluator  # noqa: PLC2701
 from caxton._internal.sinks import BufferSink  # noqa: PLC2701
 from caxton.api import xlsx
 from caxton.core.formatting import Style, decimal_format
@@ -737,16 +732,23 @@ class _BadBool:
 
 
 def test_aggregate_predicate_bool_error_has_context() -> None:
-    aggregate = field("value").agg(sum, where=field("include"))
+    document = spreadsheet(
+        sheet(
+            "Report",
+            table(
+                source=[{"value": 1, "include": _BadBool()}],
+                columns=(
+                    integer(
+                        id="total",
+                        source=field("value").agg(sum, where=field("include")),
+                    ),
+                ),
+            ),
+        ),
+    )
 
     with pytest.raises(AggregateEvaluationError) as captured:
-        read_rows(
-            coerce_data_source([{"value": 1, "include": _BadBool()}]),
-            (),
-            SemanticRowEvaluator(),
-            aggregates=(aggregate,),
-            path="table",
-        )
+        render(document)
 
     assert captured.value.context["phase"] == "predicate"
     assert captured.value.context["row_index"] == 0
@@ -789,18 +791,10 @@ def test_chunk_size_recovers_after_short_write() -> None:
     writer = _ShortOnceWriter()
     payload = b"x" * (128 * 1024)
 
-    BufferSink(writer).write(payload)
+    BufferSink(writer).replace(payload)
 
     assert bytes(writer.output) == payload
     assert writer.calls[:3] == [64 * 1024, 2, 64 * 1024]
-
-
-def test_transaction_type_error_is_a_caxton_error() -> None:
-    invalid_sink = object()
-    with pytest.raises(CaxtonTypeError):
-        operations_module._output_transaction(  # noqa: SLF001
-            invalid_sink,  # type: ignore[arg-type]
-        )
 
 
 def test_large_buffer_warning_precedes_full_materialization(

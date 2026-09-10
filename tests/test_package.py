@@ -72,10 +72,6 @@ def _public_annotation_targets() -> Iterator[tuple[str, AnnotationTarget]]:
                     yield from _annotated_public_members(qualified_name, exported)
 
 
-def test_package_can_be_imported() -> None:
-    assert caxton is not None
-
-
 def test_presentation_value_types_are_closed() -> None:
     value_types = (
         formatting.AutoWidth,

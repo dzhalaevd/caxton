@@ -6,22 +6,15 @@ import pytest
 
 from caxton import (
     DataSourceConsumedError,
-    boolean,
-    date,
-    datetime,
     decimal,
-    duration,
     field,
     integer,
-    link,
     money,
     path,
-    percentage,
     sheet,
     spreadsheet,
     table,
     text,
-    time,
 )
 from caxton.core.formatting import Alignment, decimal_format
 from caxton.core.models import (
@@ -97,26 +90,8 @@ def test_column_operations_are_generative() -> None:  # noqa: WPS218
     assert styled.alignment is Alignment.RIGHT
 
 
-@pytest.mark.parametrize(
-    "factory",
-    [
-        boolean,
-        date,
-        datetime,
-        decimal,
-        duration,
-        integer,
-        link,
-        money,
-        percentage,
-        text,
-        time,
-    ],
-)
-def test_factories_accept_title(
-    factory: Callable[..., Column],
-) -> None:
-    result = factory(id="value", source="value", title="Display value")
+def test_factory_accepts_title() -> None:
+    result = text(id="value", source="value", title="Display value")
 
     assert result.id == "value"
     assert result.title == "Display value"

@@ -21,7 +21,7 @@ class WorkbookOperation(StrEnum):
 
 
 class ExecutionMode(StrEnum):
-    """Backend-neutral preference for how a renderer executes a render."""
+    """Backend-neutral execution preference for a renderer."""
 
     AUTO = "auto"
     STANDARD = "standard"
@@ -30,7 +30,7 @@ class ExecutionMode(StrEnum):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class DataSourceRequirements:
-    """Non-consuming execution facts about one table row source."""
+    """Execution metadata collected without reading a table row source."""
 
     worksheet_index: int
     table_index: int
@@ -190,7 +190,7 @@ class RenderContext:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class RenderResult:
-    """Description of one completed rendering operation."""
+    """Result of a completed rendering operation."""
 
     format: str
     mime_type: str

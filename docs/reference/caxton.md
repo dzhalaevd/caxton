@@ -1,7 +1,7 @@
 # `caxton`
 
-The short public facade. Everything here is re-exported from
-[`caxton.api`](api.md) and `caxton.core`, so importing from `caxton` is the
+The short public facade. It re-exports everything here from
+[`caxton.api`](api.md) and `caxton.core`; importing from `caxton` is the
 recommended default.
 
 ## Document and block factories

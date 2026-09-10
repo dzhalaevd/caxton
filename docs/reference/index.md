@@ -5,7 +5,7 @@ These pages are generated from the source with
 
 ## Stability
 
-Public stability is divided deliberately:
+The public stability boundaries are:
 
 | Module                                    | Status                                                                |
 |-------------------------------------------|-----------------------------------------------------------------------|

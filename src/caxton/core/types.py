@@ -24,9 +24,9 @@ class SemanticType:
     - :meth:`default_format` returns the presentation the type asks for when a
       column declares no explicit display format.
 
-    A renderer that reports the ``semantic:extension`` capability renders such
-    a type through its declared display format, so no renderer change is needed
-    to introduce one.
+    A renderer that reports the ``semantic:extension`` capability renders each
+    subclass through its declared display format. Adding a semantic type does
+    not require a renderer change.
     """
 
     name: ClassVar[str]

@@ -1,5 +1,3 @@
-"""Validate declared block structure, names, references, and placement."""
-
 from __future__ import annotations
 
 from caxton._internal.block_paths import iter_blocks_with_paths
