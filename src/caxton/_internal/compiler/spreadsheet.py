@@ -213,21 +213,30 @@ class SpreadsheetCompiler:
         document: SpreadsheetDocument,
         prepared: dict[SpreadsheetTable | Matrix, PreparedTabularData],
     ) -> SpreadsheetWorksheetIR:
-        tables = tuple(
-            self._compile_tabular(
-                placement.block,
-                placement.anchor,
-                worksheet,
-                catalog,
-                document,
-                prepared.get(placement.block),
+        tables: list[SpreadsheetTableIR] = []
+        table_index = 0
+        for placement in plan.placements:
+            block = placement.block
+            if not isinstance(block, (SpreadsheetTable, Matrix)):
+                continue
+            semantic_path = placement.path
+            if isinstance(block, SpreadsheetTable):
+                semantic_path = f"table[{table_index}]"
+                table_index += 1
+            tables.append(
+                self._compile_tabular(
+                    block,
+                    placement.anchor,
+                    semantic_path,
+                    worksheet,
+                    catalog,
+                    document,
+                    prepared.get(block),
+                ),
             )
-            for placement in plan.placements
-            if isinstance(placement.block, (SpreadsheetTable, Matrix))
-        )
         return SpreadsheetWorksheetIR(
             name=worksheet.name,
-            tables=tables,
+            tables=tuple(tables),
             freeze=_compile_freeze(worksheet, plan),
             texts=tuple(_compile_texts(plan, document)),
             images=tuple(_compile_images(plan)),
@@ -239,6 +248,7 @@ class SpreadsheetCompiler:
         self,
         block: SpreadsheetTable | Matrix,
         anchor: CellAddress,
+        path: str,
         worksheet: Worksheet,
         catalog: FormulaCatalog,
         document: SpreadsheetDocument,
@@ -252,6 +262,7 @@ class SpreadsheetCompiler:
         return self._compile_table(
             block,
             anchor,
+            path,
             worksheet,
             catalog,
             document,
@@ -262,6 +273,7 @@ class SpreadsheetCompiler:
         self,
         table: SpreadsheetTable,
         anchor: CellAddress,
+        path: str,
         worksheet: Worksheet,
         catalog: FormulaCatalog,
         document: SpreadsheetDocument,
@@ -283,6 +295,10 @@ class SpreadsheetCompiler:
                 styles=document.styles,
                 base_style=table_style,
                 table_auto_width=table.auto_width,
+                path=(
+                    f'worksheet["{worksheet.name}"].{path}'
+                    f'.column["{column.id}"].formula'
+                ),
             )
             for offset, column in enumerate(table.columns)
         )
@@ -315,6 +331,10 @@ class SpreadsheetCompiler:
                     condition=_conditional_condition(
                         catalog.resolve_formula(
                             rule.condition,
+                            path=(
+                                f'worksheet["{worksheet.name}"].{path}'
+                                f".rule[{rule_index}].condition"
+                            ),
                             current_worksheet=worksheet,
                             current_table=table,
                             current_anchor=anchor,
@@ -322,7 +342,7 @@ class SpreadsheetCompiler:
                     ),
                     style=_resolve_style(rule.style, document.styles),
                 )
-                for rule in table.rules
+                for rule_index, rule in enumerate(table.rules)
             ),
             autofilter=table.autofilter,
             merges=(() if prepared is None else _absolute_merges(prepared, anchor)),
@@ -471,6 +491,7 @@ def _compile_column(  # noqa: WPS211
     styles: StyleSheet,
     base_style: Style,
     table_auto_width: AutoWidth | bool | None,
+    path: str,
 ) -> SpreadsheetColumnIR:
     resolved_style = _resolve_style(column.style, styles, base=base_style)
     legacy = Style(
@@ -499,6 +520,7 @@ def _compile_column(  # noqa: WPS211
             if column.excel_formula is None
             else catalog.resolve_formula(
                 column.excel_formula,
+                path=path,
                 current_worksheet=worksheet,
                 current_table=table,
                 current_anchor=anchor,

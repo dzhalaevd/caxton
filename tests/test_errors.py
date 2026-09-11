@@ -2,6 +2,7 @@ import copy
 import dataclasses
 import pickle  # noqa: S403
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -23,6 +24,7 @@ from caxton.errors import (
     SchemaError,
     ValidationError,
 )
+from caxton.testing import canonical_snapshot
 
 
 def _error_instance(error_type: type[CaxtonError]) -> CaxtonError:
@@ -89,6 +91,23 @@ def test_cyclic_reference_error_context() -> None:
         error.message == f"Cyclic reference through 2 columns, starting at {cycle[0]}"
     )
     assert error.context == {"column": "left", "cycle": cycle}
+
+
+def test_cyclic_diagnostic_snapshot() -> None:
+    cycle = (
+        'worksheet["Report"].table[0].column["left"].source',
+        'worksheet["Report"].table[0].column["right"].source',
+        'worksheet["Report"].table[0].column["left"].source',
+    )
+    error = CyclicReferenceError(
+        column="left",
+        cycle=cycle,
+        path=cycle[0],
+    )
+
+    fixture = Path(__file__).parent / "snapshots" / "cyclic-reference-error.json"
+
+    assert canonical_snapshot(error) == fixture.read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("cycle", [(), ("value",), ("left", "right")])

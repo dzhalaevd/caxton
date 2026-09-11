@@ -1,0 +1,23 @@
+{
+  "$schema": "caxton.testing.snapshot/v2",
+  "value": {
+    "$type": "caxton.core.errors.validation.CyclicReferenceError",
+    "column": "left",
+    "context": {
+      "column": "left",
+      "cycle": [
+        "worksheet[\"Report\"].table[0].column[\"left\"].source",
+        "worksheet[\"Report\"].table[0].column[\"right\"].source",
+        "worksheet[\"Report\"].table[0].column[\"left\"].source"
+      ]
+    },
+    "cycle": [
+      "worksheet[\"Report\"].table[0].column[\"left\"].source",
+      "worksheet[\"Report\"].table[0].column[\"right\"].source",
+      "worksheet[\"Report\"].table[0].column[\"left\"].source"
+    ],
+    "issues": [],
+    "message": "Cyclic reference through 2 columns, starting at worksheet[\"Report\"].table[0].column[\"left\"].source",
+    "path": "worksheet[\"Report\"].table[0].column[\"left\"].source"
+  }
+}
