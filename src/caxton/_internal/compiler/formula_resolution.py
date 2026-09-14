@@ -101,6 +101,7 @@ class FormulaCatalog:
         self,
         formula: Formula,
         *,
+        path: str,
         current_worksheet: Worksheet,
         current_table: SpreadsheetTable,
         current_anchor: CellAddress,
@@ -112,12 +113,14 @@ class FormulaCatalog:
                 formula.operator,
                 self.resolve_formula(
                     formula.left,
+                    path=path,
                     current_worksheet=current_worksheet,
                     current_table=current_table,
                     current_anchor=current_anchor,
                 ),
                 self.resolve_formula(
                     formula.right,
+                    path=path,
                     current_worksheet=current_worksheet,
                     current_table=current_table,
                     current_anchor=current_anchor,
@@ -155,7 +158,7 @@ class FormulaCatalog:
                 current_anchor=current_anchor,
             )
             column = resolve_column(location, formula.column_id)
-            row_count = _known_row_count(location.table)
+            row_count = _known_row_count(location.table, path=path)
             physical_column = location.anchor.column + column.offset
             return ResolvedRangeReference(
                 sheet_name=location.worksheet.name,
@@ -219,19 +222,25 @@ def resolve_data_range(location: TableLocation, column_id: str) -> CellRange:
     )
 
 
-def _known_row_count(table: SpreadsheetTable) -> int:
+def _known_row_count(
+    table: SpreadsheetTable,
+    *,
+    path: str | None = None,
+) -> int:
     source = table.data.source
     row_count = source.row_count if isinstance(source, DataSourceInfo) else None
     if row_count is None:
         message = f"Table {table.name!r} needs a known row count for a range reference"
         raise UnsupportedFeatureError(
             message,
+            path=path,
             context={"table": table.name, "reason": "unknown_row_count"},
         )
     if row_count < 1:
         message = f"Table {table.name!r} has no data cells to reference"
         raise UnsupportedFeatureError(
             message,
+            path=path,
             context={"table": table.name, "reason": "empty_range"},
         )
     return row_count

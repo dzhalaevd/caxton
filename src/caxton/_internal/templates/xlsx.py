@@ -114,6 +114,7 @@ class XlsxTableTarget:
     reference: str
     worksheet_index: int
     path: str
+    diagnostic_path: str
     range: XlsxNamedRange
     repeat: bool = False
     namespace: str = dataclasses.field(default="xlsx.table_target", init=False)
@@ -168,30 +169,50 @@ class XlsxTemplateCompiler:
                 message = f"Worksheet {worksheet.name!r} is absent from the template"
                 raise IncompatibleTemplateRefError(
                     message,
+                    path=f'worksheet["{worksheet.name}"]',
                     context={"worksheet": worksheet.name},
                 )
+            table_index = 0
             for block, block_path in iter_blocks_with_paths(worksheet.blocks):
                 if not isinstance(block, SpreadsheetTable):
                     continue
                 table = block
+                semantic_path = f"table[{table_index}]"
+                table_index += 1
                 if table.into is None:
                     continue
                 reference, repeated = _table_reference(table)
-                resolved = _resolve_named_range(context, reference, worksheet.name)
-                _validate_named_range_bounds(resolved)
+                diagnostic_path = f'worksheet["{worksheet.name}"].{semantic_path}.into'
+                resolved = _resolve_named_range(
+                    context,
+                    reference,
+                    worksheet.name,
+                    path=diagnostic_path,
+                )
+                _validate_named_range_bounds(resolved, path=diagnostic_path)
                 if len(table.columns) > resolved.columns:
                     message = f"Template target {reference!r} is too narrow"
                     raise IncompatibleTemplateRefError(
                         message,
+                        path=diagnostic_path,
                         context={
                             "available_columns": resolved.columns,
                             "required_columns": len(table.columns),
                             "reference": reference,
                         },
                     )
-                _validate_target_semantics(table, reference)
+                _validate_target_semantics(
+                    table,
+                    reference,
+                    path=diagnostic_path,
+                )
                 if not table_needs_preparation(table):
-                    _validate_target_height(table, resolved, repeated)
+                    _validate_target_height(
+                        table,
+                        resolved,
+                        repeated,
+                        path=diagnostic_path,
+                    )
                 anchors[table] = CellAddress(
                     row=resolved.min_row,
                     column=resolved.min_column,
@@ -202,6 +223,7 @@ class XlsxTemplateCompiler:
                         reference=reference,
                         worksheet_index=worksheet_index,
                         path=block_path,
+                        diagnostic_path=diagnostic_path,
                         range=resolved,
                         repeat=repeated,
                     ),
@@ -281,6 +303,8 @@ def _resolve_named_range(  # noqa: C901, WPS238
     context: XlsxTemplateContext,
     reference: str,
     worksheet: str,
+    *,
+    path: str,
 ) -> XlsxNamedRange:
     matching = tuple(
         item
@@ -293,23 +317,30 @@ def _resolve_named_range(  # noqa: C901, WPS238
         message = f"Template reference {reference!r} was not found"
         raise MissingTemplateRefError(
             message,
+            path=path,
             context={"reference": reference, "worksheet": worksheet},
         )
     if len(applicable) != 1 or len(applicable[0].destinations) != 1:
         message = f"Template reference {reference!r} is ambiguous"
         raise AmbiguousTemplateRefError(
             message,
+            path=path,
             context={"reference": reference, "worksheet": worksheet},
         )
     selected = applicable[0]
     if not selected.valid_range:
         message = f"Template reference {reference!r} is not a cell range"
-        raise InvalidTemplateRefError(message, context={"reference": reference})
+        raise InvalidTemplateRefError(
+            message,
+            path=path,
+            context={"reference": reference, "worksheet": worksheet},
+        )
     target_sheet, coordinates = selected.destinations[0]
     if target_sheet != worksheet:
         message = f"Template reference {reference!r} targets another worksheet"
         raise IncompatibleTemplateRefError(
             message,
+            path=path,
             context={
                 "declared_worksheet": worksheet,
                 "reference": reference,
@@ -320,10 +351,18 @@ def _resolve_named_range(  # noqa: C901, WPS238
         min_column, min_row, max_column, max_row = range_boundaries(coordinates)
     except (TypeError, ValueError) as error:
         message = f"Template reference {reference!r} has an invalid range"
-        raise InvalidTemplateRefError(message) from error
+        raise InvalidTemplateRefError(
+            message,
+            path=path,
+            context={"reference": reference, "worksheet": worksheet},
+        ) from error
     if min_column is None or min_row is None or max_column is None or max_row is None:
         message = f"Template reference {reference!r} is not a rectangular range"
-        raise InvalidTemplateRefError(message)
+        raise InvalidTemplateRefError(
+            message,
+            path=path,
+            context={"reference": reference, "worksheet": worksheet},
+        )
     return XlsxNamedRange(
         reference=reference,
         sheet=target_sheet,
@@ -391,6 +430,8 @@ def _validate_target_height(
     table: SpreadsheetTable,
     target: XlsxNamedRange,
     repeated: bool,
+    *,
+    path: str,
 ) -> None:
     source = table.data.source
     row_count = source.row_count if isinstance(source, DataSourceInfo) else None
@@ -399,6 +440,7 @@ def _validate_target_height(
     message = f"Template target {target.reference!r} has too few rows"
     raise IncompatibleTemplateRefError(
         message,
+        path=path,
         context={
             "available_rows": target.rows,
             "reference": target.reference,
@@ -407,7 +449,12 @@ def _validate_target_height(
     )
 
 
-def _validate_target_semantics(table: SpreadsheetTable, reference: str) -> None:
+def _validate_target_semantics(
+    table: SpreadsheetTable,
+    reference: str,
+    *,
+    path: str,
+) -> None:
     unsupported: list[str] = []
     for name, enabled in (
         ("autofilter", table.autofilter),
@@ -428,6 +475,7 @@ def _validate_target_semantics(table: SpreadsheetTable, reference: str) -> None:
     message = "XLSX target tables do not materialize presentation intent"
     raise UnsupportedFeatureError(
         message,
+        path=path,
         context={"features": tuple(unsupported), "reference": reference},
     )
 
@@ -446,7 +494,11 @@ def _has_target_column_presentation(column: Column) -> bool:
     )
 
 
-def _validate_named_range_bounds(target: XlsxNamedRange) -> None:
+def _validate_named_range_bounds(
+    target: XlsxNamedRange,
+    *,
+    path: str,
+) -> None:
     if (
         target.max_row <= SPREADSHEET_MAX_ROWS
         and target.max_column <= SPREADSHEET_MAX_COLUMNS
@@ -455,6 +507,7 @@ def _validate_named_range_bounds(target: XlsxNamedRange) -> None:
     message = f"Template target {target.reference!r} exceeds XLSX sheet bounds"
     raise IncompatibleTemplateRefError(
         message,
+        path=path,
         context={
             "max_columns": SPREADSHEET_MAX_COLUMNS,
             "max_rows": SPREADSHEET_MAX_ROWS,
@@ -499,6 +552,7 @@ def _validate_compiled_targets(  # noqa: C901
             message = f"Template target {target.reference!r} has too few rows"
             raise IncompatibleTemplateRefError(
                 message,
+                path=target.diagnostic_path,
                 context={
                     "available_rows": target.range.rows,
                     "reference": target.reference,
@@ -612,7 +666,14 @@ def _validate_target_overlaps(targets: Sequence[XlsxTableTarget]) -> None:
                     f"Template targets {first.reference!r} and "
                     f"{second.reference!r} overlap"
                 )
-                raise IncompatibleTemplateRefError(message)
+                raise IncompatibleTemplateRefError(
+                    message,
+                    path=first.diagnostic_path,
+                    context={
+                        "first": first.reference,
+                        "second": second.reference,
+                    },
+                )
 
 
 def _targets_intersect(first: XlsxNamedRange, second: XlsxNamedRange) -> bool:

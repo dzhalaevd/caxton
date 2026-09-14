@@ -225,9 +225,10 @@ def test_missing_reference_leaves_target_untouched(tmp_path: Path) -> None:
         template=template(source),
     )
 
-    with pytest.raises(MissingTemplateRefError, match="missing"):
+    with pytest.raises(MissingTemplateRefError, match="missing") as captured:
         write(document, target)
 
+    assert captured.value.path == 'worksheet["Report"].table[0].into'
     assert target.read_bytes() == b"existing"
 
 

@@ -490,5 +490,8 @@ def test_unknown_range_size_fails_before_write(tmp_path: Path) -> None:
         "table": "sales",
         "reason": "unknown_row_count",
     }
+    assert captured.value.path == (
+        'worksheet["Summary"].table[0].column["prices"].formula'
+    )
     assert not visited
     assert not target.exists()
