@@ -51,7 +51,7 @@ def validate_tables(
     document: SpreadsheetDocument,
     notification: Notification,
 ) -> None:
-    table_names: set[str] = set()
+    table_names: dict[str, tuple[str, str]] = {}
     for worksheet in document.worksheets:
         for block, block_path in iter_blocks_with_paths(worksheet.blocks):
             path = f'worksheet["{worksheet.name}"].{block_path}'
@@ -64,7 +64,13 @@ def validate_tables(
                     path=f"{table_path}.into",
                     code="template_required",
                 )
-            _validate_table_name(table, table_path, table_names, notification)
+            _validate_table_name(
+                table,
+                table_path,
+                worksheet.name,
+                table_names,
+                notification,
+            )
             validate_columns(table.columns, table_path, notification)
 
 
@@ -150,20 +156,28 @@ def _validate_chart(
 def _validate_table_name(
     table: SpreadsheetTable,
     path: str,
-    seen: set[str],
+    worksheet: str,
+    seen: dict[str, tuple[str, str]],
     notification: Notification,
 ) -> None:
     if table.name is None:
         return
     normalized = table.name.casefold()
-    if normalized in seen:
+    owner = seen.get(normalized)
+    if owner is not None:
         notification.add(
             f"Duplicate table name {table.name!r}",
             path=path,
             code="duplicate_table",
-            context={"table": table.name},
+            context={
+                "table": table.name,
+                "worksheet": worksheet,
+                "conflicts_with_table": owner[0],
+                "conflicts_with_worksheet": owner[1],
+            },
         )
-    seen.add(normalized)
+        return
+    seen[normalized] = (table.name, worksheet)
 
 
 def _validate_anchor(

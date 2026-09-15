@@ -105,6 +105,7 @@ from .columns import (
     text,
     time,
 )
+from .composition import compose
 from .operations import render, validate, write  # noqa: WPS347
 from .schemas import ColumnSchema
 from .spreadsheet import (  # noqa: WPS347
@@ -196,6 +197,7 @@ __all__ = (
     "boolean",
     "chart",
     "col",
+    "compose",
     "custom_format",
     "data_source",
     "date",
