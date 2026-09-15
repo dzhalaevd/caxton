@@ -22,9 +22,11 @@ Start here if you want one file that shows the whole surface.
 
 ## `reusable` — one factory, many documents
 
-Calls the same report factory with different row sets and different metadata,
-producing two artifacts without copying or mutating a shared model. This is the
-current answer to "reusable templates" — bind-time placeholders are deferred.
+Calls the same report factory with different metadata, then uses `compose()` to
+produce a section-qualified workbook from two independently reusable reports. It
+writes both standalone and combined artifacts without copying or mutating a shared
+model. This is the current answer to "reusable templates" — bind-time placeholders
+are deferred.
 
 ## `advanced` — formulas, grouping, matrices
 

@@ -14,6 +14,7 @@ from caxton.api import (
     ColumnSchema,
     SemanticType,
     Text,
+    compose,
     literal,
     render,
     sheet,
@@ -29,6 +30,10 @@ from caxton.api import (
 named reusable column tuples, and `literal()` creates a constant Python row
 expression. Built-in semantic types and `SemanticType` are exported here and
 from the short `caxton` facade.
+
+Use `compose({"Section": document, ...})` to combine independently built
+spreadsheet documents into one section-qualified workbook. See
+[Composing spreadsheet reports](../guides/composing-spreadsheets.md).
 
 ## Formatting and format helpers
 
