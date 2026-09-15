@@ -127,6 +127,7 @@ nav:
       - Formulas and references: guides/formulas-and-references.md
       - Grouping and aggregation: guides/grouping-and-aggregation.md
       - Worksheet layout: guides/layout-and-blocks.md
+      - Composing spreadsheet reports: guides/composing-spreadsheets.md
       - Rendering and output: guides/rendering-and-output.md
       - XLSX templates: guides/templates.md
       - Testing documents: guides/testing.md

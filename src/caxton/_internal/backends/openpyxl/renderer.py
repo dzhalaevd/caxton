@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from caxton._internal.backends._xlsx_names import validate_xlsx_worksheet_names
 from caxton._internal.backends.openpyxl.workbook import render_workbook
 from caxton._internal.const import _MIME_TYPE, _SEMANTIC_FEATURES
 from caxton._internal.rendering import run_backend
@@ -84,6 +85,9 @@ class OpenpyxlRenderer:
         sink: OutputSink,
         context: RenderContext,
     ) -> RenderResult:
+        validate_xlsx_worksheet_names(
+            worksheet.name for worksheet in document.worksheets
+        )
         bytes_written = sink.write(render_workbook(document))
         return RenderResult(
             format=context.format,

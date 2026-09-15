@@ -63,7 +63,8 @@ recommended default.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — validate
+        - compose
+        - validate
         - render
         - write
         - ExecutionMode

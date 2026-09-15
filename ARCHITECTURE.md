@@ -29,6 +29,9 @@ compilers, IRs, or renderers.
 - Each document family owns its model, validation, compiler, IR, and testing view. There is no universal super-model or
   super-IR.
 - I/O belongs to operations and sinks, not to the document model.
+- Named spreadsheet composition is a family operation over complete immutable documents. It qualifies worksheet names,
+  rebases section-local worksheet references, reconciles workbook settings, and returns an ordinary flat
+  `SpreadsheetDocument` without reading row sources.
 - Formula intent (`col()`/`table_ref()`/`sheet_ref()`) covers references, arithmetic, and comparison. The Python
   row/aggregate layer computes conditional and lookup business logic (`IF`, `VLOOKUP`/`XLOOKUP`,
   `INDEX`/`MATCH`, and similar) before rendering. Caxton provides neither new formula node types for that logic nor an
@@ -321,7 +324,7 @@ The current feature boundary includes:
 | Tables and values             | typed columns, mappings and Python row objects, Python expressions, semantic value normalization, explicit and bounded automatic widths                    |
 | Spreadsheet expressions       | semantic cell/range and cross-sheet formulas, conditional formatting, totals, and named table references                                                   |
 | Data shaping                  | hierarchical grouping, arbitrary Python aggregates with filters/defaults, and dynamic matrix axes with duplicate-cell conflict detection                   |
-| Presentation                  | reusable styles/themes, multiple worksheets, filters, freeze panes, titles, spacers, stacks, images, and charts bound to named tables                      |
+| Presentation                  | reusable styles/themes, named composition of multi-worksheet report sections, filters, freeze panes, titles, spacers, stacks, images, and charts bound to named tables |
 | Layout                        | flow placement, explicit A1 anchors, overlap detection, merge ranges, sheet-bound checks, and post-preparation placement checks for shape-dependent blocks |
 | Execution                     | standard and constant-memory create-new plans, one-shot protection, atomic file output, binary targets, and stable capability diagnostics                  |
 | Templates and XLSX extensions | named-range targets, repeated template blocks, pivot cache refresh, namespaced OpenPyXL hooks, and ordered backend-local package post-processing           |
@@ -346,6 +349,11 @@ These structural issues originate from `CyclicReferenceError`.
 validation. All library errors inherit from `CaxtonError`. Public categories distinguish validation, data
 source/evaluation, invalid operation, unsupported feature, and render/backend failures. Output delivery failures use
 `OutputError`.
+
+`compose()` also remains structural and lazy. It fails closed when section-qualified worksheet names collide, an
+explicit worksheet reference escapes its source section, child workbook settings conflict without an outer resolution,
+or a child owns a template. Table names remain workbook-global and duplicate names are reported by ordinary structural
+validation. Composition never probes a table for emptiness or changes a source's repeatability state.
 
 Errors contain a semantic path and an immutable structured-context snapshot; exception chaining preserves the original
 cause. Multiple validation issues are aggregated, while non-fatal issues use `warnings` categories. Type and value

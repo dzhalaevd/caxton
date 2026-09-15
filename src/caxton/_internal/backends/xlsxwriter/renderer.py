@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import xlsxwriter  # type: ignore[import-untyped]
 
+from caxton._internal.backends._xlsx_names import validate_xlsx_worksheet_names
 from caxton._internal.backends.xlsxwriter.destination import WorkbookDestination
 from caxton._internal.backends.xlsxwriter.execution import select_execution_plan
 from caxton._internal.backends.xlsxwriter.workbook import populate_workbook
@@ -95,6 +96,9 @@ class XlsxWriterRenderer:
         sink: OutputSink,
         context: RenderContext,
     ) -> RenderResult:
+        validate_xlsx_worksheet_names(
+            worksheet.name for worksheet in document.worksheets
+        )
         plan = select_execution_plan(context.execution)
         destination = WorkbookDestination.for_sink(sink)
         workbook = xlsxwriter.Workbook(destination.target, plan.workbook_options)
