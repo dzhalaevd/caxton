@@ -2,6 +2,24 @@
 
 <!-- towncrier release notes start -->
 
+## [0.3.0] - 2026-09-16
+
+### Features
+
+- Add `compose()` for combining named spreadsheet reports into one workbook while preserving lazy row sources and rebasing section-local worksheet references. ([#48](https://github.com/dzhalaevd/caxton/issues/48))
+
+### Bug fixes
+
+- Preserve semantic paths when formula ranges and XLSX template targets fail during post-layout resolution. ([#21](https://github.com/dzhalaevd/caxton/issues/21))
+
+### CI and tooling
+
+- Add a dedicated architecture-invariant test suite covering semantic-model immutability, public backend isolation,
+  dependency boundaries, family capability isolation, and non-consuming validation. ([#22](https://github.com/dzhalaevd/caxton/issues/22))
+- Align CI with the main-only release flow and require Towncrier fragments on
+  pull requests that target `main`.
+
+
 ## [0.2.5] - 2026-09-10
 
 ### Bug fixes
