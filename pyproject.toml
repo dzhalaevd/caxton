@@ -83,6 +83,7 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
+omit = ["*/caxton/__version__.py"]
 source = ["caxton"]
 
 [tool.coverage.paths]
