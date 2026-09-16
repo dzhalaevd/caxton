@@ -77,7 +77,7 @@ from caxton.core.formatting import (
 decimal_format(places=2, grouping=True)
 money_format(currency="USD", places=2, grouping=True)
 percentage_format(places=1)
-date_format(variant="iso")       # "iso" | "short" | "long"
+date_format(variant="iso")  # "iso" | "short" | "long"
 time_format(seconds=False, clock=12)
 custom_format("accounting", "#,##0.00_);[Red](#,##0.00)")
 ```

@@ -46,7 +46,9 @@ arithmetic yourself.
 from caxton import chart, image, stack, table_ref
 
 stack(
-    chart(table_ref("sales"), x="day", y="revenue", kind="column", title="Revenue by day"),
+    chart(
+        table_ref("sales"), x="day", y="revenue", kind="column", title="Revenue by day"
+    ),
     image(logo_bytes, width=128, height=64, name="logo"),
     direction="vertical",  # or "horizontal"
     gap=1,

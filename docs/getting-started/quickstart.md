@@ -133,7 +133,12 @@ from caxton.testing import inspect_artifact
 
 artifact = inspect_artifact(result)
 worksheet = artifact.worksheet("Sales")
-assert worksheet.table("sales").column_titles == ("Product", "Revenue", "Cost", "Profit")
+assert worksheet.table("sales").column_titles == (
+    "Product",
+    "Revenue",
+    "Cost",
+    "Profit",
+)
 assert worksheet.cell("D4").value == 550
 ```
 
