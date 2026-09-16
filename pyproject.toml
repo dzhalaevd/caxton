@@ -166,7 +166,7 @@ lint = [
 maintenance = [
     "hatch>=1.17,<2.0",
     "pip>=25,<27",
-    "towncrier>=25.8,<26.0",
+    "towncrier>=25.8,<27.0",
 ]
 pre-commit = [
     "pre-commit>=4.6.1,<5.0",
