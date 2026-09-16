@@ -14,11 +14,14 @@ from caxton import (
     SpreadsheetDocument,
     core as core_package,
     decimal,
+    field,
+    matrix,
     ref,
     render,
     sheet,
     spreadsheet,
     table,
+    text,
     validate,
     write as write_document,
 )
@@ -66,6 +69,71 @@ def test_compilation_preserves_semantic_model() -> None:
     inspect_layout(document, rows=Rows.all())
 
     assert_spreadsheet_equal(document, before_compilation)
+
+
+@pytest.mark.parametrize("backend", ["xlsxwriter", "openpyxl"])
+def test_placements_match_rendered_artifact(backend: str) -> None:
+    document = spreadsheet(
+        sheet(
+            "Ordinary",
+            table(
+                source=[{"label": "A", "value": 1}, {"label": "B", "value": 2}],
+                columns=(
+                    text(id="label", source="label"),
+                    decimal(id="value", source="value"),
+                ),
+                anchor="C3",
+            ),
+        ),
+        sheet(
+            "Grouped",
+            table(
+                source=[
+                    {"region": "North", "store": "A", "value": 1},
+                    {"region": "North", "store": "B", "value": 2},
+                    {"region": "South", "store": "C", "value": 3},
+                ],
+                columns=(
+                    text(id="region", source="region").grouped(merge=True),
+                    text(id="store", source="store").grouped(),
+                    decimal(id="total", source=field("value").agg(sum)),
+                ),
+                anchor="E5",
+            ),
+        ),
+        sheet(
+            "Matrix",
+            matrix(
+                source=[
+                    {"region": "North", "store": "A", "month": "Jan", "value": 1},
+                    {"region": "North", "store": "B", "month": "Jan", "value": 2},
+                    {"region": "South", "store": "C", "month": "Feb", "value": 3},
+                ],
+                row=(
+                    text(id="region", source="region").grouped(merge=True),
+                    field("store"),
+                ),
+                column=field("month"),
+                value=field("value").agg(sum),
+                anchor="B4",
+            ),
+        ),
+    )
+
+    layout = inspect_layout(document, rows=Rows.all(), backend=backend)
+    artifact = inspect_artifact(render(document, backend=backend))
+
+    for worksheet_name in ("Ordinary", "Grouped", "Matrix"):
+        worksheet_layout = layout.worksheet(worksheet_name)
+        worksheet_artifact = artifact.worksheet(worksheet_name)
+        placement = worksheet_layout.blocks[0]
+
+        assert worksheet_artifact.used_range == placement.cell_range
+        assert worksheet_artifact.used_range is not None
+        assert worksheet_artifact.used_range.partition(":")[0] == placement.anchor
+        assert worksheet_artifact.merged_ranges == (
+            worksheet_layout.tables[0].merged_ranges
+        )
 
 
 def test_validation_preserves_model_without_rows() -> None:
