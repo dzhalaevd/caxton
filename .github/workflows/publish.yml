@@ -23,7 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      attestations: read  # Verify provenance for the release distributions.
       contents: read
     steps:
       - name: Download release assets
@@ -38,20 +37,26 @@ jobs:
             --dir dist \
             --pattern '*.whl' \
             --pattern '*.tar.gz' \
+            --pattern '*.intoto.jsonl' \
             --pattern SHA256SUMS
+
+      - name: Install SLSA verifier
+        uses: slsa-framework/slsa-verifier/actions/installer@ea584f4502babc6f60d9bc799dbbb13c1caa9ee6  # v2.7.1
 
       - name: Verify release distributions
         env:
-          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release-tag || github.event.release.tag_name }}
         shell: bash
         run: |
           test "$(find dist -maxdepth 1 -name '*.whl' -type f | wc -l | tr -d ' ')" = "1"
           test "$(find dist -maxdepth 1 -name '*.tar.gz' -type f | wc -l | tr -d ' ')" = "1"
-          sha256sum --check dist/SHA256SUMS
-          for distribution in dist/*.whl dist/*.tar.gz; do
-            gh attestation verify "$distribution" --repo "$GITHUB_REPOSITORY"
-          done
+          test "$(find dist -maxdepth 1 -name '*.intoto.jsonl' -type f | wc -l | tr -d ' ')" = "1"
+          (cd dist && sha256sum --check SHA256SUMS)
+          provenance="$(find dist -maxdepth 1 -name '*.intoto.jsonl' -type f -print -quit)"
+          slsa-verifier verify-artifact dist/*.whl dist/*.tar.gz \
+            --provenance-path "$provenance" \
+            --source-uri "github.com/$GITHUB_REPOSITORY" \
+            --source-tag "$RELEASE_TAG"
           python3 - <<'PY'
           import email
           import os

@@ -18,32 +18,22 @@ jobs:
       id-token: write  # Let the nested coverage job authenticate to Codecov.
     uses: ./.github/workflows/ci.yml
 
-  attest:
-    name: Attest validated distributions
+  provenance:
+    name: Generate SLSA provenance
     needs: quality
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
     permissions:
-      attestations: write  # Store provenance for the validated distributions.
+      actions: read  # Read workflow metadata for the provenance predicate.
       contents: read
       id-token: write  # Sign provenance through GitHub OIDC.
-    steps:
-      - name: Download validated distributions
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
-        with:
-          name: distributions
-          path: dist
-
-      - name: Generate build provenance
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6  # v4.2.2
-        with:
-          subject-path: |
-            dist/*.whl
-            dist/*.tar.gz
+    # The SLSA generator must be referenced by a full semantic version tag.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.quality.outputs.hashes }}
+      provenance-name: caxton-${{ needs.quality.outputs.version }}.intoto.jsonl
 
   release:
     name: Create GitHub Release
-    needs: [quality, attest]
+    needs: [quality, provenance]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -59,6 +49,12 @@ jobs:
           name: distributions
           path: dist
 
+      - name: Download SLSA provenance
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: provenance
+
       - name: Verify tag, distributions, and checksums
         env:
           PACKAGE_VERSION: ${{ needs.quality.outputs.version }}
@@ -68,7 +64,8 @@ jobs:
           test "$RELEASE_TAG" = "v$PACKAGE_VERSION"
           test "$(find dist -maxdepth 1 -name '*.whl' -type f | wc -l | tr -d ' ')" = "1"
           test "$(find dist -maxdepth 1 -name '*.tar.gz' -type f | wc -l | tr -d ' ')" = "1"
-          sha256sum --check dist/SHA256SUMS
+          test "$(find provenance -maxdepth 1 -name '*.intoto.jsonl' -type f | wc -l | tr -d ' ')" = "1"
+          (cd dist && sha256sum --check SHA256SUMS)
 
       - name: Create or update draft GitHub Release
         env:
@@ -102,16 +99,20 @@ jobs:
                 --dir "$existing_dir" \
                 --pattern SHA256SUMS
               cmp dist/SHA256SUMS "$existing_dir/SHA256SUMS"
+              gh release upload "$RELEASE_TAG" \
+                --repo "$GITHUB_REPOSITORY" \
+                --clobber \
+                provenance/*.intoto.jsonl
               echo "Release already exists with the validated distributions."
               exit 0
             fi
             gh release upload "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --clobber \
-              dist/*.whl dist/*.tar.gz dist/SHA256SUMS
+              dist/*.whl dist/*.tar.gz dist/SHA256SUMS provenance/*.intoto.jsonl
           else
             gh release create "${arguments[@]}" \
-              dist/*.whl dist/*.tar.gz dist/SHA256SUMS
+              dist/*.whl dist/*.tar.gz dist/SHA256SUMS provenance/*.intoto.jsonl
           fi
 
       - name: Publish GitHub Release after all assets are attached

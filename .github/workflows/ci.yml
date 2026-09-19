@@ -16,6 +16,9 @@ on:
         type: boolean
         default: true
     outputs:
+      hashes:
+        description: Base64-encoded SHA-256 subjects for the validated distributions
+        value: ${{ jobs.build.outputs.hashes }}
       version:
         description: Version read from the validated wheel metadata
         value: ${{ jobs.build.outputs.version }}
@@ -88,6 +91,7 @@ jobs:
     permissions:
       contents: read
     outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
       version: ${{ steps.metadata.outputs.version }}
       prerelease: ${{ steps.metadata.outputs.prerelease }}
     steps:
@@ -153,7 +157,14 @@ jobs:
               output.write(f"version={version}\n")
               output.write(f"prerelease={str(version.is_prerelease).lower()}\n")
           PY
-          sha256sum dist/*.whl dist/*.tar.gz > dist/SHA256SUMS
+          (cd dist && sha256sum -- *.whl *.tar.gz > SHA256SUMS)
+
+      - name: Generate SLSA subjects
+        id: hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "hashes=$(base64 -w0 dist/SHA256SUMS)" >> "$GITHUB_OUTPUT"
 
       - name: Upload validated distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
