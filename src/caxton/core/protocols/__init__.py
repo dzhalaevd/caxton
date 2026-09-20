@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING
 
 from .data import (
     DataSource,
@@ -10,16 +9,6 @@ from .data import (
     RowAccessor,
     RowSourceInput,
 )
-
-if TYPE_CHECKING:
-    from .rendering import (
-        BinarySeekable,
-        BinaryWritable,
-        OutputSink,
-        OutputTarget,
-        Renderer,
-    )
-    from .templates import TemplateInspector, TemplateRenderer
 
 _RENDERING_EXPORTS = frozenset(
     (

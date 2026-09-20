@@ -1,0 +1,56 @@
+id: CAXTON001
+language: Python
+message: "Do not use `typing.TYPE_CHECKING`"
+note: |
+  `typing.TYPE_CHECKING` makes type checking and runtime follow different code
+  paths, which can cause runtime failures.
+severity: error
+files:
+  - "src/**/*.py"
+  - "tests/**/*.py"
+  - "example/**/*.py"
+rule:
+  any:
+    - pattern: typing.TYPE_CHECKING
+      kind: attribute
+    - pattern: TYPE_CHECKING
+      kind: identifier
+      not:
+        any:
+          - inside:
+              kind: import_from_statement
+          - inside:
+              kind: aliased_import
+          - inside:
+              kind: import_statement
+          - inside:
+              kind: as_pattern
+          - inside:
+              kind: dotted_name
+          - inside:
+              kind: assignment
+              pattern: TYPE_CHECKING = $_
+    - all:
+        - pattern: $ALIAS
+        - kind: identifier
+        - inside:
+            kind: module
+            stopBy: end
+            has:
+              pattern: from typing import TYPE_CHECKING as $ALIAS
+              kind: import_from_statement
+        - not:
+            any:
+              - inside:
+                  kind: import_from_statement
+              - inside:
+                  kind: aliased_import
+              - inside:
+                  kind: import_statement
+              - inside:
+                  kind: as_pattern
+              - inside:
+                  kind: dotted_name
+              - inside:
+                  kind: assignment
+                  pattern: $ALIAS = $_

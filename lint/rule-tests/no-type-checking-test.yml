@@ -1,0 +1,24 @@
+id: CAXTON001
+valid:
+  - |
+    from typing import TYPE_CHECKING
+  - |
+    from typing import TYPE_CHECKING as type_checking
+  - |
+    import typing
+  - |
+    TYPE_CHECKING = object()
+    type_checking = object()
+invalid:
+  - |
+    import typing
+    if typing.TYPE_CHECKING:
+        from package import dependency
+  - |
+    from typing import TYPE_CHECKING
+    if TYPE_CHECKING:
+        from package import dependency
+  - |
+    from typing import TYPE_CHECKING as type_checking
+    if type_checking:
+        from package import dependency
