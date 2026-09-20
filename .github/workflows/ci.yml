@@ -327,7 +327,7 @@ jobs:
           TOX_ENV: ${{ matrix.tox-env }}
         shell: bash
         run: |
-          sha256sum --check dist/SHA256SUMS
+          (cd dist && sha256sum --check SHA256SUMS)
           if [ "$PACKAGE_KIND" = wheel ]; then
             pattern='*.whl'
           else
