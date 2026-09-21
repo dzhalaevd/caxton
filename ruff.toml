@@ -118,6 +118,14 @@ combine-as-imports = true
 "**/tests/**/*.py" = [
     "S101",
 ]
+"src/caxton/_internal/backends/openpyxl/__init__.py" = [
+    # Names are resolved lazily by __getattr__ and declared in __init__.pyi.
+    "F822",
+]
+"src/caxton/core/protocols/__init__.py" = [
+    # Names are resolved lazily by __getattr__ and declared in __init__.pyi.
+    "F822",
+]
 "src/caxton/core/models/expressions.py" = [
     # The runtime contract distinguishes int from float in literal annotations.
     "PYI041",

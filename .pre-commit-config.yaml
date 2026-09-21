@@ -32,6 +32,17 @@ repos:
         args: [--fix]
       - id: ruff-format
 
+  - repo: https://github.com/boidolr/ast-grep-pre-commit
+    rev: 0.45.3
+    hooks:
+      - id: ast-grep
+        pass_filenames: false
+        always_run: true
+      - id: ast-grep-rule-tests
+        args: [--skip-snapshot-tests]
+        pass_filenames: false
+        always_run: true
+
   - repo: https://github.com/PyCQA/flake8
     rev: 7.3.0
     hooks:

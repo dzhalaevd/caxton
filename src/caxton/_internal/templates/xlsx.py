@@ -4,12 +4,12 @@ import dataclasses
 from collections.abc import Iterator, Sequence
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.cell import range_boundaries
 from openpyxl.workbook.defined_name import DefinedName
 
+from caxton._internal.backends.openpyxl.package import PivotDescriptor
 from caxton._internal.block_paths import iter_blocks_with_paths
 from caxton._internal.compiler import SpreadsheetCompiler
 from caxton._internal.const import SPREADSHEET_MAX_COLUMNS, SPREADSHEET_MAX_ROWS
@@ -46,9 +46,6 @@ from caxton.core.models import (
 )
 from caxton.core.models.extensions import PivotBinding
 from caxton.core.protocols import DataSourceInfo
-
-if TYPE_CHECKING:
-    from caxton._internal.backends.openpyxl.package import PivotDescriptor
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

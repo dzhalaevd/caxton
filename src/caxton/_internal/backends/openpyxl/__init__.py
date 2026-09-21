@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING
 
 from caxton._internal.const import _OPENPYXL_EXPORTS
-
-if TYPE_CHECKING:
-    from .renderer import OpenpyxlRenderer
-    from .template_renderer import OpenpyxlTemplateRenderer
 
 
 def __getattr__(name: str) -> object:  # noqa: WPS413
