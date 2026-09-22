@@ -8,6 +8,11 @@ from caxton._io.delivery import write_all
 from caxton._io.errors import raise_output_error
 
 
+def discard_staged(staged: Path) -> None:
+    """Remove an incomplete staged artifact if it still exists."""
+    staged.unlink(missing_ok=True)
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class FileSink:
     """Manage transaction staging for one output path."""
@@ -54,11 +59,6 @@ class FileSink:
             )
         return bytes_written
 
-    @staticmethod
-    def discard_staged(staged: Path) -> None:
-        """Remove an incomplete staged artifact if it still exists."""
-        staged.unlink(missing_ok=True)
-
 
 @dataclasses.dataclass(slots=True)
 class FileTransactionSink:
@@ -70,9 +70,11 @@ class FileTransactionSink:
     @property
     def staging_path(self) -> Path:
         """Invocation-owned staging path, created lazily."""
-        if self._staged is None:
-            self._staged = self.sink.create_staging_path()
-        return self._staged
+        staged = self._staged
+        if staged is None:
+            staged = self.sink.create_staging_path()
+            self._staged = staged
+        return staged
 
     def write(self, data: bytes) -> int:
         try:
@@ -97,7 +99,7 @@ class FileTransactionSink:
     def abort(self) -> None:
         """Discard the invocation staging file, if one was created."""
         if self._staged is not None:
-            self.sink.discard_staged(self._staged)
+            discard_staged(self._staged)
 
 
 __all__ = ("FileSink", "FileTransactionSink")
