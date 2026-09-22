@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol, TypeAlias, runtime_checkable
 
-from caxton._internal.normalization import format_cell_address, parse_cell_address
+from caxton._spreadsheet.normalization import format_cell_address, parse_cell_address
 from caxton.core._values import freeze_value
 from caxton.core.rendering import RenderResult
 

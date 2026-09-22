@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from caxton._internal.composition import compose_spreadsheet
+from caxton._spreadsheet.composition import compose_spreadsheet
 from caxton.core.formatting import DocumentTheme, Style, StyleSheet
 from caxton.core.models import SpreadsheetDocument, TemplateSpecification
 

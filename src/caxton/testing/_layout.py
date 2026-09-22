@@ -4,14 +4,14 @@ import dataclasses
 import itertools
 from collections.abc import Iterable, Mapping, Sequence
 
-from caxton._internal.aggregation.keys import dimension_token
-from caxton._internal.compiler import SpreadsheetCompiler
-from caxton._internal.formulas import lower_excel_formula
-from caxton._internal.layout import table_data_row
-from caxton._internal.normalization import format_cell_address, parse_cell_address
-from caxton._internal.requirements import analyze_spreadsheet_requirements
-from caxton._internal.resolver import BuiltinRendererResolver
-from caxton._internal.validation import validate_spreadsheet
+from caxton._pipeline.resolver import BuiltinRendererResolver
+from caxton._spreadsheet.compilation import SpreadsheetCompiler
+from caxton._spreadsheet.layout import table_data_row
+from caxton._spreadsheet.normalization import format_cell_address, parse_cell_address
+from caxton._spreadsheet.preparation.aggregation.keys import dimension_token
+from caxton._spreadsheet.requirements import analyze_spreadsheet_requirements
+from caxton._spreadsheet.validation import validate_spreadsheet
+from caxton._xlsx.formulas import lower_excel_formula
 from caxton.core._compat import Self, StrEnum
 from caxton.core._values import freeze_mapping
 from caxton.core.errors import UnsupportedFeatureError

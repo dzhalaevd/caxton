@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from caxton._internal.operations import render_document, write_document
-from caxton._internal.validation import validate_spreadsheet
+from caxton._pipeline.operations import render_document, write_document
+from caxton._spreadsheet.validation import validate_spreadsheet
 from caxton.core.ir import SpreadsheetIR
 from caxton.core.models import SpreadsheetDocument
 from caxton.core.protocols import OutputTarget, Renderer, TemplateRenderer

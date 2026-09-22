@@ -1,4 +1,4 @@
-from caxton._internal.data import data_source
+from caxton._source import data_source
 from caxton.core.accessors import (
     AttributeRowAccessor,
     DefaultRowAccessor,
