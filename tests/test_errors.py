@@ -8,7 +8,7 @@ from typing import Any, cast
 import pytest
 
 from caxton import errors as public_errors
-from caxton._internal.rendering import run_backend  # noqa: PLC2701
+from caxton._xlsx.rendering import run_backend  # noqa: PLC2701
 from caxton.errors import (
     BackendError,
     CaxtonError,

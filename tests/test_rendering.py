@@ -35,10 +35,12 @@ from caxton import (  # noqa: WPS347
     time,
     write,
 )  # noqa: WPS347
-from caxton._internal import operations as operations_module  # noqa: PLC2701
-from caxton._internal.compiler import spreadsheet as compiler_module  # noqa: PLC2701
-from caxton._internal.resolver import BuiltinRendererResolver  # noqa: PLC2701
-from caxton._internal.validation import validate_spreadsheet  # noqa: PLC2701
+from caxton._pipeline import operations as operations_module  # noqa: PLC2701
+from caxton._pipeline.resolver import BuiltinRendererResolver  # noqa: PLC2701
+from caxton._spreadsheet.compilation import (  # noqa: PLC2701
+    spreadsheet as compiler_module,
+)
+from caxton._spreadsheet.validation import validate_spreadsheet  # noqa: PLC2701
 from caxton.core.formatting import money_format
 from caxton.core.ir import SPREADSHEET_IR_VERSION
 from caxton.core.models import DocumentKind, SpreadsheetDocument

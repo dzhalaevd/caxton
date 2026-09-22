@@ -3,8 +3,8 @@ from collections.abc import Callable
 import pytest
 
 from caxton import CaxtonError
-from caxton._internal.layout import table_data_row  # noqa: PLC2701
-from caxton._internal.normalization import (  # noqa: PLC2701
+from caxton._spreadsheet.layout import table_data_row  # noqa: PLC2701
+from caxton._spreadsheet.normalization import (  # noqa: PLC2701
     format_cell_address,
     parse_cell_address,
 )

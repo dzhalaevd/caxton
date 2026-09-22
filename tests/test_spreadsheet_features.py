@@ -38,15 +38,15 @@ from caxton import (
     validate,
     when,
 )
-from caxton._internal.backends._common import fitted_width  # noqa: PLC2701
-from caxton._internal.backends.openpyxl import (  # noqa: PLC2701
+from caxton._spreadsheet.requirements import (  # noqa: PLC2701
+    analyze_spreadsheet_requirements,
+)
+from caxton._xlsx.common import fitted_width  # noqa: PLC2701
+from caxton._xlsx.openpyxl import (  # noqa: PLC2701
     OpenpyxlRenderer,
 )
-from caxton._internal.backends.xlsxwriter import (  # noqa: PLC2701
+from caxton._xlsx.xlsxwriter import (  # noqa: PLC2701
     XlsxWriterRenderer,
-)
-from caxton._internal.requirements import (  # noqa: PLC2701
-    analyze_spreadsheet_requirements,
 )
 from caxton.core.formatting import money_format
 from caxton.testing import (

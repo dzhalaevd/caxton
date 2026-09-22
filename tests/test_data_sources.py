@@ -14,7 +14,7 @@ from caxton import (
     table,
     text,
 )
-from caxton._internal.data import (  # noqa: PLC2701
+from caxton._source import (  # noqa: PLC2701
     AttributeRowAccessor,
     MappingRowAccessor,
     coerce_data_source,

@@ -20,11 +20,9 @@ from caxton import (  # noqa: WPS347
     text,
     write,
 )  # noqa: WPS347
-from caxton._internal import (  # noqa: PLC2701
-    requirements as requirements_module,
-    sinks as sinks_module,
-)
-from caxton._internal.backends.xlsxwriter import (  # noqa: PLC2701
+from caxton._io import paths as paths_module  # noqa: PLC2701
+from caxton._spreadsheet import requirements as requirements_module  # noqa: PLC2701
+from caxton._xlsx.xlsxwriter import (  # noqa: PLC2701
     destination,
 )
 from caxton.core.protocols import Repeatability
@@ -241,7 +239,7 @@ def test_cleanup_error_does_not_mask_render_error(
         message = "cleanup failed"
         raise OSError(message)
 
-    monkeypatch.setattr(sinks_module.FileSink, "discard_staged", fail_cleanup)
+    monkeypatch.setattr(paths_module.FileSink, "discard_staged", fail_cleanup)
 
     with pytest.raises(DataSourceIterationError) as captured:
         write(_document(rows()), tmp_path / "report.xlsx")

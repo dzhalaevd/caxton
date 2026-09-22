@@ -23,7 +23,7 @@ from caxton import (
     title,
     validate,
 )
-from caxton._internal.requirements import (  # noqa: PLC2701
+from caxton._spreadsheet.requirements import (  # noqa: PLC2701
     analyze_spreadsheet_requirements,
 )
 from caxton.testing import Rows, inspect_artifact, inspect_layout

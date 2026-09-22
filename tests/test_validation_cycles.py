@@ -1,6 +1,6 @@
 from collections.abc import Iterable, Mapping
 
-from caxton._internal.validation.cycles import (  # noqa: PLC2701
+from caxton._spreadsheet.validation.cycles import (  # noqa: PLC2701
     report_reference_cycles,
 )
 from caxton.core.errors import Issue, Notification

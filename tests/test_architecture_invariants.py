@@ -39,7 +39,11 @@ from caxton.testing import (
 _BACKEND_MODULES = frozenset(("openpyxl", "xlsxwriter"))
 _FORBIDDEN_CORE_DEPENDENCIES = (
     "caxton.api",
-    "caxton._internal",
+    "caxton._source",
+    "caxton._spreadsheet",
+    "caxton._xlsx",
+    "caxton._io",
+    "caxton._pipeline",
     "caxton.testing",
     *_BACKEND_MODULES,
 )
@@ -209,6 +213,14 @@ def test_core_excludes_outer_and_backend_imports() -> None:
     }
 
     assert violations == set()
+
+
+def test_no_catch_all_internal_package() -> None:
+    core_file = core_package.__file__
+    assert core_file is not None
+    implementation = Path(core_file).parent.parent / "_internal"
+
+    assert not implementation.exists()
 
 
 def _forbidden_imports(source_path: Path, core_root: Path) -> Iterator[str]:

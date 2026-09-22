@@ -5,7 +5,7 @@ from io import BytesIO
 
 from openpyxl.xml.functions import fromstring
 
-from caxton._internal.backends.openpyxl.package import (  # noqa: PLC2701
+from caxton._xlsx.openpyxl.package import (  # noqa: PLC2701
     PivotPatch,
     PivotPostProcessor,
     XlsxPackage,
