@@ -235,11 +235,11 @@ def test_cleanup_error_does_not_mask_render_error(
         yield {"value": "Ada"}
         raise failure
 
-    def fail_cleanup(_sink: object, _staged: Path) -> None:
+    def fail_cleanup(_staged: Path) -> None:
         message = "cleanup failed"
         raise OSError(message)
 
-    monkeypatch.setattr(paths_module.FileSink, "discard_staged", fail_cleanup)
+    monkeypatch.setattr(paths_module, "discard_staged", fail_cleanup)
 
     with pytest.raises(DataSourceIterationError) as captured:
         write(_document(rows()), tmp_path / "report.xlsx")
