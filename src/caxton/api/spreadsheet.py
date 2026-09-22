@@ -4,7 +4,7 @@ import os
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from caxton._internal.data import coerce_data_source
+from caxton._source import coerce_data_source
 from caxton.core.errors import CaxtonTypeError
 from caxton.core.formatting import (
     AutoWidth,

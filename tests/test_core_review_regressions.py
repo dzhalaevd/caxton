@@ -32,7 +32,7 @@ from caxton import (
     table,
     text,
 )
-from caxton._internal.backends.xlsxwriter import (  # noqa: PLC2701
+from caxton._xlsx.xlsxwriter import (  # noqa: PLC2701
     drawings as xlsxwriter_drawings,
 )
 from caxton.api import xlsx
@@ -200,8 +200,8 @@ def test_public_accessor_completes_a_third_party_data_source() -> None:
 
 
 def test_public_xlsx_surface_does_not_reexport_internals() -> None:
-    assert not xlsx.pivot.__module__.startswith("caxton._internal")
-    assert not xlsx.PivotBinding.__module__.startswith("caxton._internal")
+    assert xlsx.pivot.__module__.startswith("caxton.core")
+    assert xlsx.PivotBinding.__module__.startswith("caxton.core")
 
 
 def test_unreadable_image_names_its_source() -> None:

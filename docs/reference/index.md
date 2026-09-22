@@ -21,8 +21,8 @@ The public stability boundaries are:
 
 !!! danger "Not public API"
 
-    `caxton._internal` — including the bundled renderer implementations, mutable
-    IR builders, parsers, planners and package post-processors — is an
+    The underscore-prefixed implementation packages — including bundled renderer
+    implementations, mutable IR builders, parsers, planners and package post-processors — are
     implementation detail. It may change in any release without notice.
 
 ## Choosing an import

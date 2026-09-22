@@ -43,11 +43,11 @@ from caxton import (  # noqa: WPS347
     when,
     write,
 )
-from caxton._internal.aggregation import (  # noqa: PLC2701
+from caxton._io.buffers import BufferSink  # noqa: PLC2701
+from caxton._pipeline.resolver import BuiltinRendererResolver  # noqa: PLC2701
+from caxton._spreadsheet.preparation.aggregation import (  # noqa: PLC2701
     execution as aggregation_execution,
 )
-from caxton._internal.resolver import BuiltinRendererResolver  # noqa: PLC2701
-from caxton._internal.sinks import BufferSink  # noqa: PLC2701
 from caxton.api import xlsx
 from caxton.core.formatting import Style, decimal_format
 from caxton.core.ir import SPREADSHEET_IR_VERSION

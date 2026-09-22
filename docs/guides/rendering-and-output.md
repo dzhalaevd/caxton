@@ -106,7 +106,7 @@ result = write(document, "out.custom", renderer=MyRenderer())
 ```
 
 Pass the renderer directly. This release has no global registry or entry-point
-discovery, and a renderer never needs to import `caxton._internal`.
+discovery, and a renderer never needs to import private implementation modules.
 
 ### Reading table rows
 

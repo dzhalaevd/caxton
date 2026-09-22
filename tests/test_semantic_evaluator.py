@@ -21,8 +21,10 @@ from caxton import (
     table,
     text,
 )
-from caxton._internal.data import coerce_data_source  # noqa: PLC2701
-from caxton._internal.semantic import SemanticRowEvaluator  # noqa: PLC2701
+from caxton._source import coerce_data_source  # noqa: PLC2701
+from caxton._spreadsheet.preparation.semantic import (  # noqa: PLC2701
+    SemanticRowEvaluator,
+)
 from caxton.core.models import Column
 from caxton.testing import RowLayout, Rows, inspect_layout
 

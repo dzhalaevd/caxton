@@ -1,7 +1,7 @@
 # `caxton.core.protocols`
 
 Structural contracts. Implement these to plug in your own data source, output
-target or renderer — no registration and no `caxton._internal` import required.
+target or renderer — no registration or private implementation import required.
 
 ## Data
 

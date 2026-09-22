@@ -75,9 +75,10 @@ Keep these architecture guardrails:
 - Public factories create **immutable** nodes; fluent methods return new ones.
 - Semantic models hold intent only — no coordinates, resolved layout, caches or
   engine-native values.
-- Dependency direction is `api → core/_internal`, `_internal → core`,
-  `testing → core/_internal`. `core` never imports `api`, `_internal`, testing,
-  OpenPyXL or XlsxWriter; `_internal` never imports `api`.
+- Dependency direction is defined in `ARCHITECTURE.md`: `api` and `testing` may
+  use private implementation modules; `_pipeline` coordinates rendering,
+  `_xlsx` materializes the artifact, and `_spreadsheet`, `_source`, and `_io`
+  stay independent of backend engines. Private modules never import `api`.
 - Column `id`, `source` and `title` stay distinct.
 - Coercion and structural validation never consume rows; `REITERABLE` /
   `ONE_SHOT` / `UNKNOWN` behaviour is preserved and hidden extra passes are

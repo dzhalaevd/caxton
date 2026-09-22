@@ -111,10 +111,14 @@ caxton                 short public facade
 │   ├── ir              versioned read-only family IR
 │   └── errors
 ├── testing             public inspection and comparison API
-└── _internal           orchestration, compilers, resolver, backends
+├── _source             row-source adapters
+├── _spreadsheet        family validation, preparation, layout, compilation
+├── _xlsx               templates and bundled renderers
+├── _io                 output sinks and transactions
+└── _pipeline           render/write orchestration
 ```
 
-`caxton._internal` — including the bundled renderers — is **not** public API.
+The underscore-prefixed implementation packages — including the bundled renderers — are **not** public API.
 Import from `caxton`, `caxton.api`, `caxton.core.*` or `caxton.testing` only.
 
 Full detail lives in [Architecture](../architecture.md).
