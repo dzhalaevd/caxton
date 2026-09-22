@@ -6,8 +6,8 @@ Caxton supports Python 3.10 and newer. Its public model is immutable and semanti
 documents describe values, structure, and presentation intent while compilation and
 rendering handle layout and backend details. The current delivered document family is
 spreadsheet-to-XLSX, with XlsxWriter and OpenPyXL backends. Prefer imports from
-`caxton`, `caxton.api`, `caxton.core.*`, and `caxton.testing`; `caxton._internal` is not
-public API. The project is pre-alpha, so consult the changelog when targeting a specific
+`caxton`, `caxton.api`, `caxton.core.*`, and `caxton.testing`; underscore-prefixed
+implementation packages are not public API. The project is pre-alpha, so consult the changelog when targeting a specific
 release.
 
 ## Start here

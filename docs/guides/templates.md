@@ -82,7 +82,7 @@ Unresolvable targets raise focused errors: `MissingTemplateRefError`,
 
 Backend-specific extensions live in the `caxton.api.xlsx` namespace. They are
 declarations: a target name plus the capabilities a renderer must report. They
-carry no renderer objects and re-export nothing from `caxton._internal`.
+carry no renderer objects and re-export nothing from private implementation modules.
 
 ### OpenPyXL hooks
 

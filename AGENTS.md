@@ -36,8 +36,9 @@ Specifications may discuss other families and advanced XLSX features that are no
   normalized to read-only values.
 - Semantic models contain intent only. Coordinates, resolved layout, execution state, caches, workbook objects, XML, and
   engine-native values stay outside the model.
-- Preserve dependency direction: `api → core/_internal`, `_internal → core`, and `testing → core/_internal`. `core`
-  never imports `api`, `_internal`, testing, OpenPyXL, or XlsxWriter; `_internal` never imports `api`.
+- Preserve the dependency direction in `ARCHITECTURE.md`: `api` and `testing` may use private implementation modules;
+  `_pipeline` coordinates `_spreadsheet`, `_xlsx`, and `_io`; `_xlsx` may use `_spreadsheet` and `_io`; `_source`,
+  `_spreadsheet`, and `_io` depend only on Core. Private modules never import `api` or `testing`.
 - Public operations return public types. Engine objects and mutable compiler state remain implementation details.
 - Each document family owns its model, validation, compiler, IR, and testing view. Put family-specific behavior there
   rather than in a universal document or IR.
@@ -91,7 +92,8 @@ under `example/backend`.
 
 ## Tests and examples
 
-- Test public behavior through `caxton`/`caxton.api`; import `_internal` only for an explicitly internal contract test.
+- Test public behavior through `caxton`/`caxton.api`; import a private implementation module only for an explicitly
+  internal contract test.
 - Add typing fixtures under `tests/types` when changing protocols or public generic signatures.
 - Use `caxton.testing` semantic and layout views for structural assertions; inspect the finished artifact when renderer
   output matters.

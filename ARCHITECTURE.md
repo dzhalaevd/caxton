@@ -53,20 +53,27 @@ caxton                 short public facade
 │   ├── ir              versioned read-only family IR
 │   └── errors
 ├── testing             public inspection and comparison API
-└── _internal           orchestration, compilers, resolver, and backends
+├── _source             row-source coercion and adapters
+├── _spreadsheet        family validation, preparation, layout, compilation, composition
+├── _xlsx               XLSX materialization, templates, and bundled adapters
+├── _io                 sinks and output transactions
+└── _pipeline           render/write orchestration and renderer selection
 ```
 
 The allowed dependency direction is:
 
 ```text
-api ───────→ core       testing ───→ core, _internal
-api ───────→ _internal  _internal ─→ core
-backends ──→ public core contracts
+api ─────────→ core, _source, _spreadsheet, _pipeline
+testing ────→ core, private implementation modules
+_pipeline ──→ core, _spreadsheet, _xlsx, _io
+_xlsx ──────→ core, _spreadsheet, _io
+_spreadsheet, _source, _io ──→ core
 ```
 
-`core` does not import `api`, `_internal`, testing, or backend engines.
-`_internal` does not import `api`. The public API does not return OpenPyXL, XlsxWriter, XML, or PDF canvas objects.
-Mutable compiler passes, the resolver, caches, and execution plans are not compatibility contracts.
+`core` does not import `api`, private implementation modules, testing, or backend engines. Private implementation
+modules do not import `api` or `testing`; `_spreadsheet` is independent of `_xlsx` and `_io`. The public API does not
+return OpenPyXL, XlsxWriter, XML, or PDF canvas objects. Mutable compiler passes, the resolver, caches, and execution
+plans are not compatibility contracts.
 
 The public stability boundaries are:
 
@@ -74,8 +81,8 @@ The public stability boundaries are:
 - `caxton.core` contains semantic models, value types, errors, protocols, renderer signature types, and versioned
   read-only IR contracts used by custom renderers;
 - `caxton.testing` is the stable inspection and comparison surface;
-- `caxton._internal`, including bundled renderer implementations, mutable IR builders, parsers, planners, and package
-  post-processors, is not public API.
+- `caxton._source`, `caxton._spreadsheet`, `caxton._xlsx`, `caxton._io`, and `caxton._pipeline`, including bundled
+  renderer implementations, mutable IR builders, parsers, planners, and package post-processors, are not public API.
 
 ## Semantic Model and families
 
@@ -154,8 +161,9 @@ avoiding a second staging copy.
 The table declaration is `table(source=data, columns=(...))`. Both inputs are keyword-only: `source` defines the rows,
 and `columns` defines their ordered semantic schema. This table-specific signature prevents confusion between a source
 and a column sequence. Block factories with one primary value keep a positional first argument. A table coerces its
-input to a public `DataSource`
-once and stores that source instead of the original framework object or a materialized list.
+input to a public `DataSource` once and stores that source instead of the original framework object or a materialized
+list. `data_source()` preserves the known row type for existing sources, iterables, mappings, and single-row inputs;
+runtime shape checks remain responsible for rejecting unsupported inputs.
 
 Flat typed factories keep semantic identity, row access, and presentation in separate model properties. Every value has
 an explicit origin through `source=`
@@ -267,8 +275,8 @@ An error while retrieving the next row from an iterator is a
 
 The public `Renderer` accepts a versioned family IR, an `OutputSink`, and a
 `RenderContext`. Its descriptor declares family and IR versions, formats, MIME types and extensions, workbook
-operations, capabilities, and execution modes. A custom renderer can be passed directly without importing `_internal`.
-This release has no global provider registry or entry-point discovery.
+operations, capabilities, and execution modes. A custom renderer can be passed directly without importing private
+implementation modules. This release has no global provider registry or entry-point discovery.
 
 The types state two IR contracts. Table rows are a one-shot
 `RowStream`: a second pass raises instead of silently yielding nothing, while
@@ -319,16 +327,16 @@ packages.
 
 The current feature boundary includes:
 
-| Area                          | Delivered behavior                                                                                                                                         |
-|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Tables and values             | typed columns, mappings and Python row objects, Python expressions, semantic value normalization, explicit and bounded automatic widths                    |
-| Spreadsheet expressions       | semantic cell/range and cross-sheet formulas, conditional formatting, totals, and named table references                                                   |
-| Data shaping                  | hierarchical grouping, arbitrary Python aggregates with filters/defaults, and dynamic matrix axes with duplicate-cell conflict detection                   |
+| Area                          | Delivered behavior                                                                                                                                                     |
+|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Tables and values             | typed columns, mappings and Python row objects, Python expressions, semantic value normalization, explicit and bounded automatic widths                                |
+| Spreadsheet expressions       | semantic cell/range and cross-sheet formulas, conditional formatting, totals, and named table references                                                               |
+| Data shaping                  | hierarchical grouping, arbitrary Python aggregates with filters/defaults, and dynamic matrix axes with duplicate-cell conflict detection                               |
 | Presentation                  | reusable styles/themes, named composition of multi-worksheet report sections, filters, freeze panes, titles, spacers, stacks, images, and charts bound to named tables |
-| Layout                        | flow placement, explicit A1 anchors, overlap detection, merge ranges, sheet-bound checks, and post-preparation placement checks for shape-dependent blocks |
-| Execution                     | standard and constant-memory create-new plans, one-shot protection, atomic file output, binary targets, and stable capability diagnostics                  |
-| Templates and XLSX extensions | named-range targets, repeated template blocks, pivot cache refresh, namespaced OpenPyXL hooks, and ordered backend-local package post-processing           |
-| Testing                       | semantic inspection/diff, canonical snapshots, explicit-scope layout inspection, XLSX artifact inspection, and optional Hypothesis strategies              |
+| Layout                        | flow placement, explicit A1 anchors, overlap detection, merge ranges, sheet-bound checks, and post-preparation placement checks for shape-dependent blocks             |
+| Execution                     | standard and constant-memory create-new plans, one-shot protection, atomic file output, binary targets, and stable capability diagnostics                              |
+| Templates and XLSX extensions | named-range targets, repeated template blocks, pivot cache refresh, namespaced OpenPyXL hooks, and ordered backend-local package post-processing                       |
+| Testing                       | semantic inspection/diff, canonical snapshots, explicit-scope layout inspection, XLSX artifact inspection, and optional Hypothesis strategies                          |
 
 Charts currently bind to an existing named table; an independent inline chart
 `data=` source is not part of the public API. A reusable Python factory can construct a fresh immutable specification,
