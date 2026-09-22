@@ -105,39 +105,87 @@ known_first_party = ["caxton"]
 root_packages = ["caxton"]
 
 [[tool.importlinter.contracts]]
-name = "Core does not depend on orchestration"
+name = "Core does not depend on implementation"
 type = "forbidden"
 source_modules = ["caxton.core"]
 forbidden_modules = [
     "caxton.api",
-    "caxton._internal",
+    "caxton._source",
+    "caxton._spreadsheet",
+    "caxton._xlsx",
+    "caxton._io",
+    "caxton._pipeline",
     "caxton.testing",
 ]
 
 [[tool.importlinter.contracts]]
-name = "Internal implementation does not depend on public API"
+name = "Private implementation does not depend on public entry points"
 type = "forbidden"
-source_modules = ["caxton._internal"]
-forbidden_modules = ["caxton.api"]
+source_modules = [
+    "caxton._source",
+    "caxton._spreadsheet",
+    "caxton._xlsx",
+    "caxton._io",
+    "caxton._pipeline",
+]
+forbidden_modules = ["caxton.api", "caxton.testing"]
+
+[[tool.importlinter.contracts]]
+name = "Private implementation follows ownership direction"
+type = "layers"
+layers = [
+    "caxton._pipeline",
+    "caxton._xlsx",
+    "caxton._spreadsheet",
+    "caxton._source",
+]
+
+[[tool.importlinter.contracts]]
+name = "Output delivery does not depend on document implementations"
+type = "forbidden"
+source_modules = ["caxton._io"]
+forbidden_modules = [
+    "caxton._source",
+    "caxton._spreadsheet",
+    "caxton._xlsx",
+    "caxton._pipeline",
+]
+
+[[tool.importlinter.contracts]]
+name = "Spreadsheet family does not depend on output delivery"
+type = "forbidden"
+source_modules = ["caxton._spreadsheet"]
+forbidden_modules = ["caxton._io"]
+
+[[tool.importlinter.contracts]]
+name = "Source adapters do not depend on output delivery"
+type = "forbidden"
+source_modules = ["caxton._source"]
+forbidden_modules = ["caxton._io"]
+
+[[tool.importlinter.contracts]]
+name = "Rendering modules do not ingest row sources"
+type = "forbidden"
+source_modules = ["caxton._xlsx", "caxton._pipeline"]
+forbidden_modules = ["caxton._source"]
 
 [[tool.importlinter.contracts]]
 name = "Internal spreadsheet pipeline is layered"
 type = "layers"
 layers = [
-    "caxton._internal.compiler",
-    "caxton._internal.validation",
-    "caxton._internal.layout",
-    "caxton._internal.aggregation",
-    "caxton._internal.semantic",
-    "caxton._internal.data",
+    "caxton._spreadsheet.compilation",
+    "caxton._spreadsheet.validation",
+    "caxton._spreadsheet.layout",
+    "caxton._spreadsheet.preparation.aggregation",
+    "caxton._spreadsheet.preparation.semantic",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Bundled XLSX backends are independent"
 type = "independence"
 modules = [
-    "caxton._internal.backends.openpyxl",
-    "caxton._internal.backends.xlsxwriter",
+    "caxton._xlsx.openpyxl",
+    "caxton._xlsx.xlsxwriter",
 ]
 
 [dependency-groups]
