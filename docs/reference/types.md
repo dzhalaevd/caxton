@@ -13,7 +13,8 @@ totals row may aggregate it, and return its requested display format from
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — SemanticType
+        - BUILTIN_SEMANTIC_TYPES
+        - SemanticType
         - Text
         - Integer
         - Decimal
@@ -25,3 +26,15 @@ totals row may aggregate it, and return its requested display format from
         - DateTime
         - Duration
         - Link
+
+## Cell values
+
+`CellValue` is the normalized value domain shared by semantic evaluation and
+spreadsheet IR rows. Individual renderers may reject values that their artifact
+format cannot represent; for example, XLSX output rejects binary cell values
+and timezone-aware date/time values.
+
+::: caxton.core.values
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false

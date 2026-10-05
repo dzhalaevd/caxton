@@ -48,8 +48,11 @@ caxton                 short public facade
 ├── core
 │   ├── models          immutable semantic nodes
 │   ├── types           semantic value types
+│   ├── values          backend-neutral cell-value contract
 │   ├── formatting      backend-neutral presentation vocabulary
-│   ├── protocols       DataSource, Renderer, and other contracts
+│   ├── accessors       exact mapping and attribute row accessors
+│   ├── protocols       DataSource, Renderer, and other structural contracts
+│   ├── rendering       renderer descriptors, requirements, contexts, and results
 │   ├── ir              versioned read-only family IR
 │   └── errors
 ├── testing             public inspection and comparison API
@@ -78,8 +81,8 @@ plans are not compatibility contracts.
 The public stability boundaries are:
 
 - `caxton` is the recommended short facade and `caxton.api` is the extended generative API;
-- `caxton.core` contains semantic models, value types, errors, protocols, renderer signature types, and versioned
-  read-only IR contracts used by custom renderers;
+- `caxton.core` contains semantic models, value and formatting types, row accessors, errors, protocols, renderer
+  signature types, and versioned read-only IR contracts used by custom renderers;
 - `caxton.testing` is the stable inspection and comparison surface;
 - `caxton._source`, `caxton._spreadsheet`, `caxton._xlsx`, `caxton._io`, and `caxton._pipeline`, including bundled
   renderer implementations, mutable IR builders, parsers, planners, and package post-processors, are not public API.

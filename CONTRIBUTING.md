@@ -21,7 +21,7 @@ uv run pre-commit install
 Use the checked-in virtual environment:
 
 ```bash
-pytest -q
+.venv/bin/pytest -q
 ```
 
 Run repository-level gates through tox, matching CI:
@@ -55,12 +55,9 @@ The site uses [MkDocs](https://www.mkdocs.org/) with
 [mkdocstrings](https://mkdocstrings.github.io/) generates the API reference from docstrings. The strict build fails on
 broken internal links and unresolved references.
 
-Prose pages live in `docs/`, but `ARCHITECTURE.md` and the Towncrier fragments are the sources for architecture and
-release notes. Edit those files rather than duplicating their content in the documentation.
-
-The internal engineering notes — `docs/README.md`, `docs/adr/` and
-`docs/use_case/` — remain in the repository but are excluded from the published site via `exclude_docs` in `mkdocs.yml`.
-To publish them, remove their paths from that list.
+Published prose pages live in `docs/`, and their navigation is defined in `mkdocs.yml`. `ARCHITECTURE.md` is the
+normative source for architecture, while `CHANGELOG.md` and the Towncrier fragments are the sources for release notes.
+Edit those source files instead of duplicating their content in a guide.
 
 ## Architectural guardrails
 

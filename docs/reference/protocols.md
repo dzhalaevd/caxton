@@ -10,11 +10,18 @@ target or renderer — no registration or private implementation import required
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — DataSource
+        - DataSource
         - DataSourceInfo
         - RowAccessor
         - RowSourceInput
         - Repeatability
+
+## Built-in row accessors
+
+::: caxton.core.accessors
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
 
 ## Rendering and output
 
@@ -23,7 +30,7 @@ target or renderer — no registration or private implementation import required
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — Renderer
+        - Renderer
         - OutputSink
         - OutputTarget
         - BinaryWritable
@@ -36,7 +43,7 @@ target or renderer — no registration or private implementation import required
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — TemplateRenderer
+        - TemplateRenderer
         - TemplateInspector
 
 ## Renderer contracts and results

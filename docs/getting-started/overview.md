@@ -1,9 +1,9 @@
-# Core concepts
+# Overview
 
 ## The document is a value
 
-Every public factory returns a frozen node. Each fluent method returns a *new*
-node rather than mutating the receiver:
+Every public semantic-node factory returns a frozen node. Each fluent method
+returns a *new* node rather than mutating the receiver:
 
 ```python
 from caxton import text
@@ -41,7 +41,7 @@ two cannot be confused. A Python expression cannot depend on a formula-backed
 column, because that column's value only exists once the file is opened.
 `literal()` supplies a constant Python row value and never reads the current row.
 
-See [Formulas and references](../guides/formulas-and-references.md).
+See [Formulas and computation](../guides/formulas.md).
 
 ## Identity, source and title are separate
 
@@ -97,28 +97,3 @@ Requirement analysis does not depend on the renderer. Renderer selection
 happens *before* the target file is opened. `render()` uses a memory sink.
 `write()` normalizes a path or buffer into a sink; for paths, it replaces the
 destination atomically only after the backend succeeds.
-
-## Public boundaries
-
-```text
-caxton                 short public facade
-├── api                 factories and render/write/validate
-├── core
-│   ├── models          immutable semantic nodes
-│   ├── types           semantic value types
-│   ├── formatting      backend-neutral presentation vocabulary
-│   ├── protocols       DataSource, Renderer, and other contracts
-│   ├── ir              versioned read-only family IR
-│   └── errors
-├── testing             public inspection and comparison API
-├── _source             row-source adapters
-├── _spreadsheet        family validation, preparation, layout, compilation
-├── _xlsx               templates and bundled renderers
-├── _io                 output sinks and transactions
-└── _pipeline           render/write orchestration
-```
-
-The underscore-prefixed implementation packages — including the bundled renderers — are **not** public API.
-Import from `caxton`, `caxton.api`, `caxton.core.*` or `caxton.testing` only.
-
-Full detail lives in [Architecture](../architecture.md).

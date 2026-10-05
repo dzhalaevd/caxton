@@ -11,7 +11,7 @@ recommended default.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — spreadsheet
+        - spreadsheet
         - sheet
         - table
         - matrix
@@ -28,7 +28,7 @@ recommended default.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — text
+        - text
         - integer
         - decimal
         - money
@@ -47,9 +47,10 @@ recommended default.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — field
+        - field
         - path
         - ref
+        - literal
         - col
         - table_ref
         - sheet_ref
@@ -76,7 +77,7 @@ recommended default.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — template
+        - template
         - repeat
         - slot
         - data_source

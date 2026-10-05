@@ -3,7 +3,7 @@
 A stable, pytest-independent inspection and comparison API. Every value it
 returns is immutable and backend-neutral.
 
-See [Testing documents](../guides/testing.md) for guidance on which level to use.
+See [Testing and diagnostics](../guides/troubleshooting.md) for guidance on which level to use.
 
 ## Semantic inspection
 
