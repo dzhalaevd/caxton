@@ -1,0 +1,38 @@
+[
+  {
+    "location": "North Campus",
+    "space_id": "N-101",
+    "offer_code": "OFF-1001",
+    "space_type": "Meeting Room S",
+    "rate_model": "Standard",
+    "rate": 38.00,
+    "day": "2026-08-03",
+    "hour": 10,
+    "variance": 3.00,
+    "base_rate": 35.00
+  },
+  {
+    "location": "North Campus",
+    "space_id": "N-102",
+    "offer_code": "OFF-1002",
+    "space_type": "Meeting Room M",
+    "rate_model": "Standard",
+    "rate": 55.00,
+    "day": "2026-08-03",
+    "hour": 14,
+    "variance": 5.00,
+    "base_rate": 50.00
+  },
+  {
+    "location": "South Campus",
+    "space_id": "S-201",
+    "offer_code": "OFF-2001",
+    "space_type": "Focus Room",
+    "rate_model": "Flexible",
+    "rate": 24.00,
+    "day": "2026-08-04",
+    "hour": 13,
+    "variance": 2.00,
+    "base_rate": 22.00
+  }
+]

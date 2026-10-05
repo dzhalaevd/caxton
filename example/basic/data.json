@@ -1,0 +1,20 @@
+{
+  "sales": [
+    {
+      "product": "Coffee",
+      "revenue": 1250.00,
+      "cost": 700.00
+    },
+    {
+      "product": "Tea",
+      "revenue": 920.00,
+      "cost": 510.00
+    }
+  ],
+  "owners": [
+    {
+      "team": "Retail",
+      "owner": "Ada"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
@@ -18,6 +19,8 @@ from caxton import (  # noqa: WPS347
     write,
 )
 from caxton.core.models import SpreadsheetDocument
+
+ROOT = Path(__file__).parent
 
 
 class SalesColumns(ColumnSchema):
@@ -90,20 +93,15 @@ def combined_sales_report(
 
 
 def main() -> None:
-    """Render reusable reports separately and as one composed workbook."""
-    rows = (
-        {
-            "date": dt.date(2026, 8, 11),
-            "product": "Coffee",
-            "revenue": 1200,
-        },
+    rows = tuple(
+        {**row, "date": dt.date.fromisoformat(row["date"])}
+        for row in json.loads((ROOT / "data.json").read_text(encoding="utf-8"))
     )
-    output = Path(__file__).with_name("output")
+    output = ROOT / "output"
     output.mkdir(parents=True, exist_ok=True)
     write(sales_report(rows, customer="North"), output / "north.xlsx")
     write(sales_report(rows, customer="South"), output / "south.xlsx")
     write(combined_sales_report(rows), output / "combined.xlsx")
-    print(f"Created reports in {output}")  # noqa: T201, WPS421
 
 
 if __name__ == "__main__":
