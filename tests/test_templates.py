@@ -136,23 +136,23 @@ def test_named_range_write_preserves_template_and_source(tmp_path: Path) -> None
     assert worksheet["A3"].fill.fgColor.rgb == "FF00FF00"
 
 
-def test_bundled_template_preserves_untouched_formula_cells() -> None:
+def test_bundled_template_preserves_untouched_cells() -> None:
     source = (
         Path(__file__).parents[1]
         / "example"
         / "template"
         / "assets"
-        / "monthly_sales_template.xlsx"
+        / "workspace_rates_template.xlsx"
     )
     original = source.read_bytes()
     document = spreadsheet(
         sheet(
-            "Monthly Report",
+            "Summary",
             table(
-                source=[{"product": "Coffee", "quantity": 4}],
+                source=[{"location": "East Campus", "hour": 9}],
                 columns=(
-                    text(id="product", source="product"),
-                    integer(id="quantity", source="quantity"),
+                    text(id="location", source="location"),
+                    integer(id="hour", source="hour"),
                 ),
                 into=slot("report_data"),
             ),
@@ -160,11 +160,12 @@ def test_bundled_template_preserves_untouched_formula_cells() -> None:
         template=template(source),
     )
 
-    workbook = load_workbook(BytesIO(_rendered(document)), data_only=False)
+    workbook = load_workbook(BytesIO(_rendered(document)))
 
-    assert workbook["Monthly Report"]["A8"].value == "Coffee"
-    assert workbook["Monthly Report"]["B8"].value == 4
-    assert workbook["Monthly Report"]["F8"].value == ('=IF(COUNTA(A8:E8)=0,"",D8*E8)')
+    assert workbook["Summary"]["A2"].value == "East Campus"
+    assert workbook["Summary"]["B2"].value == 9
+    assert workbook["Hourly Rates"]["A6"].value == "North Campus"
+    assert workbook["Hourly Rates"]["P6"].value == 38
     assert source.read_bytes() == original
 
 
@@ -386,13 +387,7 @@ def test_missing_pivot_is_resolved_before_rows_are_consumed(tmp_path: Path) -> N
         ),
         template=template(
             source,
-            extensions=(
-                xlsx.pivot(
-                    "MissingPivot",
-                    source=slot("report_data"),
-                    refresh_on_open=True,
-                ),
-            ),
+            extensions=(xlsx.pivot("MissingPivot", source=slot("report_data")),),
         ),
     )
 

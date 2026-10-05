@@ -17,8 +17,8 @@ from caxton import (
 )
 
 document = spreadsheet(sheet("Summary"))
-sections: Mapping[str, SpreadsheetDocument] = {"Parameters": document}
-metadata: Mapping[str, object] = {"owner": "security"}
+sections: Mapping[str, SpreadsheetDocument] = {"Sales": document}
+metadata: Mapping[str, object] = {"owner": "operations"}
 styles: Mapping[str, Style] = {"heading": Style(fill="#D9EAF7")}
 theme = DocumentTheme(default=Style(fill="#FFFFFF"))
 template = TemplateSpecification(source="report.xlsx", format="xlsx")
