@@ -118,7 +118,4 @@ under `example/backend`.
 - Add one Towncrier fragment for a user-visible change using
   `changelog.d/<issue-or-+slug>.<type>.md`. Supported types and commands are in
   [`changelog.d/README.md`](changelog.d/README.md).
-- Edit fragments, not generated release notes in `CHANGELOG.md`.
-- PR titles and every non-merge commit must follow
-  `<type>[optional scope][!]: <description>`. The accepted types are enforced by
-  `scripts/validate_commits.py`; CI also requires a valid Towncrier fragment for non-Dependabot PRs.
+  - Edit fragments, not generated release notes in `CHANGELOG.md`.
