@@ -1,4 +1,4 @@
-# API reference
+# API
 
 These pages are generated from the source with
 [mkdocstrings](https://mkdocstrings.github.io/).
@@ -15,6 +15,9 @@ The public stability boundaries are:
 | [`caxton.core.types`](types.md)           | Semantic value types.                                                 |
 | [`caxton.core.formatting`](formatting.md) | Backend-neutral presentation vocabulary.                              |
 | [`caxton.core.protocols`](protocols.md)   | Contracts for data sources, sinks and renderers.                      |
+| [`caxton.core.accessors`](protocols.md#built-in-row-accessors) | Built-in exact mapping and attribute row accessors.       |
+| [`caxton.core.rendering`](protocols.md#renderer-contracts-and-results) | Renderer descriptors, requirements, contexts and results. |
+| [`caxton.core.values`](types.md#cell-values) | The backend-neutral cell-value type.                              |
 | [`caxton.core.ir`](ir.md)                 | Versioned read-only IR used by custom renderers.                      |
 | [`caxton.core.errors`](errors.md)         | The public exception and warning hierarchy.                           |
 | [`caxton.testing`](testing.md)            | Stable inspection and comparison surface.                             |

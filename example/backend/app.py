@@ -16,7 +16,6 @@ from caxton import (
     boolean,
     date,
     decimal,
-    field,
     integer,
     path,
     ref,
@@ -155,21 +154,19 @@ def build_report(rows: object) -> SpreadsheetDocument:
             table(
                 source=rows,
                 columns=(
-                    integer(id="id", source=field("id"), title="ID"),
-                    text(id="sku", source=field("sku"), title="SKU"),
+                    integer(source="id", title="ID"),
+                    text(source="sku", title="SKU"),
                     text(
-                        id="description",
-                        source=field("description"),
+                        source="description",
                         title="Description",
                     ),
                     text(
-                        id="reference",
-                        source=field("reference"),
+                        source="reference",
                         title="Reference",
                     ),
                     integer(
                         id="days",
-                        source=field("days_in_stock"),
+                        source="days_in_stock",
                         title="Days in stock",
                     ),
                     text(
@@ -178,13 +175,11 @@ def build_report(rows: object) -> SpreadsheetDocument:
                         title="Supplier",
                     ),
                     decimal(
-                        id="price",
-                        source=field("price"),
+                        source="price",
                         title="Price",
                     ),
                     decimal(
-                        id="list_price",
-                        source=field("list_price"),
+                        source="list_price",
                         title="List price",
                     ),
                     decimal(
@@ -193,13 +188,11 @@ def build_report(rows: object) -> SpreadsheetDocument:
                         title="Delta",
                     ),
                     boolean(
-                        id="in_stock",
-                        source=field("in_stock"),
+                        source="in_stock",
                         title="In stock",
                     ),
                     date(
-                        id="added_on",
-                        source=field("added_on"),
+                        source="added_on",
                         title="Added",
                     ),
                 ),

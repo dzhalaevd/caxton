@@ -1,18 +1,103 @@
-# Release process
+# Contributing
 
-Caxton releases from `main`. The repository has one long-lived development branch; feature, fix and maintenance branches
-exist only long enough to merge a pull request.
+Thanks for contributing to Caxton. This guide covers development and releases. If you get stuck, open a discussion.
+
+## Set up
+
+```bash
+git clone https://github.com/dzhalaevd/caxton.git
+cd caxton
+uv sync
+```
+
+Install the git hooks once:
+
+```bash
+uv run pre-commit install
+```
+
+## Run the checks
+
+Use the checked-in virtual environment:
+
+```bash
+.venv/bin/pytest -q
+```
+
+Run repository-level gates through tox, matching CI:
+
+```bash
+uv run --no-sync tox run -e py314        # tests on one interpreter
+uv run --no-sync tox run -e pre-commit   # lint, typing, imports, hygiene
+uv run --no-sync tox run -e build        # wheel and sdist validation
+uv run --no-sync tox run -e docs         # strict documentation build
+```
+
+The full matrix is `py310`, `py311`, `py312`, `py313`, `py314`. CI also tests the built wheel and sdist on Linux, macOS
+and Windows.
+
+Two convenience targets exist:
+
+```bash
+make coverage
+make benchmark
+```
+
+## Work on the documentation
+
+```bash
+uv run --no-sync tox run -e docs-serve    # live reload on http://127.0.0.1:8000
+uv run --no-sync tox run -e docs          # strict build, as CI runs it
+```
+
+The site uses [MkDocs](https://www.mkdocs.org/) with
+[Material](https://squidfunk.github.io/mkdocs-material/), and
+[mkdocstrings](https://mkdocstrings.github.io/) generates the API reference from docstrings. The strict build fails on
+broken internal links and unresolved references.
+
+Published prose pages live in `docs/`, and their navigation is defined in `mkdocs.yml`. `ARCHITECTURE.md` is the
+normative source for architecture, while `CHANGELOG.md` and the Towncrier fragments are the sources for release notes.
+Edit those source files instead of duplicating their content in a guide.
+
+## Architectural guardrails
+
+- Public factories create **immutable** nodes; fluent methods return new ones.
+- Semantic models hold intent only — no coordinates, resolved layout, caches or engine-native values.
+- Dependency direction is defined in `ARCHITECTURE.md`: `api` and `testing` may use private implementation modules;
+  `_pipeline` coordinates `_spreadsheet`, `_xlsx` and `_io`; `_xlsx` may use `_spreadsheet` and `_io`; `_spreadsheet`,
+  `_source` and `_io` depend only on Core. Private modules never import `api` or `testing`.
+- Column `id`, `source` and `title` stay distinct.
+- Coercion and structural validation never consume rows; `REITERABLE` /
+  `ONE_SHOT` / `UNKNOWN` behavior is preserved and hidden extra passes are rejected.
+- Errors are stable `CaxtonError` subclasses with semantic context, chained to the original cause.
+- Treat deferred capabilities as absent — a name in a design note does not reserve a public API.
+
+`import-linter` contracts and the Griffe API compatibility check enforce some of these rules. Breaking one usually fails
+the `pre-commit` tox environment.
+
+## Workflow
+
+1. Inspect the affected public contract and tests; preserve unrelated changes.
+2. Add or update a focused test at the narrowest meaningful boundary — semantic model, layout, renderer or artifact.
+3. Make the smallest coherent change.
+4. Run focused tests, then checks proportional to the change.
+5. Review the final diff for accidental API exposure, eager data consumption, engine leakage, generated artifacts and
+   stale documentation.
+
+## Release process
+
+Caxton releases from `main`; there is no separate long-lived development branch.
 
 The default cadence is a weekly release window, not a weekly obligation. Skip the release when there is no user-visible
 change worth publishing. A fix for a bad release does not wait for the next window.
 
 ## Day-to-day development
 
-Create a short branch from `main` and open the pull request back into `main`. Use names such as
+Create a short branch from `main` and open the pull request against `main`. Use names such as
 `feat/declarative-columns`, `fix/short-buffer-write` or
 `docs/template-guide`; the prefix describes the work but does not determine the package version.
 
-Every user-visible change carries one Towncrier fragment:
+Add one Towncrier fragment for every user-visible change:
 
 ```text
 changelog.d/<issue-or-+slug>.<type>.md
@@ -129,11 +214,11 @@ git tag -a v0.3.0 -m "Caxton 0.3.0"
 git push origin v0.3.0
 ```
 
-Pushing `v*` starts `.github/workflows/release.yml`. The workflow runs the quality gates again, builds and verifies the
-wheel and source distribution, attests them, creates the GitHub Release and dispatches the Trusted Publishing workflow
+Pushing `v*` starts `.github/workflows/release.yml`. The workflow reruns the quality gates, then builds, verifies and
+attests the wheel and source distribution. It creates the GitHub Release and dispatches the Trusted Publishing workflow
 for PyPI.
 
-The release is complete when all of the following are true:
+The release is complete when all the following are true:
 
 - the tag points to the intended commit on `main`;
 - the GitHub Release is published with the wheel, source distribution and

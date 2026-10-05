@@ -8,15 +8,17 @@
 
 ---
 
-Declarative Python library for describing and generating documents
-from application data. Users define the document structure and semantics, while
-renderers handle output formats and backend-specific details
+Caxton is a typed, declarative Python library for building spreadsheet
+documents from application data and rendering them to XLSX. Users define the
+document structure and semantics; Caxton handles layout, compilation, and
+backend-specific output.
 
-| Stable `v1.0.0` will be released when we decide, that no longer want to freely change the public DSL |
-|------------------------------------------------------------------------------------------------------|
+> [!WARNING]
+> Caxton is pre-alpha and is not ready for production use. The public DSL may
+> change until `1.0.0`.
 
 [📚 Documentation](https://dzhalaevd.github.io/caxton/)\
-[📑 Changelog](CHANGELOG.md)
+[📑 Changelog](https://github.com/dzhalaevd/caxton/blob/main/CHANGELOG.md)
 
 ```python
 from caxton import render, sheet, spreadsheet, table, text, write
@@ -38,15 +40,17 @@ result = render(report)
 write(report, "people.xlsx")
 ```
 
-More examples are available in the [example projects](example)
+More examples are available in the
+[example projects](https://github.com/dzhalaevd/caxton/tree/main/example).
 
-The project is licensed under the [MIT](LICENSE)
+The project is licensed under the
+[MIT License](https://github.com/dzhalaevd/caxton/blob/main/LICENSE).
 
 ## Installation
 
-Install Caxton with pip:
+Caxton requires Python 3.10 or newer. Install it with pip:
 
-```
+```bash
 pip install caxton
 ```
 
@@ -76,4 +80,4 @@ If you find this project interesting, consider giving it a ⭐
 
 [license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg
 
-[license-url]: LICENSE
+[license-url]: https://github.com/dzhalaevd/caxton/blob/main/LICENSE

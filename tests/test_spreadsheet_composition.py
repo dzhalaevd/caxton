@@ -78,24 +78,24 @@ class _RepeatedKeys(Mapping[str, SpreadsheetDocument]):
 
 
 def test_compose_names_worksheets_in_section_order() -> None:
-    params = spreadsheet(sheet("Summary"), sheet("Details"))
-    vulnerabilities = spreadsheet(sheet("Summary"))
+    sales = spreadsheet(sheet("Summary"), sheet("Details"))
+    inventory = spreadsheet(sheet("Summary"))
 
     result = compose(
         {
-            "Params": params,
-            "Vulnerabilities": vulnerabilities,
+            "Sales": sales,
+            "Inventory": inventory,
         },
     )
 
     assert [worksheet.name for worksheet in result.worksheets] == [
-        "Params - Summary",
-        "Params - Details",
-        "Vulnerabilities - Summary",
+        "Sales - Summary",
+        "Sales - Details",
+        "Inventory - Summary",
     ]
     assert [worksheet.blocks for worksheet in result.worksheets] == [(), (), ()]
-    assert params.worksheets[0].name == "Summary"
-    assert vulnerabilities.worksheets[0].name == "Summary"
+    assert sales.worksheets[0].name == "Summary"
+    assert inventory.worksheets[0].name == "Summary"
 
 
 @pytest.mark.parametrize("backend", ["xlsxwriter", "openpyxl"])
@@ -227,8 +227,8 @@ def test_compose_reports_invalid_child_document_section_context() -> None:
 
 def test_compose_rejects_case_insensitive_section_duplicates() -> None:
     sections = {
-        "Params": spreadsheet(sheet("Summary")),
-        "params": spreadsheet(sheet("Details")),
+        "Sales": spreadsheet(sheet("Summary")),
+        "sales": spreadsheet(sheet("Details")),
     }
 
     with pytest.raises(InvalidOperationError) as captured:
@@ -236,22 +236,22 @@ def test_compose_rejects_case_insensitive_section_duplicates() -> None:
 
     assert captured.value.context == {
         "reason": "duplicate_section",
-        "section": "params",
-        "conflicts_with": "Params",
+        "section": "sales",
+        "conflicts_with": "Sales",
     }
 
 
 def test_compose_rejects_repeated_keys_from_a_custom_mapping() -> None:
     document = spreadsheet(sheet("Summary"))
-    sections = _RepeatedKeys(("Params", "Params"), document)
+    sections = _RepeatedKeys(("Sales", "Sales"), document)
 
     with pytest.raises(InvalidOperationError) as captured:
         compose(sections)
 
     assert captured.value.context == {
         "reason": "duplicate_section",
-        "section": "Params",
-        "conflicts_with": "Params",
+        "section": "Sales",
+        "conflicts_with": "Sales",
     }
 
 
@@ -606,24 +606,24 @@ def test_compose_inherits_one_non_default_child_theme() -> None:
 
 
 def test_compose_merges_non_conflicting_child_metadata() -> None:
-    params = spreadsheet(
+    sales = spreadsheet(
         sheet("Summary"),
-        metadata={"owner": "security"},
+        metadata={"owner": "operations"},
     )
-    vulnerabilities = spreadsheet(
+    inventory = spreadsheet(
         sheet("Details"),
         metadata={"period": "2026-Q3"},
     )
 
     result = compose(
         {
-            "Params": params,
-            "Vulnerabilities": vulnerabilities,
+            "Sales": sales,
+            "Inventory": inventory,
         },
     )
 
     assert result.metadata == {
-        "owner": "security",
+        "owner": "operations",
         "period": "2026-Q3",
     }
 

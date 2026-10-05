@@ -5,7 +5,7 @@ plus an immutable structured-context snapshot. `CaxtonTypeError` and
 `CaxtonValueError` also subclass the Python built-ins, so existing handlers keep
 working.
 
-See [Errors and validation](../guides/errors.md) for the hierarchy at a glance.
+See [Testing and diagnostics](../guides/troubleshooting.md) for help locating failures in the document pipeline.
 
 ## Base
 
@@ -14,7 +14,7 @@ See [Errors and validation](../guides/errors.md) for the hierarchy at a glance.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — CaxtonError
+        - CaxtonError
         - CaxtonTypeError
         - CaxtonValueError
         - InvalidOperationError
@@ -27,7 +27,7 @@ See [Errors and validation](../guides/errors.md) for the hierarchy at a glance.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — ValidationError
+        - ValidationError
         - SchemaError
         - ShapeError
         - ColumnNotFoundError
@@ -43,7 +43,7 @@ See [Errors and validation](../guides/errors.md) for the hierarchy at a glance.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — DataSourceError
+        - DataSourceError
         - UnsupportedDataSourceError
         - DataSourceConsumedError
         - DataSourceIterationError
@@ -63,7 +63,7 @@ See [Errors and validation](../guides/errors.md) for the hierarchy at a glance.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — RenderError
+        - RenderError
         - OutputError
         - BackendError
         - TemplateError
@@ -81,7 +81,7 @@ See [Errors and validation](../guides/errors.md) for the hierarchy at a glance.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — CaxtonWarning
+        - CaxtonWarning
         - DocumentWarning
         - PerformanceWarning
         - ExperimentalFeatureWarning

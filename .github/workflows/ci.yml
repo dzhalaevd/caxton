@@ -206,19 +206,6 @@ jobs:
           SKIP: no-commit-to-branch
         run: uv run --no-sync tox run -e pre-commit
 
-      - name: Validate Conventional Commits
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        shell: bash
-        run: |
-          uv run --no-sync python scripts/validate_commits.py \
-            --base "$BASE_SHA" \
-            --head "$HEAD_SHA" \
-            --title "$PR_TITLE"
-
       - name: Require a valid changelog fragment
         if: >-
           github.event_name == 'pull_request' &&

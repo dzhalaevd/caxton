@@ -10,7 +10,7 @@ layout, execution state or backend-native objects.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — SpreadsheetDocument
+        - SpreadsheetDocument
         - Worksheet
         - SpreadsheetBlock
         - DocumentKind
@@ -23,7 +23,7 @@ layout, execution state or backend-native objects.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — SpreadsheetTable
+        - SpreadsheetTable
         - TableData
         - Column
         - Grouping
@@ -41,7 +41,7 @@ layout, execution state or backend-native objects.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — Matrix
+        - Matrix
         - Title
         - Spacer
         - Image
@@ -66,6 +66,52 @@ layout, execution state or backend-native objects.
         - BinaryExpression
         - TransformExpression
         - AggregateExpr
+        - AggregateCallable
+        - BinaryOperator
+        - CallableSource
+        - ColumnSource
+        - ColumnSourceInput
+        - RowCallable
+        - TransformCallable
+        - field
+        - path
+        - ref
+        - literal
+
+## Spreadsheet formulas
+
+::: caxton.core.models
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      members:
+        - Formula
+        - FormulaLiteral
+        - FormulaBinary
+        - FormulaInput
+        - FormulaOperator
+        - FormulaScalar
+        - CellReference
+        - RangeReference
+        - TableReference
+        - SheetReference
+        - col
+        - table_ref
+        - sheet_ref
+        - absolute
+
+## Block traversal and defaults
+
+::: caxton.core.models
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      members:
+        - DEFAULT_OBJECT_WIDTH
+        - DEFAULT_OBJECT_HEIGHT
+        - contains_aggregate
+        - iter_blocks
+        - iter_tables
 
 ## Templates
 
@@ -74,7 +120,7 @@ layout, execution state or backend-native objects.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — TemplateSpecification
+        - TemplateSpecification
         - TemplateRepeat
         - TemplateReference
         - TemplateContext

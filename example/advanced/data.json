@@ -1,0 +1,42 @@
+{
+  "sales": [
+    {
+      "price": 10,
+      "base_price": 8
+    },
+    {
+      "price": 15,
+      "base_price": 12
+    }
+  ],
+  "orders": [
+    {
+      "region": "North",
+      "product": "Notebook",
+      "month": "Jan",
+      "units": 10,
+      "fulfilled": true
+    },
+    {
+      "region": "North",
+      "product": "Notebook",
+      "month": "Feb",
+      "units": 12,
+      "fulfilled": true
+    },
+    {
+      "region": "North",
+      "product": "Pen",
+      "month": "Jan",
+      "units": 7,
+      "fulfilled": false
+    },
+    {
+      "region": "South",
+      "product": "Backpack",
+      "month": "Jan",
+      "units": 8,
+      "fulfilled": true
+    }
+  ]
+}

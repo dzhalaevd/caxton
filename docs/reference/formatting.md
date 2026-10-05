@@ -11,7 +11,7 @@ capability diagnostic when it cannot preserve the intent.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — Style
+        - Style
         - StyleSheet
         - FontStyle
         - FillStyle
@@ -21,6 +21,7 @@ capability diagnostic when it cannot preserve the intent.
         - CellAlignment
         - Alignment
         - VerticalAlignment
+        - StyleInput
 
 ## Column sizing
 
@@ -47,7 +48,7 @@ capability diagnostic when it cannot preserve the intent.
       show_root_heading: false
       show_root_toc_entry: false
       members:
-        — decimal_format
+        - decimal_format
         - money_format
         - percentage_format
         - date_format
@@ -59,3 +60,4 @@ capability diagnostic when it cannot preserve the intent.
         - DateFormat
         - TimeFormat
         - CustomFormat
+        - DisplayFormat

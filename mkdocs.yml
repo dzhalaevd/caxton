@@ -12,12 +12,8 @@ copyright: Released under the MIT license
 docs_dir: docs
 site_dir: site
 
-# Internal engineering notes stay in the repository but out of the public site:
-# they are written for contributors and link to files outside docs/.
 exclude_docs: |
   README.md
-  adr/
-  use_case/
 
 watch:
   - src/caxton
@@ -63,6 +59,42 @@ theme:
 
 plugins:
   - search
+  - llmstxt:
+      markdown_description: |
+        Caxton is a typed, declarative Python library for building spreadsheet documents and rendering them to XLSX.
+        Prefer the public `caxton`, `caxton.api`, `caxton.core.*`, and `caxton.testing` modules. Underscore-prefixed
+        packages are implementation details. The project is pre-alpha; check the release notes before targeting a
+        specific version.
+      full_output: llms-full.txt
+      sections:
+        Start here:
+          - index.md: Project overview and a compact comparison with XlsxWriter and OpenPyXL.
+          - getting-started/quickstart.md: Install Caxton and build, validate, inspect, render, and write a report.
+          - getting-started/overview.md: Learn the semantic model, value namespaces, lazy data, and compilation pipeline.
+        Guides:
+          - guides/documents.md: Choose document boundaries and compose reusable workbook sections.
+          - guides/tables.md: Bind lazy row sources to schemas, grouping, aggregation, and matrices.
+          - guides/presentation.md: Declare semantic values, display formats, styles, and themes.
+          - guides/formulas.md: Choose between Python computation and live spreadsheet formulas.
+          - guides/worksheets-and-blocks.md: Arrange blocks with flow, stacks, and explicit anchors.
+          - guides/render.md: Select renderers and execution modes, then deliver artifacts safely.
+          - guides/templates.md: Fill existing XLSX workbooks through named targets and repeated regions.
+          - guides/internals.md: Follow a document through compilation, IR, rendering, and output transactions.
+          - guides/troubleshooting.md: Inspect documents and locate failures by pipeline stage.
+        API:
+          - reference/index.md: Public stability boundaries and recommended imports.
+          - reference/caxton.md: Short facade for everyday document construction and output.
+          - reference/api.md: Extended factories, operations, formatting helpers, and XLSX escape hatches.
+          - reference/models.md: Immutable spreadsheet models and expression nodes.
+          - reference/types.md: Built-in and application-defined semantic value types.
+          - reference/formatting.md: Backend-neutral styles, themes, sizing, and display formats.
+          - reference/protocols.md: Extension contracts for data sources, rendering, output, and templates.
+          - reference/ir.md: Versioned read-only spreadsheet IR for custom renderers.
+          - reference/errors.md: Public exceptions and warnings.
+          - reference/testing.md: Semantic, layout, artifact, comparison, and strategy helpers.
+        Community:
+          - getting-started/release-notes.md: Released changes and compatibility notes.
+          - contributing.md: Development environment, checks, and contribution workflow.
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -116,24 +148,21 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Getting started:
-      - Installation: getting-started/installation.md
+  - Intro:
       - Quickstart: getting-started/quickstart.md
-      - Core concepts: getting-started/concepts.md
+      - Overview: getting-started/overview.md
+      - Release Notes: getting-started/release-notes.md
   - Guides:
-      - Tables and columns: guides/tables-and-columns.md
-      - Values and display formats: guides/values-and-formats.md
-      - Styles and themes: guides/styles-and-themes.md
-      - Formulas and references: guides/formulas-and-references.md
-      - Grouping and aggregation: guides/grouping-and-aggregation.md
-      - Worksheet layout: guides/layout-and-blocks.md
-      - Composing spreadsheet reports: guides/composing-spreadsheets.md
-      - Rendering and output: guides/rendering-and-output.md
-      - XLSX templates: guides/templates.md
-      - Testing documents: guides/testing.md
-      - Errors and validation: guides/errors.md
-  - Examples: examples.md
-  - API reference:
+      - Documents: guides/documents.md
+      - Tables and data: guides/tables.md
+      - Values and presentation: guides/presentation.md
+      - Formulas and computation: guides/formulas.md
+      - Worksheets and blocks: guides/worksheets-and-blocks.md
+      - Rendering and delivery: guides/render.md
+      - Templates: guides/templates.md
+      - Caxton internals: guides/internals.md
+      - Troubleshooting: guides/troubleshooting.md
+  - API:
       - Overview: reference/index.md
       - caxton: reference/caxton.md
       - caxton.api: reference/api.md
@@ -144,9 +173,8 @@ nav:
       - caxton.core.ir: reference/ir.md
       - caxton.core.errors: reference/errors.md
       - caxton.testing: reference/testing.md
-  - Architecture: architecture.md
-  - Contributing: contributing.md
-  - Changelog: changelog.md
+  - Community:
+      - Contributing: contributing.md
 
 extra:
   social:

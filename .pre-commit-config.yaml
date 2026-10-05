@@ -84,9 +84,3 @@ repos:
         language: system
         pass_filenames: false
         files: ^(changelog\.d/|pyproject\.toml$)
-
-      - id: conventional-commit
-        name: validate Conventional Commit message
-        entry: python scripts/validate_commits.py --message-file
-        language: system
-        stages: [commit-msg]
