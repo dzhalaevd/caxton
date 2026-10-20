@@ -210,7 +210,7 @@ imports = [
 ]
 lint = [
     "flake8>=7.3,<8.0",
-    "ruff>=0.16,<0.17",
+    "ruff>=0.16,<0.18",
     "wemake-python-styleguide>=1.7,<2.0",
 ]
 maintenance = [
